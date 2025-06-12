@@ -1,0 +1,231 @@
+# =============================================================================
+# Terraform Lint Workflow Example
+# =============================================================================
+#
+# This is a sample GitHub Actions workflow that demonstrates how to use the
+# Terraform Scripts Lint Tool in your CI/CD pipeline.
+#
+# To use this workflow in your project:
+# 1. Copy this file to your repository's .github/workflows/ directory
+# 2. Rename it to something like 'terraform-lint.yml'
+# 3. Modify the configuration according to your project needs
+# 4. Choose the appropriate action reference (see below)
+# 5. Commit and push to trigger the workflow
+#
+# =============================================================================
+
+# SAMPLE WORKFLOW - COPY AND MODIFY FOR YOUR PROJECT
+name: Terraform Lint (Example)
+
+# Trigger conditions - modify as needed for your project
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  # Uncomment to run manually
+  # workflow_dispatch:
+
+jobs:
+  # Basic linting job
+  terraform-lint:
+    runs-on: ubuntu-latest
+    name: Terraform Scripts Lint
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Example 1: Basic usage with default settings
+    #
+    # IMPORTANT: Choose ONE of the following approaches:
+    #
+    # Option A: Use local action (if you've copied this tool to your repo)
+    - name: Run Terraform Lint (Basic) - Local Action
+      uses: ./                              # Use local action files
+      with:
+        directory: '.'                      # Check current directory
+        fail-on-error: 'false'             # Don't fail workflow on errors (for demo)
+        exclude-paths: 'examples/*'        # Exclude examples directory
+
+    # Option B: Use published action (when available on GitHub Marketplace)
+    # - name: Run Terraform Lint (Basic) - Published Action
+    #   uses: Lance52259/hcbp-scripts-lint@v1.0.0  # Use published action
+    #   with:
+    #     directory: '.'                      # Check current directory
+    #     fail-on-error: 'false'             # Don't fail workflow on errors (for demo)
+    #     exclude-paths: 'examples/*'        # Exclude examples directory
+
+    # Upload the lint report as an artifact
+    - name: Upload lint report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-lint-report
+        path: terraform-lint-report.txt
+
+  # Multi-environment testing example
+  multi-environment-lint:
+    runs-on: ubuntu-latest
+    name: Multi-Environment Lint
+    strategy:
+      matrix:
+        environment: ['dev', 'staging', 'prod']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Example 5: Environment-specific linting
+    - name: Lint ${{ matrix.environment }} Environment
+      uses: ./                              # Use local action
+      with:
+        include-paths: './environments/${{ matrix.environment }}'
+        exclude-paths: '*.backup,*.tmp'
+        fail-on-error: 'true'
+
+    - name: Upload ${{ matrix.environment }} report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: lint-report-${{ matrix.environment }}
+        path: terraform-lint-report.txt
+
+# =============================================================================
+# Additional Configuration Examples
+# =============================================================================
+
+# Example workflow for different use cases:
+
+# 1. STRICT LINTING (Fail on any error)
+# - name: Strict Terraform Lint
+#   uses: ./  # or Lance52259/hcbp-scripts-lint@v1.0.0 when published
+#   with:
+#     directory: './production'
+#     fail-on-error: 'true'
+#     # No ignored rules - enforce all standards
+
+# 2. DEVELOPMENT FRIENDLY (Allow some flexibility)
+# - name: Development Terraform Lint
+#   uses: ./  # or Lance52259/hcbp-scripts-lint@v1.0.0 when published
+#   with:
+#     directory: './development'
+#     ignore-rules: 'ST.001,ST.003'  # Allow flexible naming and formatting
+#     fail-on-error: 'false'
+
+# 3. MODULE VALIDATION (Focus on reusable modules)
+# - name: Module Validation
+#   uses: ./  # or Lance52259/hcbp-scripts-lint@v1.0.0 when published
+#   with:
+#     include-paths: './modules'
+#     exclude-paths: 'modules/*/examples/*'
+#     fail-on-error: 'true'
+
+# 4. SECURITY FOCUSED (Ensure all variables are properly defined)
+# - name: Security Lint
+#   uses: ./  # or Lance52259/hcbp-scripts-lint@v1.0.0 when published
+#   with:
+#     directory: './security-critical'
+#     ignore-rules: 'ST.001,ST.003'  # Focus on IO rules only
+#     fail-on-error: 'true'
+
+# =============================================================================
+# Integration with Other Tools
+# =============================================================================
+
+# Example: Combine with terraform fmt and validate
+#
+# - name: Terraform Format Check
+#   run: terraform fmt -check -recursive
+#
+# - name: Terraform Validate
+#   run: |
+#     terraform init -backend=false
+#     terraform validate
+#
+# - name: Terraform Lint (Custom Rules)
+#   uses: ./  # or Lance52259/hcbp-scripts-lint@v1.0.0 when published
+#   with:
+#     directory: '.'
+#     fail-on-error: 'true'
+
+# =============================================================================
+# Conditional Execution Examples
+# =============================================================================
+
+# Example: Only run on Terraform file changes
+#
+# - name: Check for Terraform changes
+#   uses: dorny/paths-filter@v2
+#   id: terraform-changes
+#   with:
+#     filters: |
+#       terraform:
+#         - '**/*.tf'
+#         - '**/*.tfvars'
+#
+# - name: Run Terraform Lint
+#   if: steps.terraform-changes.outputs.terraform == 'true'
+#   uses: ./  # or Lance52259/hcbp-scripts-lint@v1.0.0 when published
+#   with:
+#     directory: '.'
+
+# =============================================================================
+# Action Reference Options
+# =============================================================================
+
+# When using this action in your own repository, you have several options:
+
+# 1. LOCAL ACTION (Copy the entire tool to your repository)
+#    uses: ./
+#    - Pros: Full control, no external dependencies
+#    - Cons: Need to maintain updates manually
+
+# 2. PUBLISHED ACTION (Use from GitHub Marketplace - when available)
+#    uses: Lance52259/hcbp-scripts-lint@v1.0.0
+#    - Pros: Automatic updates, centrally maintained
+#    - Cons: External dependency
+
+# 3. FORK AND REFERENCE (Fork the repository and reference your fork)
+#    uses: YOUR_USERNAME/hcbp-scripts-lint@main
+#    - Pros: Control over updates, can customize
+#    - Cons: Need to maintain your fork
+
+# 4. DIRECT REPOSITORY REFERENCE (Reference the original repository)
+#    uses: Lance52259/hcbp-scripts-lint@main
+#    - Pros: Always latest version
+#    - Cons: May break if main branch changes
+
+# =============================================================================
+# Performance Optimization Tips
+# =============================================================================
+
+# 1. Use include-paths to limit scope for large repositories
+# 2. Use exclude-paths to skip unnecessary directories
+# 3. Cache Python environment if using multiple jobs
+# 4. Run linting in parallel for different directories
+# 5. Use matrix strategy for multi-environment projects
+
+# =============================================================================
+# Troubleshooting Common Issues
+# =============================================================================
+
+# Issue: "Unable to resolve action"
+# Solution: Make sure you're using the correct action reference:
+#   - For local: uses: ./
+#   - For published: uses: Lance52259/hcbp-scripts-lint@v1.0.0
+#   - Ensure the action.yml file exists in the repository root
+
+# Issue: "No .tf files found"
+# Solution: Check the directory path and ensure .tf files exist
+
+# Issue: "Permission denied"
+# Solution: Ensure the action has proper permissions (contents: read)
+
+# Issue: "Rule not found"
+# Solution: Check rule IDs in ignore-rules parameter
+
+# Issue: "Path not found"
+# Solution: Verify include-paths and exclude-paths are correct
+
+# =============================================================================
