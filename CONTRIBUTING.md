@@ -1,6 +1,6 @@
 # Contributing to Terraform Scripts Lint Tool
 
-Thank you for your interest in contributing to the Terraform Scripts Lint Tool! This document provides guidelines 
+Thank you for your interest in contributing to the Terraform Scripts Lint Tool! This document provides guidelines
 and information for contributors.
 
 ## Table of Contents
@@ -13,10 +13,14 @@ and information for contributors.
 - [Coding Standards](#coding-standards)
 - [Testing](#testing)
 - [Documentation](#documentation)
+- [Adding New Rules](#adding-new-rules)
+- [Release Process](#release-process)
+- [Getting Help](#getting-help)
+- [Recognition](#recognition)
 
 ## Code of Conduct
 
-This project adheres to a code of conduct that we expect all contributors to follow. Please be respectful, 
+This project adheres to a code of conduct that we expect all contributors to follow. Please be respectful,
 inclusive, and constructive in all interactions.
 
 ### Our Standards
@@ -52,7 +56,7 @@ inclusive, and constructive in all interactions.
    # Create a virtual environment (optional but recommended)
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-   
+
    # Install development dependencies
    pip install -r requirements-dev.txt  # If available
    ```
@@ -143,7 +147,7 @@ For feature requests:
    ```bash
    # Push your changes to your fork
    git push origin feature/your-feature-name
-   
+
    # Create a pull request on GitHub
    ```
 

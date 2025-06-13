@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Terraform Lint
-      uses: Lance52259/hcbp-scripts-lint@v1  # Use when published
+      uses: Lance52259/hcbp-scripts-lint@v1.0.0
       # uses: ./                             # Use for local copy
       with:
         directory: '.'
@@ -278,24 +278,17 @@ python3 .github/scripts/terraform_lint.py --help
 
 ## 🎉 You're Ready!
 
-You now have Terraform Scripts Lint running on your project. The tool will help you maintain consistent, 
-high-quality Terraform code across your infrastructure.
+You now have Terraform Scripts Lint running on your project. The tool will help you maintain consistent,
+high-quality Terraform code by automatically checking for common issues and enforcing best practices.
 
-### Quick Commands Reference
+### 🚀 Quick Commands Reference
 
 ```bash
-# Basic check
-python3 .github/scripts/terraform_lint.py
+# Basic usage
+python3 .github/scripts/terraform_lint.py --directory ./terraform
 
-# With options
-python3 .github/scripts/terraform_lint.py \
-  --directory ./infrastructure \
-  --ignore-rules "ST.001" \
-  --exclude-paths "examples/*" \
-  --include-paths "modules/*"
-
-# Get help
-python3 .github/scripts/terraform_lint.py --help
+# GitHub Actions (add to .github/workflows/terraform-lint.yml)
+uses: Lance52259/hcbp-scripts-lint@v1.1.0
 ```
 
-Happy linting! 🚀
+Happy linting!
