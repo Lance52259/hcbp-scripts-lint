@@ -1,5 +1,5 @@
 name: 'Terraform Scripts Lint'
-description: 'A comprehensive linting tool for Terraform scripts that checks code quality, formatting, documentation, and organizational standards'
+description: 'Comprehensive linting tool for Terraform scripts - checks code quality, formatting, and documentation'
 author: 'DevOps Team'
 
 branding:
