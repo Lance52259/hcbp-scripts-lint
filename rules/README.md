@@ -118,7 +118,7 @@ To add new rules, follow these steps:
 1. Determine rule category (ST/DC/IO)
 2. Add rule implementation in the corresponding rule file
 3. Update rule metadata dictionary
-4. Add detailed description in `rule_details.md`
+4. Add detailed description in `introduction.md`
 5. Update main README.md documentation
 
 ## Rule ID Convention
