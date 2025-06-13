@@ -35,6 +35,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for changed files detection
 
     # Example 1: Basic usage with default settings
     #
@@ -61,7 +63,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: terraform-lint-report
+        name: terraform-lint-report-basic-${{ github.run_id }}-${{ github.run_attempt }}
         path: terraform-lint-report.txt
 
   # Multi-environment testing example
@@ -88,7 +90,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: lint-report-${{ matrix.environment }}
+        name: terraform-lint-report-${{ matrix.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
         path: terraform-lint-report.txt
 
 # =============================================================================

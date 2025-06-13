@@ -30,6 +30,7 @@ import sys
 import argparse
 import re
 import fnmatch
+import subprocess
 from typing import List, Dict, Set, Optional, Tuple
 import traceback
 
@@ -62,10 +63,12 @@ class TerraformLinter:
     - Detailed error reporting with line numbers
     - Performance optimized for large codebases
     - GitHub Actions integration
+    - Support for checking only changed files in Git
     """
 
     def __init__(self, ignored_rules: Set[str] = None, include_paths: List[str] = None,
-                 exclude_paths: List[str] = None):
+                 exclude_paths: List[str] = None, changed_files_only: bool = False,
+                 base_ref: str = None):
         """
         Initialize the Terraform linter
 
@@ -73,6 +76,8 @@ class TerraformLinter:
             ignored_rules: Set of rule IDs to ignore during linting
             include_paths: List of path patterns to include (if specified, only these paths are checked)
             exclude_paths: List of path patterns to exclude from checking
+            changed_files_only: If True, only check files changed in current commit/PR
+            base_ref: Base reference for git diff (e.g., 'origin/main', 'HEAD~1')
         """
         # Performance optimization: Initialize rule checkers once
         self.st_rules = STRules()
@@ -83,6 +88,8 @@ class TerraformLinter:
         self.ignored_rules = ignored_rules or set()
         self.include_paths = include_paths or []
         self.exclude_paths = exclude_paths or []
+        self.changed_files_only = changed_files_only
+        self.base_ref = base_ref or 'HEAD~1'
 
         # Error tracking for reporting
         self.errors = []
@@ -464,14 +471,20 @@ class TerraformLinter:
         """
         print(f"Linting directory: {directory}")
 
-        # Performance optimization: Find all files first, then process
-        tf_files = self.find_tf_files(directory)
-
-        if not tf_files:
-            print("No .tf files found to check")
-            return True
-
-        print(f"Found {len(tf_files)} .tf files to check")
+        # Get files to check based on mode
+        if self.changed_files_only:
+            tf_files = self.get_changed_files(directory)
+            if not tf_files:
+                print("No changed Terraform files found")
+                return True
+            print(f"Checking only changed files: {len(tf_files)} files")
+        else:
+            # Performance optimization: Find all files first, then process
+            tf_files = self.find_tf_files(directory)
+            if not tf_files:
+                print("No .tf files found to check")
+                return True
+            print(f"Found {len(tf_files)} .tf files to check")
 
         success = True
         for file_path in tf_files:
@@ -528,6 +541,77 @@ class TerraformLinter:
 
         # Also print to console
         print(report_content)
+
+    def get_changed_files(self, directory: str) -> List[str]:
+        """
+        Get list of changed Terraform files using git diff
+
+        Args:
+            directory: Directory to check for changes
+
+        Returns:
+            List of changed Terraform files
+        """
+        changed_files = []
+        
+        try:
+            # Change to the target directory
+            original_cwd = os.getcwd()
+            os.chdir(directory)
+            
+            # Get changed files from git
+            # Use different commands based on environment
+            git_commands = [
+                # For GitHub Actions - compare with base branch
+                f"git diff --name-only {self.base_ref}...HEAD",
+                # For local development - compare with last commit
+                "git diff --name-only HEAD~1",
+                # For staged changes
+                "git diff --cached --name-only",
+                # For unstaged changes
+                "git diff --name-only"
+            ]
+            
+            for cmd in git_commands:
+                try:
+                    result = subprocess.run(
+                        cmd.split(),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        universal_newlines=True,
+                        check=True
+                    )
+                    
+                    if result.stdout.strip():
+                        files = result.stdout.strip().split('\n')
+                        # Filter for Terraform files
+                        tf_files = [f for f in files if f.endswith(('.tf', '.tfvars'))]
+                        
+                        if tf_files:
+                            changed_files = tf_files
+                            print(f"Found {len(tf_files)} changed Terraform files using: {cmd}")
+                            break
+                            
+                except subprocess.CalledProcessError:
+                    continue
+            
+            # Convert relative paths to absolute paths
+            absolute_changed_files = []
+            for file_path in changed_files:
+                abs_path = os.path.abspath(file_path)
+                if os.path.exists(abs_path):
+                    absolute_changed_files.append(abs_path)
+                else:
+                    print(f"Warning: Changed file {file_path} does not exist")
+            
+            os.chdir(original_cwd)
+            return absolute_changed_files
+            
+        except Exception as e:
+            print(f"Error getting changed files: {e}")
+            print("Falling back to checking all files")
+            os.chdir(original_cwd)
+            return []
 
 def main():
     """Main entry point for the Terraform linter"""
@@ -587,6 +671,12 @@ Available Rules:
     parser.add_argument('--exclude-paths',
                        help='Comma-separated list of path patterns to exclude (e.g., examples/*,test/*)')
 
+    parser.add_argument('--changed-files-only', action='store_true',
+                       help='If set, only check files changed in current commit/PR')
+
+    parser.add_argument('--base-ref',
+                       help='Base reference for git diff (e.g., origin/main, HEAD~1)')
+
     args = parser.parse_args()
 
     # Handle deprecated positional argument
@@ -618,7 +708,9 @@ Available Rules:
     linter = TerraformLinter(
         ignored_rules=ignored_rules,
         include_paths=include_paths,
-        exclude_paths=exclude_paths
+        exclude_paths=exclude_paths,
+        changed_files_only=args.changed_files_only,
+        base_ref=args.base_ref
     )
 
     print(f"Starting Terraform lint check in: {target_directory}")

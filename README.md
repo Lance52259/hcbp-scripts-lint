@@ -83,20 +83,74 @@ python3 .github/scripts/terraform_lint.py --directory ./terraform --output-forma
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `directory` | Directory containing Terraform files to lint | Yes | `./` |
-| `output-format` | Output format: `text` or `json` | No | `text` |
+| `directory` | Directory containing Terraform files to lint | No | `./` |
 | `fail-on-error` | Whether to fail the action on lint errors | No | `true` |
-| `config-file` | Path to custom configuration file | No | - |
+| `ignore-rules` | Comma-separated list of rule IDs to ignore (e.g., ST.001,ST.003) | No | - |
+| `include-paths` | Comma-separated list of path patterns to include (e.g., modules/*,environments/*) | No | - |
+| `exclude-paths` | Comma-separated list of path patterns to exclude (e.g., examples/*,test/*) | No | - |
+| `changed-files-only` | If set to true, only check files changed in current commit/PR | No | `false` |
+| `base-ref` | Base reference for git diff when checking changed files (e.g., origin/main, HEAD~1) | No | `origin/main` |
 
 ### Example Configuration
+
+#### Basic Usage
 
 ```yaml
 - name: Terraform Scripts Lint
   uses: Lance52259/hcbp-scripts-lint@v1.1.0
   with:
     directory: './infrastructure'
-    output-format: 'json'
     fail-on-error: 'true'
+```
+
+#### Advanced Configuration with Rule Control
+
+```yaml
+- name: Terraform Scripts Lint
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
+  with:
+    directory: './terraform'
+    ignore-rules: 'ST.001,DC.001'
+    include-paths: 'modules/*,environments/prod/*'
+    exclude-paths: 'examples/*,test/*'
+    fail-on-error: 'true'
+```
+
+#### Check Only Changed Files (Recommended for Large Repositories)
+
+```yaml
+- name: Terraform Scripts Lint
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
+  with:
+    changed-files-only: 'true'
+    base-ref: 'origin/main'
+    fail-on-error: 'true'
+```
+
+#### Pull Request Workflow Example
+
+```yaml
+name: Terraform Lint on PR
+on:
+  pull_request:
+    branches: [ main ]
+    paths: ['**/*.tf', '**/*.tfvars']
+
+jobs:
+  terraform-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for changed-files-only mode
+
+      - name: Terraform Scripts Lint
+        uses: Lance52259/hcbp-scripts-lint@v1.1.0
+        with:
+          changed-files-only: 'true'
+          base-ref: 'origin/main'
+          ignore-rules: 'ST.002'  # Ignore specific rules if needed
+          fail-on-error: 'true'
 ```
 
 ## Output
