@@ -71,13 +71,26 @@ python3 .github/scripts/terraform_lint.py --include-paths "modules/vpc,modules/c
 python3 .github/scripts/terraform_lint.py --exclude-paths "examples/*,test/*"
 ```
 
+### Check Only Changed Files (Recommended for Large Repositories)
+
+```bash
+# Check only files changed in current commit
+python3 .github/scripts/terraform_lint.py --changed-files-only
+
+# Check files changed compared to specific branch
+python3 .github/scripts/terraform_lint.py --changed-files-only --base-ref origin/main
+
+# Combine with other options
+python3 .github/scripts/terraform_lint.py --changed-files-only --ignore-rules "ST.001"
+```
+
 ## 🔧 Common Configurations
 
 ### Development Environment (Flexible)
 
 ```yaml
 - name: Development Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
   with:
     directory: './dev'
     ignore-rules: 'ST.001,ST.003'  # Allow flexible naming and formatting
@@ -88,7 +101,7 @@ python3 .github/scripts/terraform_lint.py --exclude-paths "examples/*,test/*"
 
 ```yaml
 - name: Production Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
   with:
     directory: './prod'
     fail-on-error: 'true'          # Enforce all rules
@@ -98,10 +111,34 @@ python3 .github/scripts/terraform_lint.py --exclude-paths "examples/*,test/*"
 
 ```yaml
 - name: Module Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
   with:
     include-paths: './modules'
     exclude-paths: 'modules/*/examples/*'
+    fail-on-error: 'true'
+```
+
+### Pull Request Workflow (Optimized for Performance)
+
+```yaml
+- name: PR Terraform Lint
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
+  with:
+    changed-files-only: 'true'     # Only check changed files
+    base-ref: 'origin/main'        # Compare against main branch
+    fail-on-error: 'true'
+```
+
+### Large Repository Configuration
+
+```yaml
+- name: Large Repo Lint
+  uses: Lance52259/hcbp-scripts-lint@v1.1.0
+  with:
+    changed-files-only: 'true'     # Performance optimization
+    include-paths: 'infrastructure/*,modules/*'
+    exclude-paths: 'examples/*,test/*,docs/*'
+    ignore-rules: 'ST.003'         # Skip formatting rules for speed
     fail-on-error: 'true'
 ```
 
