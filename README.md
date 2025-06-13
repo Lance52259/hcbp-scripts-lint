@@ -13,19 +13,19 @@ A comprehensive linting tool for Terraform configuration files, designed to enfo
 ### Rule Categories
 
 #### 🎨 Style/Format Rules (ST)
-- **ST.001**: Variable naming convention validation
-- **ST.002**: Variable default value specification
-- **ST.003**: Resource naming convention validation
-- **ST.004**: Output naming convention validation
+- **ST.001**: Resource and data source instance naming convention (must be "test")
+- **ST.002**: Variable default value requirement (all variables must have defaults)
+- **ST.003**: Parameter alignment formatting convention
 
 #### 📝 Documentation/Comments Rules (DC)
-- **DC.001**: Variable description requirement
-- **DC.002**: Output description requirement
+- **DC.001**: Comment formatting standards (proper spacing after #)
 
 #### 🔧 Input/Output Rules (IO)
-- **IO.001**: Variable type specification requirement
-- **IO.002**: Output value specification requirement
-- **IO.003**: Output sensitive flag specification requirement
+- **IO.001**: Variable definition file organization (variables must be in variables.tf)
+- **IO.002**: Output definition file organization (outputs must be in outputs.tf)
+- **IO.003**: Required variable declaration in tfvars (all required variables must be declared)
+- **IO.004**: Variable naming convention (lowercase and underscores only)
+- **IO.005**: Output naming convention (lowercase and underscores only)
 
 ### Quick Links
 
