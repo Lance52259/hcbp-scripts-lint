@@ -1,0 +1,222 @@
+name: 'Terraform Scripts Lint'
+description: 'A comprehensive linting tool for Terraform scripts with flexible rule control and path filtering'
+author: 'DevOps Team'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  directory:
+    description: |
+      Target directory to check for Terraform files.
+      Supports both relative and absolute paths.
+      Default: current directory (.)
+    required: false
+    default: '.'
+
+  fail-on-error:
+    description: '发现错误时是否让工作流失败'
+    required: false
+    default: 'true'
+
+  ignore-rules:
+    description: |
+      Comma-separated list of rule IDs to ignore during linting.
+
+      Available rule categories:
+      - ST (Style/Format): ST.001, ST.002, ST.003
+      - DC (Documentation/Comments): DC.001
+      - IO (Input/Output): IO.001, IO.002, IO.003
+
+      Examples:
+      - Single rule: 'ST.001'
+      - Multiple rules: 'ST.001,DC.001,IO.002'
+      - All style rules: 'ST.001,ST.002,ST.003'
+    required: false
+    default: ''
+
+  include-paths:
+    description: |
+      Comma-separated list of specific paths to include in the check.
+      When specified, only these paths will be checked.
+      Supports both files and directories.
+
+      Examples:
+      - Single path: './modules'
+      - Multiple paths: './src,./modules,./environments'
+      - Specific files: './main.tf,./variables.tf'
+
+      Note: This parameter takes precedence over the 'directory' parameter.
+    required: false
+    default: ''
+
+  exclude-paths:
+    description: |
+      Comma-separated list of path patterns to exclude from the check.
+      Supports glob patterns and wildcards.
+
+      Pattern types supported:
+      - Directory exclusion: 'examples', 'test'
+      - Wildcard patterns: 'examples/*', '*.backup'
+      - Multiple patterns: 'examples/*,test/*,*.tmp'
+
+      Examples:
+      - Exclude examples: 'examples'
+      - Exclude with wildcards: 'examples/*,test/*'
+      - Exclude file types: '*.backup,*.tmp'
+    required: false
+    default: ''
+
+outputs:
+  result:
+    description: |
+      Linting result summary.
+      Returns 'success' if no errors found, 'failure' if errors detected.
+
+  error-count:
+    description: |
+      Total number of errors found during linting.
+      Returns '0' if no errors detected.
+
+  warning-count:
+    description: |
+      Total number of warnings found during linting.
+      Returns '0' if no warnings detected.
+
+  report-file:
+    description: |
+      Path to the generated lint report file.
+      Contains detailed error and warning information.
+      Default: 'terraform-lint-report.txt'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python Environment
+      shell: bash
+      run: |
+        echo "Setting up Python environment for Terraform linting..."
+        python3 --version
+        echo "Current working directory: $(pwd)"
+        echo "Available Python packages:"
+        python3 -c "import sys; print('Python path:', sys.path)"
+
+    - name: Validate Input Parameters
+      shell: bash
+      run: |
+        echo "=== Terraform Lint Configuration ==="
+        echo "Directory: ${{ inputs.directory }}"
+        echo "Ignore Rules: ${{ inputs.ignore-rules }}"
+        echo "Include Paths: ${{ inputs.include-paths }}"
+        echo "Exclude Paths: ${{ inputs.exclude-paths }}"
+        echo "=================================="
+
+        # Validate directory exists
+        if [ ! -d "${{ inputs.directory }}" ]; then
+          echo "Error: Directory '${{ inputs.directory }}' does not exist"
+          exit 1
+        fi
+
+        # Validate include paths if specified
+        if [ -n "${{ inputs.include-paths }}" ]; then
+          IFS=',' read -ra PATHS <<< "${{ inputs.include-paths }}"
+          for path in "${PATHS[@]}"; do
+            path=$(echo "$path" | xargs)  # trim whitespace
+            if [ ! -e "$path" ]; then
+              echo "Warning: Include path '$path' does not exist"
+            fi
+          done
+        fi
+
+    - name: Run Terraform Lint
+      shell: bash
+      run: |
+        echo "Starting Terraform scripts linting..."
+
+        # Build command with parameters
+        CMD="python3 ${{ github.action_path }}/.github/scripts/terraform_lint.py"
+
+        # Add directory parameter
+        CMD="$CMD --directory '${{ inputs.directory }}'"
+
+        # Add ignore-rules parameter if specified
+        if [ -n "${{ inputs.ignore-rules }}" ]; then
+          CMD="$CMD --ignore-rules '${{ inputs.ignore-rules }}'"
+        fi
+
+        # Add include-paths parameter if specified
+        if [ -n "${{ inputs.include-paths }}" ]; then
+          CMD="$CMD --include-paths '${{ inputs.include-paths }}'"
+        fi
+
+        # Add exclude-paths parameter if specified
+        if [ -n "${{ inputs.exclude-paths }}" ]; then
+          CMD="$CMD --exclude-paths '${{ inputs.exclude-paths }}'"
+        fi
+
+        echo "Executing command: $CMD"
+        echo "=================================="
+
+        # Execute the linting command
+        eval $CMD
+        LINT_EXIT_CODE=$?
+
+        echo "=================================="
+        echo "Terraform lint completed with exit code: $LINT_EXIT_CODE"
+
+        # Set outputs based on results
+        if [ $LINT_EXIT_CODE -eq 0 ]; then
+          echo "result=success" >> $GITHUB_OUTPUT
+        else
+          echo "result=failure" >> $GITHUB_OUTPUT
+        fi
+
+        # Extract error and warning counts from report if available
+        if [ -f "terraform-lint-report.txt" ]; then
+          ERROR_COUNT=$(grep "Total Errors:" terraform-lint-report.txt | grep -o '[0-9]\+' || echo "0")
+          WARNING_COUNT=$(grep "Total Warnings:" terraform-lint-report.txt | grep -o '[0-9]\+' || echo "0")
+          echo "error-count=$ERROR_COUNT" >> $GITHUB_OUTPUT
+          echo "warning-count=$WARNING_COUNT" >> $GITHUB_OUTPUT
+          echo "report-file=terraform-lint-report.txt" >> $GITHUB_OUTPUT
+
+          echo "Linting Summary:"
+          echo "- Errors: $ERROR_COUNT"
+          echo "- Warnings: $WARNING_COUNT"
+          echo "- Report: terraform-lint-report.txt"
+        else
+          echo "error-count=0" >> $GITHUB_OUTPUT
+          echo "warning-count=0" >> $GITHUB_OUTPUT
+          echo "report-file=" >> $GITHUB_OUTPUT
+        fi
+
+        # Exit with the same code as the linting tool
+        exit $LINT_EXIT_CODE
+
+    - name: Upload Lint Report
+      if: always()
+      shell: bash
+      run: |
+        if [ -f "terraform-lint-report.txt" ]; then
+          echo "Lint report generated successfully:"
+          echo "=================================="
+          cat terraform-lint-report.txt
+          echo "=================================="
+
+          # Optionally, you can upload the report as an artifact
+          # This requires the actions/upload-artifact action to be available
+          echo "Report file available at: $(pwd)/terraform-lint-report.txt"
+        else
+          echo "No lint report generated"
+        fi
+
+    - name: Check if should fail
+      shell: bash
+      run: |
+        if [ "${{ inputs.fail-on-error }}" = "true" ] && [ -f terraform-lint-report.txt ]; then
+          errors=$(grep "Total Errors:" terraform-lint-report.txt | cut -d: -f2 | tr -d ' ')
+          if [ "$errors" -gt 0 ]; then
+            echo "❌ Terraform lint found $errors error(s). Failing the workflow."
+            exit 1
+          fi
+        fi

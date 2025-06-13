@@ -1,0 +1,7 @@
+region      = "cn-north-1"
+vpc_name    = "my-test-vpc"
+vpc_cidr    = "10.0.0.0/16"
+environment = "development"
+subnet_name = "my-test-subnet"
+subnet_cidr = "10.0.1.0/24"
+gateway_ip  = "10.0.1.1"
