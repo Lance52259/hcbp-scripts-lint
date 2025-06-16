@@ -52,12 +52,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - ST.001: Resource and data source naming convention validation
     - ST.002: Variable default value requirement
     - ST.003: Parameter alignment formatting
+    - ST.004: Indentation character validation (spaces only)
+    - ST.005: Indentation level consistency (2 spaces per level)
+    - ST.006: Resource and data source block spacing (exactly 1 empty line)
+    - ST.007: Same parameter block spacing (≤1 empty line)
+    - ST.008: Different parameter block spacing (exactly 1 empty line)
   - **DC (Documentation/Comments) Rules**:
     - DC.001: Comment formatting standards
   - **IO (Input/Output) Rules**:
     - IO.001: Variable definition file organization
     - IO.002: Output definition file organization
     - IO.003: Required variable declaration in tfvars
+    - IO.004: Variable naming conventions
+    - IO.005: Output naming conventions
+    - IO.006: Variable description validation (non-empty descriptions required)
+    - IO.007: Output description validation (non-empty descriptions required)
+    - IO.008: Variable type validation (type field required)
 
 - **GitHub Actions Integration**:
   - Complete GitHub Action with composite run steps

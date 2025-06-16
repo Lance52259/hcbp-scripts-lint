@@ -204,6 +204,225 @@ resource "azurerm_storage_account" "test" {
 
 ---
 
+### ST.004 - Indentation Character Convention
+
+**Rule Description:** All indentation must use spaces only, not tabs.
+
+**Purpose:**
+- Ensures consistent formatting across different editors and environments
+- Prevents indentation-related parsing issues
+- Maintains uniform code appearance
+
+**Good Example:**
+```hcl
+resource "huaweicloud_vpc" "test" {
+  name = "test-vpc"
+  cidr = "10.0.0.0/16"
+  
+  tags = {
+    Environment = "test"
+  }
+}
+```
+
+**Bad Example:**
+```hcl
+resource "huaweicloud_vpc" "test" {
+	name = "test-vpc"    # Uses tab character
+	cidr = "10.0.0.0/16" # Uses tab character
+}
+```
+
+**Best Practices:**
+- Configure your editor to show whitespace characters
+- Set up automatic tab-to-space conversion
+- Use consistent indentation settings across the team
+
+---
+
+### ST.005 - Indentation Level Convention
+
+**Rule Description:** Indentation must follow the rule of 2 spaces per nesting level.
+
+**Purpose:**
+- Ensures consistent code structure
+- Improves readability and maintainability
+- Follows Terraform community standards
+
+**Good Example:**
+```hcl
+resource "huaweicloud_vpc" "test" {
+  name = "test-vpc"
+  cidr = "10.0.0.0/16"
+  
+  tags = {
+    Environment = "test"
+    Project     = "demo"
+  }
+}
+```
+
+**Bad Example:**
+```hcl
+resource "huaweicloud_vpc" "test" {
+    name = "test-vpc"    # 4 spaces instead of 2
+cidr = "10.0.0.0/16"     # No indentation
+  
+      tags = {           # 6 spaces instead of 2
+    Environment = "test" # Inconsistent indentation
+  }
+}
+```
+
+**Best Practices:**
+- Configure editor to use 2 spaces for indentation
+- Use automatic formatting tools
+- Maintain consistent indentation throughout the file
+
+---
+
+### ST.006 - Resource and Data Source Spacing Convention
+
+**Rule Description:** There must be exactly one empty line between resource and data source blocks.
+
+**Purpose:**
+- Improves code organization and visual separation
+- Maintains consistent block spacing standards
+- Enhances code readability
+
+**Good Example:**
+```hcl
+data "huaweicloud_availability_zones" "test" {
+  region = var.region
+}
+
+resource "huaweicloud_vpc" "test" {
+  name = var.vpc_name
+  cidr = var.vpc_cidr
+}
+
+resource "huaweicloud_vpc_subnet" "test" {
+  name   = var.subnet_name
+  vpc_id = huaweicloud_vpc.test.id
+}
+```
+
+**Bad Example:**
+```hcl
+data "huaweicloud_availability_zones" "test" {
+  region = var.region
+}
+resource "huaweicloud_vpc" "test" {  # Missing empty line
+  name = var.vpc_name
+}
+
+
+resource "huaweicloud_vpc_subnet" "test" {  # Too many empty lines
+  name = var.subnet_name
+}
+```
+
+**Best Practices:**
+- Always separate blocks with exactly one empty line
+- Use consistent spacing throughout the file
+- Consider using automated formatting tools
+
+---
+
+### ST.007 - Same Parameter Block Spacing Convention
+
+**Rule Description:** Empty lines between same-name parameter blocks should be less than or equal to 1.
+
+**Purpose:**
+- Prevents excessive whitespace in parameter definitions
+- Maintains clean and readable parameter organization
+- Ensures consistent formatting within blocks
+
+**Good Example:**
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name = "test-instance"
+  
+  network {
+    uuid = huaweicloud_vpc_subnet.test.id
+  }
+  
+  network {
+    uuid = huaweicloud_vpc_subnet.test2.id
+  }
+}
+```
+
+**Bad Example:**
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name = "test-instance"
+  
+  network {
+    uuid = huaweicloud_vpc_subnet.test.id
+  }
+  
+  
+  network {  # Too many empty lines between same parameter blocks
+    uuid = huaweicloud_vpc_subnet.test2.id
+  }
+}
+```
+
+**Best Practices:**
+- Use at most one empty line between same-name parameter blocks
+- Consider grouping related parameters together
+- Maintain consistent spacing patterns
+
+---
+
+### ST.008 - Different Parameter Block Spacing Convention
+
+**Rule Description:** There must be exactly one empty line between different-name parameter blocks.
+
+**Purpose:**
+- Provides clear visual separation between different parameter types
+- Improves code structure and readability
+- Maintains consistent parameter organization
+
+**Good Example:**
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name     = "test-instance"
+  image_id = "image-123"
+  
+  network {
+    uuid = huaweicloud_vpc_subnet.test.id
+  }
+  
+  tags {
+    Environment = "test"
+  }
+}
+```
+
+**Bad Example:**
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name     = "test-instance"
+  image_id = "image-123"
+  
+  network {
+    uuid = huaweicloud_vpc_subnet.test.id
+  }
+  tags {  # Missing empty line between different parameter blocks
+    Environment = "test"
+  }
+}
+```
+
+**Best Practices:**
+- Always separate different parameter types with exactly one empty line
+- Group related parameters together
+- Use consistent spacing throughout the resource definition
+
+---
+
 ## DC (Documentation/Comments) Rule Details
 
 ### DC.001 - Comment Format Convention
@@ -571,6 +790,149 @@ output "validoutput" {
 - Use descriptive but concise names
 - Follow consistent naming patterns
 - Consider using prefixes for related outputs
+
+---
+
+### IO.006 - Variable Description Convention
+
+**Rule Description:** All input variables must have a description field defined and not empty.
+
+**Purpose:**
+- Improves code documentation and usability
+- Facilitates automated documentation generation
+- Helps users understand variable purposes
+
+**Good Example:**
+```hcl
+variable "vpc_name" {
+  description = "The name of the VPC to be created"
+  type        = string
+  default     = "test-vpc"
+}
+
+variable "environment" {
+  description = "The deployment environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+```
+
+**Bad Example:**
+```hcl
+variable "vpc_name" {
+  # Missing description field
+  type    = string
+  default = "test-vpc"
+}
+
+variable "environment" {
+  description = ""  # Empty description
+  type        = string
+  default     = "dev"
+}
+```
+
+**Best Practices:**
+- Always provide meaningful descriptions for variables
+- Describe the purpose and expected values
+- Include examples or constraints when helpful
+- Keep descriptions concise but informative
+
+---
+
+### IO.007 - Output Description Convention
+
+**Rule Description:** All output variables must have a description field defined and not empty.
+
+**Purpose:**
+- Improves module interface documentation
+- Helps users understand output purposes and usage
+- Facilitates automated documentation generation
+
+**Good Example:**
+```hcl
+output "vpc_id" {
+  description = "The ID of the created VPC"
+  value       = huaweicloud_vpc.test.id
+}
+
+output "subnet_ids" {
+  description = "List of subnet IDs created in the VPC"
+  value       = huaweicloud_vpc_subnet.test[*].id
+}
+```
+
+**Bad Example:**
+```hcl
+output "vpc_id" {
+  # Missing description field
+  value = huaweicloud_vpc.test.id
+}
+
+output "subnet_ids" {
+  description = ""  # Empty description
+  value       = huaweicloud_vpc_subnet.test[*].id
+}
+```
+
+**Best Practices:**
+- Always provide clear descriptions for outputs
+- Describe what the output represents and how it can be used
+- Include data type information when helpful
+- Use consistent description formatting
+
+---
+
+### IO.008 - Variable Type Convention
+
+**Rule Description:** All input variables must have a type field defined.
+
+**Purpose:**
+- Improves type safety and validation
+- Prevents runtime type-related errors
+- Enhances code documentation and clarity
+
+**Good Example:**
+```hcl
+variable "vpc_name" {
+  description = "The name of the VPC"
+  type        = string
+  default     = "test-vpc"
+}
+
+variable "subnet_count" {
+  description = "Number of subnets to create"
+  type        = number
+  default     = 2
+}
+
+variable "tags" {
+  description = "Tags to apply to resources"
+  type        = map(string)
+  default     = {}
+}
+```
+
+**Bad Example:**
+```hcl
+variable "vpc_name" {
+  description = "The name of the VPC"
+  # Missing type field
+  default     = "test-vpc"
+}
+
+variable "subnet_count" {
+  description = "Number of subnets to create"
+  # Missing type field
+  default     = 2
+}
+```
+
+**Best Practices:**
+- Always specify the type for all variables
+- Use appropriate Terraform type constraints
+- Consider using complex types (list, map, object) when appropriate
+- Validate input types to prevent runtime errors
 
 ---
 

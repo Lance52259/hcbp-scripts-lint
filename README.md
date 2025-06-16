@@ -16,6 +16,11 @@ A comprehensive linting tool for Terraform configuration files, designed to enfo
 - **ST.001**: Resource and data source instance naming convention (must be "test")
 - **ST.002**: Variable default value requirement (all variables must have defaults)
 - **ST.003**: Parameter alignment formatting convention
+- **ST.004**: Indentation character check (only spaces, no tabs)
+- **ST.005**: Indentation level check (2 spaces per level)
+- **ST.006**: Resource and data source spacing check (exactly 1 empty line between blocks)
+- **ST.007**: Same parameter block spacing check (≤1 empty line between same-name blocks)
+- **ST.008**: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
 
 #### 📝 Documentation/Comments Rules (DC)
 - **DC.001**: Comment formatting standards (proper spacing after #)
@@ -26,6 +31,9 @@ A comprehensive linting tool for Terraform configuration files, designed to enfo
 - **IO.003**: Required variable declaration in tfvars (all required variables must be declared)
 - **IO.004**: Variable naming convention (lowercase and underscores only)
 - **IO.005**: Output naming convention (lowercase and underscores only)
+- **IO.006**: Variable description check (all variables must have non-empty descriptions)
+- **IO.007**: Output description check (all outputs must have non-empty descriptions)
+- **IO.008**: Variable type check (all variables must have type field defined)
 
 ### Quick Links
 
