@@ -43,6 +43,31 @@ rules/
   - Improves code readability and aesthetics
   - Follows Terraform community formatting standards
 
+- **ST.004**: Indentation character check
+  - Ensures only spaces are used for indentation, not tabs
+  - Maintains consistent code formatting across different editors
+  - Prevents indentation-related parsing issues
+
+- **ST.005**: Indentation level check
+  - Validates proper indentation levels (2 spaces per level)
+  - Ensures consistent code structure and readability
+  - Follows Terraform formatting best practices
+
+- **ST.006**: Resource and data source spacing check
+  - Ensures exactly one empty line between resource and data source blocks
+  - Improves code organization and visual separation
+  - Maintains consistent block spacing standards
+
+- **ST.007**: Same parameter block spacing check
+  - Ensures proper spacing between same-name parameter blocks (≤1 empty line)
+  - Prevents excessive whitespace in parameter definitions
+  - Maintains clean and readable parameter organization
+
+- **ST.008**: Different parameter block spacing check
+  - Ensures exactly one empty line between different-name parameter blocks
+  - Provides clear visual separation between different parameter types
+  - Improves code structure and readability
+
 ### DC (Documentation/Comments) - Comment and Description Rules
 - **DC.001**: Comment format check
   - Ensures consistent comment formatting
@@ -74,6 +99,21 @@ rules/
   - Ensures outputs follow consistent naming patterns
   - Improves module interface clarity
   - Maintains consistent output naming standards
+
+- **IO.006**: Variable description check
+  - Ensures all variables have non-empty description fields
+  - Improves code documentation and usability
+  - Facilitates automated documentation generation
+
+- **IO.007**: Output description check
+  - Ensures all outputs have non-empty description fields
+  - Improves module interface documentation
+  - Helps users understand output purposes and usage
+
+- **IO.008**: Variable type check
+  - Ensures all variables have type field definitions
+  - Improves type safety and validation
+  - Prevents runtime type-related errors
 
 ## Rule Implementation Architecture
 

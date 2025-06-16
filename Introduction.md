@@ -46,6 +46,11 @@ The tool implements a modular rule system organized into three distinct categori
 - **ST.001**: Resource and data source naming conventions
 - **ST.002**: Variable default value requirements
 - **ST.003**: Parameter alignment and spacing standards
+- **ST.004**: Indentation character validation (spaces only)
+- **ST.005**: Indentation level consistency (2 spaces per level)
+- **ST.006**: Resource and data source block spacing (exactly 1 empty line)
+- **ST.007**: Same parameter block spacing (≤1 empty line)
+- **ST.008**: Different parameter block spacing (exactly 1 empty line)
 
 **Implementation Pattern**:
 
@@ -83,6 +88,9 @@ class STRules:
 - **IO.003**: Required variable declaration validation
 - **IO.004**: Variable naming conventions
 - **IO.005**: Output naming conventions
+- **IO.006**: Variable description validation (non-empty descriptions required)
+- **IO.007**: Output description validation (non-empty descriptions required)
+- **IO.008**: Variable type validation (type field required)
 
 **Advanced Features**:
 - Cross-file dependency analysis

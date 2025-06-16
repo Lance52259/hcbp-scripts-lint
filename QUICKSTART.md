@@ -302,7 +302,10 @@ python3 .github/scripts/terraform_lint.py
 # Check available rules
 python3 .github/scripts/terraform_lint.py --help
 
-# Valid rule IDs: ST.001, ST.002, ST.003, DC.001, IO.001, IO.002, IO.003
+# Valid rule IDs: 
+#   ST.001, ST.002, ST.003, ST.004, ST.005, ST.006, ST.007, ST.008
+#   DC.001
+#   IO.001, IO.002, IO.003, IO.004, IO.005, IO.006, IO.007, IO.008
 ```
 
 ## 📚 Next Steps
