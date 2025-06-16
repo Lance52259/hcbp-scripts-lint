@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-06-16
+
+### Fixed
+- **Critical Bug Fix**: Fixed `changed-files-only` functionality not working correctly
+  - Resolved incorrect Git command execution order in `get_changed_files` method
+  - Completely rewrote Git command logic with proper error handling
+  - Improved command ordering and fallback mechanisms for better reliability
+- **Enhanced Git Integration**: 
+  - Better error handling for Git operations
+  - Improved fallback mechanisms when Git commands fail
+  - Added detailed logging to help troubleshoot Git-related issues
+- **CI/CD Reliability**: Fixed issues affecting Pull Request workflows in large repositories
+
+### Performance
+- **Large Repository Support**: Restored proper functionality for checking only changed files
+- **CI/CD Optimization**: Fixed performance regression affecting Pull Request workflows
+
+### Technical Details
+- **Root Cause**: Incorrect Git command execution order preventing proper file detection
+- **Solution**: Complete rewrite of Git command logic with comprehensive error handling
+- **Testing**: Verified across multiple Git scenarios and repository configurations
+- **Compatibility**: Maintains full backward compatibility with existing configurations
+
+### Upgrade Recommendation
+**Strongly recommended** for all users who:
+- Use `changed-files-only: true` in their workflows
+- Experience performance issues with large repositories  
+- Want reliable CI/CD integration with Pull Request workflows
+- Encountered issues with v1.1.0's changed-files-only feature
+
 ## [1.1.0] - 2025-6-13
 
 ### Added
@@ -52,11 +82,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - ST.001: Resource and data source naming convention validation
     - ST.002: Variable default value requirement
     - ST.003: Parameter alignment formatting
-    - ST.004: Indentation character validation (spaces only)
-    - ST.005: Indentation level consistency (2 spaces per level)
-    - ST.006: Resource and data source block spacing (exactly 1 empty line)
-    - ST.007: Same parameter block spacing (≤1 empty line)
-    - ST.008: Different parameter block spacing (exactly 1 empty line)
   - **DC (Documentation/Comments) Rules**:
     - DC.001: Comment formatting standards
   - **IO (Input/Output) Rules**:
@@ -65,9 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - IO.003: Required variable declaration in tfvars
     - IO.004: Variable naming conventions
     - IO.005: Output naming conventions
-    - IO.006: Variable description validation (non-empty descriptions required)
-    - IO.007: Output description validation (non-empty descriptions required)
-    - IO.008: Variable type validation (type field required)
 
 - **GitHub Actions Integration**:
   - Complete GitHub Action with composite run steps
@@ -131,6 +153,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Notes
 
+### v1.1.1 Highlights
+This **critical bug fix release** addresses a major issue with the `changed-files-only` functionality introduced in v1.1.0. The feature now works correctly and reliably detects changed Terraform files in CI/CD workflows.
+
+**Critical Fix**: Resolved Git command execution issues that prevented proper file detection in Pull Request workflows.
+
+**Recommended for**: All users using `changed-files-only` mode, especially those experiencing issues with v1.1.0.
+
 ### v1.1.0 Highlights
 This release focuses on **performance optimization** for large repositories and **enhanced CI/CD integration**. The new `changed-files-only` mode can reduce linting time from minutes to seconds in large codebases by checking only modified files.
 
@@ -144,6 +173,21 @@ The initial release provides a **complete Terraform linting solution** with comp
 ---
 
 ## Migration Guide
+
+### Upgrading from v1.1.0 to v1.1.1
+
+**Critical Update**: This patch fixes a major bug in the `changed-files-only` functionality. No configuration changes required.
+
+**Simple Update**:
+```yaml
+# Update version in your workflow
+- name: Terraform Scripts Lint
+  uses: Lance52259/hcbp-scripts-lint@v1.1.1  # Changed from v1.1.0
+  with:
+    changed-files-only: 'true'  # Now works correctly
+    base-ref: 'origin/main'
+    # ... existing parameters remain the same
+```
 
 ### Upgrading from v1.0.0 to v1.1.0
 
