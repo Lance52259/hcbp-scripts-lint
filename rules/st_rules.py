@@ -531,6 +531,9 @@ class STRules:
         self.check_st006_resource_data_spacing(file_path, content, log_error_func)
         self.check_st007_same_parameter_spacing(file_path, content, log_error_func)
         self.check_st008_different_parameter_spacing(file_path, content, log_error_func)
+        
+        # ST.009 requires cross-file analysis, handle separately in main linter
+        # This is called from terraform_lint.py when both variables.tf and main.tf are available
 
     def get_rule_info(self, rule_id: str) -> Dict:
         """
