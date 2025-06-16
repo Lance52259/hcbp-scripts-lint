@@ -67,13 +67,31 @@ runs:
         echo "Base Reference: ${{ inputs.base-ref }}"
         echo "========================"
 
+    - name: Debug Environment
+      shell: bash
+      run: |
+        echo "=== Environment Debug ==="
+        echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+        echo "GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH"
+        echo "Current directory: $(pwd)"
+        echo "Git status:"
+        git status --porcelain || echo "Not a git repository or git not available"
+        echo "Git log (last 2 commits):"
+        git log --oneline -2 || echo "Git log not available"
+        echo "========================"
+
     - name: Run Terraform Lint
       shell: bash
       run: |
-        cd "$GITHUB_ACTION_PATH"
+        # Store the action path and user workspace
+        ACTION_PATH="$GITHUB_ACTION_PATH"
+        USER_WORKSPACE="$GITHUB_WORKSPACE"
+        
+        # Ensure we're in the user's workspace for git operations
+        cd "$USER_WORKSPACE"
         
         # Build command with parameters
-        CMD="python3 .github/scripts/terraform_lint.py --directory '${{ inputs.directory }}'"
+        CMD="python3 '$ACTION_PATH/.github/scripts/terraform_lint.py' --directory '${{ inputs.directory }}'"
         
         if [ -n "${{ inputs.ignore-rules }}" ]; then
           CMD="$CMD --ignore-rules '${{ inputs.ignore-rules }}'"
@@ -96,6 +114,7 @@ runs:
         fi
         
         echo "Executing: $CMD"
+        echo "Working directory: $(pwd)"
         eval $CMD
         
         # Store exit code for later use
