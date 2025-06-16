@@ -555,28 +555,60 @@ class TerraformLinter:
         changed_files = []
         
         try:
-            # Change to the target directory
+            # Store original working directory
             original_cwd = os.getcwd()
-            os.chdir(directory)
+            
+            # Convert directory to absolute path
+            if not os.path.isabs(directory):
+                directory = os.path.abspath(directory)
+            
+            print(f"Looking for changed files in directory: {directory}")
+            print(f"Current working directory: {original_cwd}")
+            
+            # For GitHub Actions, we should already be in the user's repository
+            # Check if we're in a git repository
+            try:
+                subprocess.run(['git', 'rev-parse', '--git-dir'], 
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                print("Confirmed we're in a git repository")
+            except subprocess.CalledProcessError:
+                print("Not in a git repository, cannot use changed-files-only mode")
+                return []
             
             # Get changed files from git
-            # Use different commands based on environment and availability
             git_commands = []
             
             # If base_ref is provided, use it for comparison
             if self.base_ref:
-                git_commands.append(f"git diff --name-only {self.base_ref}...HEAD")
-                git_commands.append(f"git diff --name-only {self.base_ref}")
+                # Handle different base_ref formats
+                base_ref = self.base_ref
+                if base_ref.startswith('origin/'):
+                    # Try both with and without origin/ prefix
+                    git_commands.extend([
+                        f"git diff --name-only {base_ref}...HEAD",
+                        f"git diff --name-only {base_ref.replace('origin/', '')}...HEAD",
+                        f"git diff --name-only {base_ref}",
+                        f"git diff --name-only {base_ref.replace('origin/', '')}"
+                    ])
+                else:
+                    git_commands.extend([
+                        f"git diff --name-only {base_ref}...HEAD",
+                        f"git diff --name-only origin/{base_ref}...HEAD",
+                        f"git diff --name-only {base_ref}",
+                        f"git diff --name-only origin/{base_ref}"
+                    ])
             
-            # Add fallback commands
+            # Add fallback commands for different GitHub Actions scenarios
             git_commands.extend([
-                # For comparing with previous commit
+                # For pull requests - compare with merge base
                 "git diff --name-only HEAD~1...HEAD",
                 "git diff --name-only HEAD~1",
                 # For staged changes
                 "git diff --cached --name-only",
                 # For unstaged changes
-                "git diff --name-only"
+                "git diff --name-only",
+                # Last resort - show all files in the last commit
+                "git diff-tree --no-commit-id --name-only -r HEAD"
             ])
             
             for cmd in git_commands:
@@ -587,45 +619,67 @@ class TerraformLinter:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         universal_newlines=True,
-                        check=True
+                        check=True,
+                        cwd=original_cwd  # Execute in the current directory (user's repo)
                     )
                     
                     if result.stdout.strip():
                         files = result.stdout.strip().split('\n')
-                        # Filter for Terraform files
-                        tf_files = [f for f in files if f.endswith(('.tf', '.tfvars'))]
+                        print(f"Git command returned {len(files)} files: {files}")
+                        
+                        # Filter for Terraform files and check if they're in the target directory
+                        tf_files = []
+                        for file_path in files:
+                            if file_path.endswith(('.tf', '.tfvars')):
+                                # Convert to absolute path
+                                abs_file_path = os.path.abspath(file_path)
+                                
+                                # Check if file is within the target directory
+                                if abs_file_path.startswith(directory + os.sep) or abs_file_path == directory:
+                                    tf_files.append(abs_file_path)
+                                elif directory == '.' or directory == os.getcwd():
+                                    # If checking current directory, include all tf files
+                                    tf_files.append(abs_file_path)
                         
                         if tf_files:
                             changed_files = tf_files
-                            print(f"Found {len(tf_files)} changed Terraform files using: {cmd}")
+                            print(f"Found {len(tf_files)} changed Terraform files in target directory using: {cmd}")
                             break
+                        else:
+                            print(f"No Terraform files found in target directory from command: {cmd}")
                     else:
                         print(f"No output from command: {cmd}")
                             
                 except subprocess.CalledProcessError as e:
                     print(f"Command failed: {cmd} - {e}")
+                    if e.stderr:
+                        print(f"Error output: {e.stderr}")
                     continue
             
             if not changed_files:
                 print("No changed Terraform files found with any git command")
+                print("This might be because:")
+                print("1. No files were actually changed")
+                print("2. The base reference doesn't exist")
+                print("3. Git history is not available")
+                print("4. Files are not in the target directory")
             
-            # Convert relative paths to absolute paths
-            absolute_changed_files = []
+            # Verify files exist
+            verified_files = []
             for file_path in changed_files:
-                abs_path = os.path.abspath(file_path)
-                if os.path.exists(abs_path):
-                    absolute_changed_files.append(abs_path)
+                if os.path.exists(file_path):
+                    verified_files.append(file_path)
+                    print(f"Verified file exists: {file_path}")
                 else:
                     print(f"Warning: Changed file {file_path} does not exist")
             
-            os.chdir(original_cwd)
-            return absolute_changed_files
+            return verified_files
             
         except Exception as e:
             print(f"Error getting changed files: {e}")
             print("Falling back to checking all files")
-            if 'original_cwd' in locals():
-                os.chdir(original_cwd)
+            import traceback
+            traceback.print_exc()
             return []
 
 def main():
@@ -666,6 +720,8 @@ Available Rules:
   IO.001: Variable definition file organization
   IO.002: Output definition file organization
   IO.003: Required variable declaration in tfvars
+  IO.004: Variable naming convention
+  IO.005: Output naming convention
         """
     )
 
