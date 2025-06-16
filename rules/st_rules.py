@@ -70,6 +70,13 @@ class STRules:
                     "Check if there is exactly one empty line between different-name parameter blocks"
                 ),
                 "category": "Style/Format"
+            },
+            "ST.009": {
+                "name": "Variable definition order check",
+                "description": (
+                    "Check if variable definition order in variables.tf matches usage order in main.tf"
+                ),
+                "category": "Style/Format"
             }
         }
 
@@ -371,7 +378,7 @@ class STRules:
 
     def check_st005_indentation_level(self, file_path: str, content: str, log_error_func):
         """
-        ST.005: Check if indentation follows the rule of current_level * 2 + 2 spaces
+        ST.005: Check if indentation follows the rule of current_level * 2 spaces
         """
         lines = content.split('\n')
         context_stack = []  # Stack to track nesting levels
@@ -633,3 +640,99 @@ class STRules:
         Formula: context_level * 2 (standard 2 spaces per level)
         """
         return context_level * 2
+
+    def check_variable_order(self, variables_content: str, main_content: str, variables_file: str, main_file: str) -> List[Dict]:
+        """
+        ST.009: Check if variable definition order in variables.tf matches usage order in main.tf
+        
+        Args:
+            variables_content: Content of variables.tf file
+            main_content: Content of main.tf file
+            variables_file: Path to variables.tf file
+            main_file: Path to main.tf file
+            
+        Returns:
+            List of error dictionaries with 'file', 'rule', and 'message' keys
+        """
+        errors = []
+        
+        # Extract variable definitions in order from variables.tf
+        variable_definitions = self.extract_variable_definitions_in_order(variables_content)
+        
+        # Extract variable references in order from main.tf
+        variable_references = self.extract_variable_references_in_order(main_content)
+        
+        # Filter variable definitions to only include those referenced in main.tf
+        referenced_variables = [var for var in variable_definitions if var in variable_references]
+        
+        # Check if the order matches
+        if referenced_variables != variable_references:
+            # Find the first mismatch
+            mismatch_found = False
+            for i, (expected, actual) in enumerate(zip(variable_references, referenced_variables)):
+                if expected != actual:
+                    errors.append({
+                        'file': variables_file,
+                        'rule': 'ST.009',
+                        'message': f"Variable definition order mismatch: expected '{expected}' at position {i+1}, but found '{actual}'. Variables should be defined in the same order as they are used in main.tf"
+                    })
+                    mismatch_found = True
+                    break
+            
+            # If no specific mismatch found but lengths differ, report general order issue
+            if not mismatch_found:
+                errors.append({
+                    'file': variables_file,
+                    'rule': 'ST.009',
+                    'message': f"Variable definition order does not match usage order in main.tf. Expected order: {variable_references}, but found: {referenced_variables}"
+                })
+        
+        return errors
+
+    def extract_variable_definitions_in_order(self, content: str) -> List[str]:
+        """
+        Extract variable names in the order they are defined in variables.tf
+        
+        Args:
+            content: Content of the variables.tf file
+            
+        Returns:
+            List of variable names in definition order
+        """
+        variable_names = []
+        clean_content = self.remove_comments_for_parsing(content)
+        
+        # Match variable blocks and extract names in order
+        pattern = r'variable\s+"([^"]+)"\s*\{'
+        matches = re.finditer(pattern, clean_content, re.MULTILINE)
+        
+        for match in matches:
+            variable_names.append(match.group(1))
+        
+        return variable_names
+
+    def extract_variable_references_in_order(self, content: str) -> List[str]:
+        """
+        Extract variable references in the order they first appear in main.tf
+        
+        Args:
+            content: Content of the main.tf file
+            
+        Returns:
+            List of variable names in first usage order
+        """
+        variable_references = []
+        seen_variables = set()
+        clean_content = self.remove_comments_for_parsing(content)
+        
+        # Match var.variable_name patterns and extract in order of first appearance
+        pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
+        matches = re.finditer(pattern, clean_content, re.MULTILINE)
+        
+        for match in matches:
+            var_name = match.group(1)
+            if var_name not in seen_variables:
+                variable_references.append(var_name)
+                seen_variables.add(var_name)
+        
+        return variable_references

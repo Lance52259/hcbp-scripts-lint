@@ -4,16 +4,16 @@ variable "region" {
   type        = string
 }
 
+# ST.009 Error: Variable order mismatch - vpc_cidr should come before vpc_name based on main.tf usage
+variable "vpc_cidr" {
+  description = "The CIDR block for the VPC"
+  type        = string
+}
+
 variable "vpc_name" {
   description = "The name of the VPC"
   type        = string
   default     = ""
-}
-
-# Error 5: Variable missing default value
-variable "vpc_cidr" {
-  description = "The CIDR block for the VPC"
-  type        = string
 }
 
 variable "subnet_name" {
