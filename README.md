@@ -21,6 +21,7 @@ A comprehensive linting tool for Terraform configuration files, designed to enfo
 - **ST.006**: Resource and data source spacing check (exactly 1 empty line between blocks)
 - **ST.007**: Same parameter block spacing check (≤1 empty line between same-name blocks)
 - **ST.008**: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
+- **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
 
 #### 📝 Documentation/Comments Rules (DC)
 - **DC.001**: Comment formatting standards (proper spacing after #)

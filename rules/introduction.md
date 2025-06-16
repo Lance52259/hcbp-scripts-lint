@@ -423,6 +423,109 @@ resource "huaweicloud_compute_instance" "test" {
 
 ---
 
+### ST.009 - Variable Definition Order Convention
+
+**Rule Description:** Variable definition order in `variables.tf` must match the usage order in `main.tf`.
+
+**Purpose:**
+- Improves code readability and logical flow
+- Makes it easier to understand variable dependencies
+- Facilitates code review and maintenance
+- Ensures consistent variable organization across projects
+
+**Error Example:**
+
+```hcl
+# ❌ Error: Variable definition order doesn't match usage order
+# main.tf - Variables used in this order: region, vpc_name, vpc_cidr, subnet_name
+resource "huaweicloud_vpc" "test" {
+  name   = var.vpc_name      # Second variable used
+  cidr   = var.vpc_cidr      # Third variable used
+  region = var.region        # First variable used
+}
+
+resource "huaweicloud_vpc_subnet" "test" {
+  name   = var.subnet_name   # Fourth variable used
+  vpc_id = huaweicloud_vpc.test.id
+}
+
+# variables.tf - Variables defined in wrong order
+variable "vpc_cidr" {        # Should be third, but defined second
+  description = "The CIDR block for the VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "region" {          # Should be first, but defined first (correct)
+  description = "The region where resources are located"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "vpc_name" {        # Should be second, but defined third
+  description = "The name of the VPC"
+  type        = string
+  default     = "test-vpc"
+}
+
+variable "subnet_name" {     # Should be fourth, defined fourth (correct)
+  description = "The name of the subnet"
+  type        = string
+  default     = "test-subnet"
+}
+```
+
+**Correct Example:**
+
+```hcl
+# ✅ Correct: Variable definition order matches usage order
+# main.tf - Variables used in this order: region, vpc_name, vpc_cidr, subnet_name
+resource "huaweicloud_vpc" "test" {
+  name   = var.vpc_name      # Second variable used
+  cidr   = var.vpc_cidr      # Third variable used
+  region = var.region        # First variable used
+}
+
+resource "huaweicloud_vpc_subnet" "test" {
+  name   = var.subnet_name   # Fourth variable used
+  vpc_id = huaweicloud_vpc.test.id
+}
+
+# variables.tf - Variables defined in correct order
+variable "region" {          # First variable used in main.tf
+  description = "The region where resources are located"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "vpc_name" {        # Second variable used in main.tf
+  description = "The name of the VPC"
+  type        = string
+  default     = "test-vpc"
+}
+
+variable "vpc_cidr" {        # Third variable used in main.tf
+  description = "The CIDR block for the VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "subnet_name" {     # Fourth variable used in main.tf
+  description = "The name of the subnet"
+  type        = string
+  default     = "test-subnet"
+}
+```
+
+**Best Practices:**
+- Define variables in `variables.tf` in the same order they are first referenced in `main.tf`
+- Review variable usage order when adding new variables
+- Consider grouping related variables together while maintaining usage order
+- Use consistent variable ordering across similar modules
+- Document any intentional deviations from usage order with comments
+
+---
+
 ## DC (Documentation/Comments) Rule Details
 
 ### DC.001 - Comment Format Convention

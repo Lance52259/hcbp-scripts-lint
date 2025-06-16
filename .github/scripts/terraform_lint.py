@@ -491,7 +491,47 @@ class TerraformLinter:
             if not self.lint_file(file_path):
                 success = False
 
+        # ST.009 cross-file check: Variable order validation
+        self.check_variable_order_across_files(directory)
+
         return success
+
+    def check_variable_order_across_files(self, directory: str):
+        """
+        Check ST.009 rule across variables.tf and main.tf files in the directory
+        
+        Args:
+            directory: Directory to check for variables.tf and main.tf files
+        """
+        # Find variables.tf and main.tf files in the directory
+        variables_files = self.find_files_by_pattern(directory, "variables.tf")
+        main_files = self.find_files_by_pattern(directory, "main.tf")
+        
+        # Check each combination of variables.tf and main.tf in the same directory
+        for variables_file in variables_files:
+            variables_dir = os.path.dirname(variables_file)
+            
+            # Find corresponding main.tf in the same directory
+            corresponding_main = None
+            for main_file in main_files:
+                if os.path.dirname(main_file) == variables_dir:
+                    corresponding_main = main_file
+                    break
+            
+            if corresponding_main:
+                # Read file contents
+                variables_content = self.read_file_content(variables_file)
+                main_content = self.read_file_content(corresponding_main)
+                
+                if variables_content and main_content:
+                    # Run ST.009 check
+                    errors = self.st_rules.check_variable_order(
+                        variables_content, main_content, variables_file, corresponding_main
+                    )
+                    
+                    # Log any errors found
+                    for error in errors:
+                        self.log_error(error['file'], error['rule'], error['message'])
 
     def generate_report(self, output_file: str = "terraform-lint-report.txt"):
         """

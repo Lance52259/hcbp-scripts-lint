@@ -68,6 +68,12 @@ rules/
   - Provides clear visual separation between different parameter types
   - Improves code structure and readability
 
+- **ST.009**: Variable definition order check
+  - Ensures variable definition order in `variables.tf` matches usage order in `main.tf`
+  - Improves code readability and logical flow
+  - Makes it easier to understand variable dependencies
+  - Facilitates code review and maintenance
+
 ### DC (Documentation/Comments) - Comment and Description Rules
 - **DC.001**: Comment format check
   - Ensures consistent comment formatting
