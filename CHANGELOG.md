@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-06-16
+
+### Fixed
+- **GitHub Actions Working Directory Issue**: Fixed `changed-files-only` mode execution in GitHub Actions
+  - Resolved linter executing in action directory instead of user's repository directory
+  - Now properly executes in `$GITHUB_WORKSPACE` while calling scripts from `$GITHUB_ACTION_PATH`
+  - Added file existence verification before processing changed files
+  - Improved path resolution for changed files detection
+- **Enhanced Git Command Handling**: 
+  - Added support for multiple base-ref formats (`origin/master`, `master`, `HEAD~1`)
+  - Implemented fallback git command strategy for different PR/commit scenarios
+  - Better error messages and fallback strategies for various GitHub Actions scenarios
+- **Documentation Fixes**:
+  - Fixed help documentation to match actual supported rules
+  - Updated GitHub Actions configuration examples
+  - Added comprehensive debugging information for troubleshooting
+
+### Added
+- **Comprehensive Debugging**: Environment information and file verification for easier troubleshooting
+- **Path Resolution Improvements**: Better handling of file paths in GitHub Actions context
+- **Error Handling Enhancements**: More informative error messages for debugging
+
+### Changed
+- **Execution Context**: Linter now properly executes in user's workspace directory
+- **Git Command Strategy**: Improved fallback mechanisms for different repository states
+- **File Processing**: Added validation steps before processing detected files
+
+### Performance
+- **GitHub Actions Optimization**: Restored proper functionality for `changed-files-only` mode
+- **Error Recovery**: Better handling of edge cases in CI/CD environments
+
+### Compatibility
+- **Backward Compatible**: No breaking changes - all existing workflows continue to work
+- **GitHub Actions**: Enhanced compatibility with different GitHub Actions scenarios
+- **Multi-Environment**: Improved support for various git repository configurations
+
+### Validation
+- ✅ Basic linting functionality verified
+- ✅ Path filtering (`--include-paths`, `--exclude-paths`) confirmed working
+- ✅ Changed files detection now functional in GitHub Actions
+- ✅ All existing workflows remain compatible
+
 ## [1.1.1] - 2025-06-16
 
 ### Fixed
@@ -153,6 +195,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Notes
 
+### v1.1.2 Highlights
+This **critical fix release** resolves GitHub Actions working directory issues that prevented `changed-files-only` mode from functioning correctly. The linter now properly executes in the user's repository directory while maintaining access to action scripts.
+
+**Key Fix**: Resolved execution context issues in GitHub Actions environments, ensuring `changed-files-only` mode works reliably across different repository configurations.
+
+**Recommended for**: All users experiencing issues with `changed-files-only` mode in GitHub Actions, especially those with complex repository structures.
+
 ### v1.1.1 Highlights
 This **critical bug fix release** addresses a major issue with the `changed-files-only` functionality introduced in v1.1.0. The feature now works correctly and reliably detects changed Terraform files in CI/CD workflows.
 
@@ -174,18 +223,33 @@ The initial release provides a **complete Terraform linting solution** with comp
 
 ## Migration Guide
 
-### Upgrading from v1.1.0 to v1.1.1
+### Upgrading from v1.1.1 to v1.1.2
 
-**Critical Update**: This patch fixes a major bug in the `changed-files-only` functionality. No configuration changes required.
+**Critical Update**: This patch fixes GitHub Actions working directory issues. No configuration changes required.
 
 **Simple Update**:
 ```yaml
 # Update version in your workflow
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.1  # Changed from v1.1.0
+  uses: Lance52259/hcbp-scripts-lint@v1.1.2  # Changed from v1.1.1
   with:
-    changed-files-only: 'true'  # Now works correctly
-    base-ref: 'origin/main'
+    changed-files-only: 'true'  # Now works correctly in all GitHub Actions scenarios
+    base-ref: 'origin/main'     # Supports multiple base-ref formats
+    # ... existing parameters remain the same
+```
+
+### Upgrading from v1.1.0 to v1.1.2
+
+**Critical Updates**: This version includes fixes for both Git command execution and GitHub Actions working directory issues.
+
+**Recommended Update**:
+```yaml
+# Update version in your workflow
+- name: Terraform Scripts Lint
+  uses: Lance52259/hcbp-scripts-lint@v1.1.2  # Skip v1.1.1, go directly to v1.1.2
+  with:
+    changed-files-only: 'true'  # Now fully functional
+    base-ref: 'origin/main'     # Enhanced base-ref support
     # ... existing parameters remain the same
 ```
 
