@@ -91,6 +91,29 @@ git push origin v1
 - **DC (Documentation/Comments)**: DC.001
 - **IO (Input/Output)**: IO.001, IO.002, IO.003, IO.004, IO.005, IO.006, IO.007, IO.008
 
+### ST (Style/Format) Rules
+- ST.001: Resource and data source naming convention check
+- ST.002: Variable default value requirement check  
+- ST.003: Parameter alignment formatting check
+- ST.004: Indentation character check (spaces only, no tabs)
+- ST.005: Indentation level check (2 spaces per level)
+- ST.006: Resource and data source spacing check (exactly 1 empty line between blocks)
+- ST.007: Same parameter block spacing check (≤1 empty line between same-name blocks)
+- ST.008: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
+
+### DC (Documentation/Comments) Rules
+- DC.001: Comment format check
+
+### IO (Input/Output) Rules
+- IO.001: Variable definition file location check
+- IO.002: Output definition file location check
+- IO.003: Required parameter declaration check
+- IO.004: Variable naming convention check
+- IO.005: Output naming convention check
+- IO.006: Variable description check (all variables must have non-empty descriptions)
+- IO.007: Output description check (all outputs must have non-empty descriptions)
+- IO.008: Variable type check (all variables must have type field defined)
+
 ### Usage
 ``yaml
 - name: Terraform Lint
