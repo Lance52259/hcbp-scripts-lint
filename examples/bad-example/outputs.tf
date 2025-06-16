@@ -15,4 +15,16 @@ output "empty_description_output" {
 output "correct_output" {
   description = "This output has proper description"
   value       = huaweicloud_security_group.test.id
+}
+
+# IO.005 Error: Output name contains uppercase letters
+output "BadOutputName" {
+  description = "Output with uppercase letters in name"
+  value       = huaweicloud_vpc.myvpc.name
+}
+
+# IO.005 Error: Output name starts with underscore
+output "_underscore_output" {
+  description = "Output name starts with underscore"
+  value       = huaweicloud_vpc_subnet.test.name
 } 

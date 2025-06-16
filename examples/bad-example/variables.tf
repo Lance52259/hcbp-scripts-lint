@@ -58,3 +58,17 @@ variable "no_type_var" {
   description = "Variable without type field"
   default     = "test"
 }
+
+# IO.004 Error: Variable name contains uppercase letters
+variable "BadVariableName" {
+  description = "Variable with uppercase letters in name"
+  type        = string
+  default     = "test"
+}
+
+# IO.004 Error: Variable name starts with underscore
+variable "_underscore_start" {
+  description = "Variable name starts with underscore"
+  type        = string
+  default     = "test"
+}

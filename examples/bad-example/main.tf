@@ -27,7 +27,7 @@ resource "huaweicloud_security_group" "test" {
   description =var.description # ST.003 error: Missing space after equals sign and not aligned
 }
 
-# ST.006 Error: Missing empty line between resource blocks (should have exactly 1 empty line)
+# ST.006 Error: Missing empty line between resource blocks
 resource "huaweicloud_security_group_rule" "test" {
 	direction        = "ingress"  # This line uses tab instead of spaces
   ethertype        = "IPv4"
@@ -37,8 +37,7 @@ resource "huaweicloud_security_group_rule" "test" {
   remote_ip_prefix = "0.0.0.0/0"
   security_group_id = huaweicloud_security_group.test.id
 }
-
-# ST.004 Error: Using tabs for indentation
+# ST.006 Error: Missing empty line between resource blocks
 resource "huaweicloud_compute_instance" "test" {
   name            = "test-instance"
   image_id        = "image-123"
