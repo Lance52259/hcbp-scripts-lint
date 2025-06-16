@@ -35,6 +35,41 @@ class STRules:
                     "around equals sign"
                 ),
                 "category": "Style/Format"
+            },
+            "ST.004": {
+                "name": "Indentation character check",
+                "description": (
+                    "Check if all indentation uses spaces only, not tabs"
+                ),
+                "category": "Style/Format"
+            },
+            "ST.005": {
+                "name": "Indentation level check",
+                "description": (
+                    "Check if indentation follows the rule of current_level * 2 spaces"
+                ),
+                "category": "Style/Format"
+            },
+            "ST.006": {
+                "name": "Resource and data source spacing check",
+                "description": (
+                    "Check if there is exactly one empty line between resource and data source blocks"
+                ),
+                "category": "Style/Format"
+            },
+            "ST.007": {
+                "name": "Same parameter block spacing check",
+                "description": (
+                    "Check if empty lines between same-name parameter blocks are less than or equal to 1"
+                ),
+                "category": "Style/Format"
+            },
+            "ST.008": {
+                "name": "Different parameter block spacing check",
+                "description": (
+                    "Check if there is exactly one empty line between different-name parameter blocks"
+                ),
+                "category": "Style/Format"
             }
         }
 
@@ -320,6 +355,163 @@ class STRules:
                 for line_num, error_msg in errors:
                     log_error_func(file_path, "ST.003", f"Line {line_num}: {error_msg}")
 
+    def check_st004_indentation_character(self, file_path: str, content: str, log_error_func):
+        """
+        ST.004: Check if all indentation uses spaces only, not tabs
+        """
+        lines = content.split('\n')
+        
+        for line_num, line in enumerate(lines, 1):
+            if self.has_tabs(line):
+                log_error_func(
+                    file_path,
+                    "ST.004",
+                    f"Line {line_num}: Indentation should use spaces only, not tabs"
+                )
+
+    def check_st005_indentation_level(self, file_path: str, content: str, log_error_func):
+        """
+        ST.005: Check if indentation follows the rule of current_level * 2 + 2 spaces
+        """
+        lines = content.split('\n')
+        context_stack = []  # Stack to track nesting levels
+        
+        for line_num, line in enumerate(lines, 1):
+            if line.strip() == '' or line.strip().startswith('#'):
+                continue
+                
+            current_indent = self.get_indentation_level(line)
+            
+            # Track opening and closing braces to determine context level
+            stripped_line = line.strip()
+            
+            # Handle closing braces - pop from stack
+            if stripped_line == '}' and context_stack:
+                context_stack.pop()
+                expected_indent = self.calculate_expected_indentation(len(context_stack))
+                if current_indent != expected_indent:
+                    log_error_func(
+                        file_path,
+                        "ST.005",
+                        f"Line {line_num}: Expected {expected_indent} spaces indentation, found {current_indent}"
+                    )
+                continue
+            
+            # Check current line indentation
+            expected_indent = self.calculate_expected_indentation(len(context_stack))
+            if current_indent != expected_indent:
+                log_error_func(
+                    file_path,
+                    "ST.005",
+                    f"Line {line_num}: Expected {expected_indent} spaces indentation, found {current_indent}"
+                )
+            
+            # Handle opening braces - push to stack
+            if stripped_line.endswith('{'):
+                context_stack.append('block')
+
+    def check_st006_resource_data_spacing(self, file_path: str, content: str, log_error_func):
+        """
+        ST.006: Check if there is exactly one empty line between resource and data source blocks
+        """
+        clean_content = self.remove_comments_for_parsing(content)
+        blocks = self.extract_resource_data_blocks_with_positions(clean_content)
+        lines = content.split('\n')
+        
+        for i in range(len(blocks) - 1):
+            current_block = blocks[i]
+            next_block = blocks[i + 1]
+            
+            current_end = current_block[2] - 1  # Convert to 0-indexed, this is the line after the closing brace
+            next_start = next_block[1] - 1  # Convert to 0-indexed, this is the line with the block start
+            
+            # Count empty lines between blocks (excluding the closing brace line and block start line)
+            empty_lines = 0
+            for line_idx in range(current_end, next_start):
+                if line_idx < len(lines) and lines[line_idx].strip() == '':
+                    empty_lines += 1
+            
+            if empty_lines != 1:
+                log_error_func(
+                    file_path,
+                    "ST.006",
+                    f"Expected exactly 1 empty line between {current_block[0]} and {next_block[0]} blocks, found {empty_lines} at line {current_end + 1}"
+                )
+
+    def check_st007_same_parameter_spacing(self, file_path: str, content: str, log_error_func):
+        """
+        ST.007: Check if empty lines between same-name parameter blocks are less than or equal to 1
+        """
+        clean_content = self.remove_comments_for_parsing(content)
+        blocks = self.extract_code_blocks(clean_content)
+        lines = content.split('\n')
+        
+        for block_type, block_start_line, block_lines in blocks:
+            param_blocks = self.extract_parameter_blocks_in_resource(block_lines)
+            
+            # Group parameter blocks by name
+            param_groups = {}
+            for param_name, start_line, end_line in param_blocks:
+                if param_name not in param_groups:
+                    param_groups[param_name] = []
+                param_groups[param_name].append((start_line, end_line))
+            
+            # Check spacing between same-name parameter blocks
+            for param_name, positions in param_groups.items():
+                if len(positions) > 1:
+                    for i in range(len(positions) - 1):
+                        current_end = block_start_line + positions[i][1] - 2  # Adjust for 0-indexed
+                        next_start = block_start_line + positions[i + 1][0] - 2  # Adjust for 0-indexed
+                        
+                        # Count empty lines between same-name parameter blocks
+                        empty_lines = 0
+                        for line_idx in range(current_end, next_start):
+                            if line_idx < len(lines) and lines[line_idx].strip() == '':
+                                empty_lines += 1
+                        
+                        if empty_lines > 1:
+                            log_error_func(
+                                file_path,
+                                "ST.007",
+                                f"Too many empty lines ({empty_lines}) between same-name parameter blocks '{param_name}' at line {current_end + 1}"
+                            )
+
+    def check_st008_different_parameter_spacing(self, file_path: str, content: str, log_error_func):
+        """
+        ST.008: Check if there is exactly one empty line between different-name parameter blocks
+        """
+        clean_content = self.remove_comments_for_parsing(content)
+        blocks = self.extract_code_blocks(clean_content)
+        lines = content.split('\n')
+        
+        for block_type, block_start_line, block_lines in blocks:
+            param_blocks = self.extract_parameter_blocks_in_resource(block_lines)
+            
+            # Check spacing between consecutive different-name parameter blocks
+            for i in range(len(param_blocks) - 1):
+                current_param = param_blocks[i]
+                next_param = param_blocks[i + 1]
+                
+                # Skip if same parameter name
+                if current_param[0] == next_param[0]:
+                    continue
+                
+                current_end = block_start_line + current_param[2] - 2  # Adjust for 0-indexed
+                next_start = block_start_line + next_param[1] - 2  # Adjust for 0-indexed
+                
+                # Count empty lines between different-name parameter blocks
+                empty_lines = 0
+                for line_idx in range(current_end, next_start):
+                    if line_idx < len(lines) and lines[line_idx].strip() == '':
+                        empty_lines += 1
+                
+                if empty_lines != 1:
+                    log_error_func(
+                        file_path,
+                        "ST.008",
+                        f"Expected exactly 1 empty line between different parameter blocks '{current_param[0]}' and '{next_param[0]}', found {empty_lines} at line {current_end + 1}"
+                    )
+
     def run_all_checks(self, file_path: str, content: str, log_error_func):
         """
         Run all ST rule checks
@@ -327,6 +519,11 @@ class STRules:
         self.check_st001_naming_convention(file_path, content, log_error_func)
         self.check_st002_variable_defaults(file_path, content, log_error_func)
         self.check_st003_parameter_alignment(file_path, content, log_error_func)
+        self.check_st004_indentation_character(file_path, content, log_error_func)
+        self.check_st005_indentation_level(file_path, content, log_error_func)
+        self.check_st006_resource_data_spacing(file_path, content, log_error_func)
+        self.check_st007_same_parameter_spacing(file_path, content, log_error_func)
+        self.check_st008_different_parameter_spacing(file_path, content, log_error_func)
 
     def get_rule_info(self, rule_id: str) -> Dict:
         """
@@ -339,3 +536,100 @@ class STRules:
         Get all rule information
         """
         return self.rules
+
+    def extract_resource_data_blocks_with_positions(self, content: str) -> List[Tuple[str, int, int]]:
+        """
+        Extract resource and data source blocks with their line positions
+        Returns list of (block_type, start_line, end_line)
+        """
+        lines = content.split('\n')
+        blocks = []
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # Match data source or resource start
+            data_match = re.match(r'data\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
+            resource_match = re.match(r'resource\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
+            
+            if data_match or resource_match:
+                block_type = "data" if data_match else "resource"
+                start_line = i + 1  # 1-indexed
+                
+                # Find matching closing brace
+                brace_count = 1
+                i += 1
+                
+                while i < len(lines) and brace_count > 0:
+                    current_line = lines[i]
+                    for char in current_line:
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                    i += 1
+                
+                end_line = i  # 1-indexed
+                blocks.append((block_type, start_line, end_line))
+            else:
+                i += 1
+        
+        return blocks
+
+    def extract_parameter_blocks_in_resource(self, block_lines: List[str]) -> List[Tuple[str, int, int]]:
+        """
+        Extract parameter blocks within a resource or data source block
+        Returns list of (parameter_name, start_line, end_line) relative to block start
+        """
+        parameter_blocks = []
+        i = 0
+        
+        while i < len(block_lines):
+            line = block_lines[i].strip()
+            
+            # Look for parameter block patterns like "tags {", "lifecycle {", etc.
+            param_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*\{', line)
+            if param_match and not line.strip().startswith('#'):
+                param_name = param_match.group(1)
+                start_line = i + 1  # 1-indexed relative to block
+                
+                # Find matching closing brace
+                brace_count = 1
+                i += 1
+                
+                while i < len(block_lines) and brace_count > 0:
+                    current_line = block_lines[i]
+                    for char in current_line:
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                    i += 1
+                
+                end_line = i  # 1-indexed relative to block
+                parameter_blocks.append((param_name, start_line, end_line))
+            else:
+                i += 1
+        
+        return parameter_blocks
+
+    def get_indentation_level(self, line: str) -> int:
+        """
+        Calculate the indentation level of a line based on leading spaces
+        """
+        return len(line) - len(line.lstrip(' '))
+
+    def has_tabs(self, line: str) -> bool:
+        """
+        Check if a line contains tab characters for indentation
+        """
+        leading_whitespace = line[:len(line) - len(line.lstrip())]
+        return '\t' in leading_whitespace
+
+    def calculate_expected_indentation(self, context_level: int) -> int:
+        """
+        Calculate expected indentation based on context level
+        Formula: context_level * 2 (standard 2 spaces per level)
+        """
+        return context_level * 2

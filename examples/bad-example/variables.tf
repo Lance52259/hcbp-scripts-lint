@@ -39,3 +39,36 @@ variable "description" {
   type        = string
   default     = "test description"
 }
+
+# IO.006 Error: Variable missing description field
+variable "no_description_var" {
+  type    = string
+  default = "test"
+}
+
+# IO.006 Error: Variable with empty description
+variable "empty_description_var" {
+  description = ""
+  type        = string
+  default     = "test"
+}
+
+# IO.008 Error: Variable missing type field
+variable "no_type_var" {
+  description = "Variable without type field"
+  default     = "test"
+}
+
+# IO.004 Error: Variable name contains uppercase letters
+variable "BadVariableName" {
+  description = "Variable with uppercase letters in name"
+  type        = string
+  default     = "test"
+}
+
+# IO.004 Error: Variable name starts with underscore
+variable "_underscore_start" {
+  description = "Variable name starts with underscore"
+  type        = string
+  default     = "test"
+}

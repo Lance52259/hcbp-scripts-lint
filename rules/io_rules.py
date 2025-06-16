@@ -52,6 +52,27 @@ class IORules:
                 ),
                 "severity": "ERROR",
                 "check_function": self.check_io005_output_naming_convention
+            },
+            "IO.006": {
+                "name": "Variable description check",
+                "description": (
+                    "Check if all input variables have a description field defined and not empty"
+                ),
+                "category": "Input/Output"
+            },
+            "IO.007": {
+                "name": "Output description check",
+                "description": (
+                    "Check if all output variables have a description field defined and not empty"
+                ),
+                "category": "Input/Output"
+            },
+            "IO.008": {
+                "name": "Variable type check",
+                "description": (
+                    "Check if all input variables have a type field defined"
+                ),
+                "category": "Input/Output"
             }
         }
 
@@ -280,6 +301,63 @@ class IORules:
                         f"Output name '{output_name}' should only contain lowercase letters and underscores"
                     )
 
+    def check_io006_variable_description(self, file_path: str, content: str, log_error_func):
+        """
+        IO.006: Check if all input variables have a description field defined and not empty
+        """
+        clean_content = self.remove_comments_for_parsing(content)
+        variables = self.extract_variable_details(clean_content)
+        
+        for var_name, var_info in variables.items():
+            if var_info['description'] is None:
+                log_error_func(
+                    file_path,
+                    "IO.006",
+                    f"Variable '{var_name}' at line {var_info['line_number']} is missing description field"
+                )
+            elif var_info['description'].strip() == '':
+                log_error_func(
+                    file_path,
+                    "IO.006",
+                    f"Variable '{var_name}' at line {var_info['line_number']} has empty description"
+                )
+
+    def check_io007_output_description(self, file_path: str, content: str, log_error_func):
+        """
+        IO.007: Check if all output variables have a description field defined and not empty
+        """
+        clean_content = self.remove_comments_for_parsing(content)
+        outputs = self.extract_output_details(clean_content)
+        
+        for output_name, output_info in outputs.items():
+            if output_info['description'] is None:
+                log_error_func(
+                    file_path,
+                    "IO.007",
+                    f"Output '{output_name}' at line {output_info['line_number']} is missing description field"
+                )
+            elif output_info['description'].strip() == '':
+                log_error_func(
+                    file_path,
+                    "IO.007",
+                    f"Output '{output_name}' at line {output_info['line_number']} has empty description"
+                )
+
+    def check_io008_variable_type(self, file_path: str, content: str, log_error_func):
+        """
+        IO.008: Check if all input variables have a type field defined
+        """
+        clean_content = self.remove_comments_for_parsing(content)
+        variables = self.extract_variable_details(clean_content)
+        
+        for var_name, var_info in variables.items():
+            if var_info['type'] is None:
+                log_error_func(
+                    file_path,
+                    "IO.008",
+                    f"Variable '{var_name}' at line {var_info['line_number']} is missing type field"
+                )
+
     def run_all_checks(self, file_path: str, content: str, log_error_func):
         """
         Run all IO rule checks
@@ -287,6 +365,11 @@ class IORules:
         self.check_io001_variables_in_separate_file(file_path, content, log_error_func)
         self.check_io002_outputs_in_separate_file(file_path, content, log_error_func)
         self.check_io003_required_variables_in_tfvars(file_path, content, log_error_func)
+        self.check_io004_variable_naming_convention(file_path, content, log_error_func)
+        self.check_io005_output_naming_convention(file_path, content, log_error_func)
+        self.check_io006_variable_description(file_path, content, log_error_func)
+        self.check_io007_output_description(file_path, content, log_error_func)
+        self.check_io008_variable_type(file_path, content, log_error_func)
 
     def get_rule_info(self, rule_id: str) -> Dict:
         """
@@ -299,3 +382,112 @@ class IORules:
         Get all rule information
         """
         return self.rules
+
+    def extract_variable_details(self, content: str) -> Dict[str, Dict]:
+        """
+        Extract variable definitions with their details (description, type, default)
+        Returns dict with variable_name -> {description, type, has_default, line_number}
+        """
+        variables = {}
+        lines = content.split('\n')
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # Match variable block start
+            var_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
+            if var_match:
+                var_name = var_match.group(1)
+                var_info = {
+                    'description': None,
+                    'type': None,
+                    'has_default': False,
+                    'line_number': i + 1
+                }
+                
+                # Parse variable block content
+                brace_count = 1
+                i += 1
+                
+                while i < len(lines) and brace_count > 0:
+                    current_line = lines[i]
+                    stripped = current_line.strip()
+                    
+                    # Count braces
+                    brace_count += stripped.count('{')
+                    brace_count -= stripped.count('}')
+                    
+                    # Extract description
+                    desc_match = re.match(r'description\s*=\s*"([^"]*)"', stripped)
+                    if desc_match:
+                        var_info['description'] = desc_match.group(1)
+                    
+                    # Extract type
+                    type_match = re.match(r'type\s*=\s*(.+)', stripped)
+                    if type_match:
+                        var_info['type'] = type_match.group(1).strip()
+                    
+                    # Check for default
+                    if re.match(r'default\s*=', stripped):
+                        var_info['has_default'] = True
+                    
+                    i += 1
+                
+                variables[var_name] = var_info
+            else:
+                i += 1
+        
+        return variables
+
+    def extract_output_details(self, content: str) -> Dict[str, Dict]:
+        """
+        Extract output definitions with their details (description, value)
+        Returns dict with output_name -> {description, value, line_number}
+        """
+        outputs = {}
+        lines = content.split('\n')
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # Match output block start
+            output_match = re.match(r'output\s+"([^"]+)"\s*\{', line)
+            if output_match:
+                output_name = output_match.group(1)
+                output_info = {
+                    'description': None,
+                    'value': None,
+                    'line_number': i + 1
+                }
+                
+                # Parse output block content
+                brace_count = 1
+                i += 1
+                
+                while i < len(lines) and brace_count > 0:
+                    current_line = lines[i]
+                    stripped = current_line.strip()
+                    
+                    # Count braces
+                    brace_count += stripped.count('{')
+                    brace_count -= stripped.count('}')
+                    
+                    # Extract description
+                    desc_match = re.match(r'description\s*=\s*"([^"]*)"', stripped)
+                    if desc_match:
+                        output_info['description'] = desc_match.group(1)
+                    
+                    # Extract value
+                    value_match = re.match(r'value\s*=\s*(.+)', stripped)
+                    if value_match:
+                        output_info['value'] = value_match.group(1).strip()
+                    
+                    i += 1
+                
+                outputs[output_name] = output_info
+            else:
+                i += 1
+        
+        return outputs
