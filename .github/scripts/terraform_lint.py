@@ -560,20 +560,28 @@ class TerraformLinter:
             os.chdir(directory)
             
             # Get changed files from git
-            # Use different commands based on environment
-            git_commands = [
-                # For GitHub Actions - compare with base branch
-                f"git diff --name-only {self.base_ref}...HEAD",
-                # For local development - compare with last commit
+            # Use different commands based on environment and availability
+            git_commands = []
+            
+            # If base_ref is provided, use it for comparison
+            if self.base_ref:
+                git_commands.append(f"git diff --name-only {self.base_ref}...HEAD")
+                git_commands.append(f"git diff --name-only {self.base_ref}")
+            
+            # Add fallback commands
+            git_commands.extend([
+                # For comparing with previous commit
+                "git diff --name-only HEAD~1...HEAD",
                 "git diff --name-only HEAD~1",
                 # For staged changes
                 "git diff --cached --name-only",
                 # For unstaged changes
                 "git diff --name-only"
-            ]
+            ])
             
             for cmd in git_commands:
                 try:
+                    print(f"Trying git command: {cmd}")
                     result = subprocess.run(
                         cmd.split(),
                         stdout=subprocess.PIPE,
@@ -591,9 +599,15 @@ class TerraformLinter:
                             changed_files = tf_files
                             print(f"Found {len(tf_files)} changed Terraform files using: {cmd}")
                             break
+                    else:
+                        print(f"No output from command: {cmd}")
                             
-                except subprocess.CalledProcessError:
+                except subprocess.CalledProcessError as e:
+                    print(f"Command failed: {cmd} - {e}")
                     continue
+            
+            if not changed_files:
+                print("No changed Terraform files found with any git command")
             
             # Convert relative paths to absolute paths
             absolute_changed_files = []
@@ -610,7 +624,8 @@ class TerraformLinter:
         except Exception as e:
             print(f"Error getting changed files: {e}")
             print("Falling back to checking all files")
-            os.chdir(original_cwd)
+            if 'original_cwd' in locals():
+                os.chdir(original_cwd)
             return []
 
 def main():
