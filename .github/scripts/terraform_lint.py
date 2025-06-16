@@ -716,12 +716,20 @@ Available Rules:
   ST.001: Resource and data source naming convention
   ST.002: Variable default value requirement
   ST.003: Parameter alignment formatting
+  ST.004: Indentation character check (spaces only)
+  ST.005: Indentation level check (proper spacing)
+  ST.006: Resource and data source spacing
+  ST.007: Same parameter block spacing
+  ST.008: Different parameter block spacing
   DC.001: Comment formatting standards
   IO.001: Variable definition file organization
   IO.002: Output definition file organization
   IO.003: Required variable declaration in tfvars
   IO.004: Variable naming convention
   IO.005: Output naming convention
+  IO.006: Variable description check
+  IO.007: Output description check
+  IO.008: Variable type check
         """
     )
 
