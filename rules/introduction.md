@@ -218,7 +218,7 @@ resource "azurerm_storage_account" "test" {
 resource "huaweicloud_vpc" "test" {
   name = "test-vpc"
   cidr = "10.0.0.0/16"
-  
+
   tags = {
     Environment = "test"
   }
@@ -254,7 +254,7 @@ resource "huaweicloud_vpc" "test" {
 resource "huaweicloud_vpc" "test" {
   name = "test-vpc"
   cidr = "10.0.0.0/16"
-  
+
   tags = {
     Environment = "test"
     Project     = "demo"
@@ -267,7 +267,7 @@ resource "huaweicloud_vpc" "test" {
 resource "huaweicloud_vpc" "test" {
     name = "test-vpc"    # 4 spaces instead of 2
 cidr = "10.0.0.0/16"     # No indentation
-  
+
       tags = {           # 6 spaces instead of 2
     Environment = "test" # Inconsistent indentation
   }
@@ -342,11 +342,11 @@ resource "huaweicloud_vpc_subnet" "test" {  # Too many empty lines
 ```hcl
 resource "huaweicloud_compute_instance" "test" {
   name = "test-instance"
-  
+
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
-  
+
   network {
     uuid = huaweicloud_vpc_subnet.test2.id
   }
@@ -357,12 +357,12 @@ resource "huaweicloud_compute_instance" "test" {
 ```hcl
 resource "huaweicloud_compute_instance" "test" {
   name = "test-instance"
-  
+
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
-  
-  
+
+
   network {  # Too many empty lines between same parameter blocks
     uuid = huaweicloud_vpc_subnet.test2.id
   }
@@ -390,11 +390,11 @@ resource "huaweicloud_compute_instance" "test" {
 resource "huaweicloud_compute_instance" "test" {
   name     = "test-instance"
   image_id = "image-123"
-  
+
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
-  
+
   tags {
     Environment = "test"
   }
@@ -406,7 +406,7 @@ resource "huaweicloud_compute_instance" "test" {
 resource "huaweicloud_compute_instance" "test" {
   name     = "test-instance"
   image_id = "image-123"
-  
+
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
@@ -523,6 +523,74 @@ variable "subnet_name" {     # Fourth variable used in main.tf
 - Consider grouping related variables together while maintaining usage order
 - Use consistent variable ordering across similar modules
 - Document any intentional deviations from usage order with comments
+
+### ST.010 - Resource and Data Source Quote Check
+
+**Rule Description:** All data sources and resources must have their type and name enclosed in double quotes.
+
+**Purpose:**
+- Ensures consistent Terraform syntax across all configurations
+- Prevents syntax errors and improves code readability
+- Maintains compatibility with Terraform formatting tools
+- Follows Terraform community standards for resource declarations
+
+**Error Example:**
+
+```hcl
+# ❌ Error: Missing quotes around data source type and name
+# main.tf - Various quoting violations
+data huaweicloud_availability_zones test {
+  region = var.region
+}
+
+data "huaweicloud_compute_flavors" test_flavor {
+  performance_type = "normal"
+  cpu_core_count   = 2
+}
+
+resource huaweicloud_vpc "test" {
+  name = var.vpc_name
+  cidr = var.vpc_cidr
+}
+
+resource "huaweicloud_vpc_subnet" test_subnet {
+  name   = var.subnet_name
+  vpc_id = huaweicloud_vpc.test.id
+}
+```
+
+**Correct Example:**
+
+```hcl
+# ✅ Correct: Proper double quotes around all types and names
+# main.tf - Consistent quoting style
+data "huaweicloud_availability_zones" "test" {
+  region = var.region
+}
+
+data "huaweicloud_compute_flavors" "test" {
+  performance_type = "normal"
+  cpu_core_count   = 2
+}
+
+resource "huaweicloud_vpc" "test" {
+  name = var.vpc_name
+  cidr = var.vpc_cidr
+}
+
+resource "huaweicloud_vpc_subnet" "test" {
+  name   = var.subnet_name
+  vpc_id = huaweicloud_vpc.test.id
+}
+```
+
+**Best Practices:**
+- Always use double quotes for both resource type and name
+- Maintain consistent quoting style throughout all Terraform files
+- Use automated formatting tools like `terraform fmt` to ensure compliance
+- Configure IDE/editor to highlight syntax violations
+
+**Cross-references**: Works with [ST.001](#st001---resource-and-data-source-naming-convention), [ST.003](#st003---parameter-assignment-formatting)
 
 ---
 
@@ -1087,3 +1155,4 @@ These rules aim to improve the quality, consistency, and maintainability of Terr
 
 It is recommended to continuously use this checking tool during project development and adjust rule configurations
 according to team needs.
+

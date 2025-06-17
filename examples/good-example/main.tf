@@ -1,4 +1,5 @@
 # Terraform configuration example that follows the standards
+# ST.010 Compliance: All data sources and resources use proper double quotes around type and name
 
 # Data source definition - instance name is test
 data "huaweicloud_availability_zones" "test" {

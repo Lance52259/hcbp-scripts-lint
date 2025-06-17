@@ -77,6 +77,13 @@ class STRules:
                     "Check if variable definition order in variables.tf matches usage order in main.tf"
                 ),
                 "category": "Style/Format"
+            },
+            "ST.010": {
+                "name": "Resource and data source quote check",
+                "description": (
+                    "Check if all data sources and resources use double quotes around type and name"
+                ),
+                "category": "Style/Format"
             }
         }
 
@@ -367,7 +374,7 @@ class STRules:
         ST.004: Check if all indentation uses spaces only, not tabs
         """
         lines = content.split('\n')
-        
+
         for line_num, line in enumerate(lines, 1):
             if self.has_tabs(line):
                 log_error_func(
@@ -382,16 +389,16 @@ class STRules:
         """
         lines = content.split('\n')
         context_stack = []  # Stack to track nesting levels
-        
+
         for line_num, line in enumerate(lines, 1):
             if line.strip() == '' or line.strip().startswith('#'):
                 continue
-                
+
             current_indent = self.get_indentation_level(line)
-            
+
             # Track opening and closing braces to determine context level
             stripped_line = line.strip()
-            
+
             # Handle closing braces - pop from stack
             if stripped_line == '}' and context_stack:
                 context_stack.pop()
@@ -403,7 +410,7 @@ class STRules:
                         f"Line {line_num}: Expected {expected_indent} spaces indentation, found {current_indent}"
                     )
                 continue
-            
+
             # Check current line indentation
             expected_indent = self.calculate_expected_indentation(len(context_stack))
             if current_indent != expected_indent:
@@ -412,7 +419,7 @@ class STRules:
                     "ST.005",
                     f"Line {line_num}: Expected {expected_indent} spaces indentation, found {current_indent}"
                 )
-            
+
             # Handle opening braces - push to stack
             if stripped_line.endswith('{'):
                 context_stack.append('block')
@@ -424,20 +431,20 @@ class STRules:
         clean_content = self.remove_comments_for_parsing(content)
         blocks = self.extract_resource_data_blocks_with_positions(clean_content)
         lines = content.split('\n')
-        
+
         for i in range(len(blocks) - 1):
             current_block = blocks[i]
             next_block = blocks[i + 1]
-            
+
             current_end = current_block[2] - 1  # Convert to 0-indexed, this is the line after the closing brace
             next_start = next_block[1] - 1  # Convert to 0-indexed, this is the line with the block start
-            
+
             # Count empty lines between blocks (excluding the closing brace line and block start line)
             empty_lines = 0
             for line_idx in range(current_end, next_start):
                 if line_idx < len(lines) and lines[line_idx].strip() == '':
                     empty_lines += 1
-            
+
             if empty_lines != 1:
                 log_error_func(
                     file_path,
@@ -452,30 +459,30 @@ class STRules:
         clean_content = self.remove_comments_for_parsing(content)
         blocks = self.extract_code_blocks(clean_content)
         lines = content.split('\n')
-        
+
         for block_type, block_start_line, block_lines in blocks:
             param_blocks = self.extract_parameter_blocks_in_resource(block_lines)
-            
+
             # Group parameter blocks by name
             param_groups = {}
             for param_name, start_line, end_line in param_blocks:
                 if param_name not in param_groups:
                     param_groups[param_name] = []
                 param_groups[param_name].append((start_line, end_line))
-            
+
             # Check spacing between same-name parameter blocks
             for param_name, positions in param_groups.items():
                 if len(positions) > 1:
                     for i in range(len(positions) - 1):
                         current_end = block_start_line + positions[i][1] - 2  # Adjust for 0-indexed
                         next_start = block_start_line + positions[i + 1][0] - 2  # Adjust for 0-indexed
-                        
+
                         # Count empty lines between same-name parameter blocks
                         empty_lines = 0
                         for line_idx in range(current_end, next_start):
                             if line_idx < len(lines) and lines[line_idx].strip() == '':
                                 empty_lines += 1
-                        
+
                         if empty_lines > 1:
                             log_error_func(
                                 file_path,
@@ -490,34 +497,174 @@ class STRules:
         clean_content = self.remove_comments_for_parsing(content)
         blocks = self.extract_code_blocks(clean_content)
         lines = content.split('\n')
-        
+
         for block_type, block_start_line, block_lines in blocks:
             param_blocks = self.extract_parameter_blocks_in_resource(block_lines)
-            
+
             # Check spacing between consecutive different-name parameter blocks
             for i in range(len(param_blocks) - 1):
                 current_param = param_blocks[i]
                 next_param = param_blocks[i + 1]
-                
+
                 # Skip if same parameter name
                 if current_param[0] == next_param[0]:
                     continue
-                
+
                 current_end = block_start_line + current_param[2] - 2  # Adjust for 0-indexed
                 next_start = block_start_line + next_param[1] - 2  # Adjust for 0-indexed
-                
+
                 # Count empty lines between different-name parameter blocks
                 empty_lines = 0
                 for line_idx in range(current_end, next_start):
                     if line_idx < len(lines) and lines[line_idx].strip() == '':
                         empty_lines += 1
-                
+
                 if empty_lines != 1:
                     log_error_func(
                         file_path,
                         "ST.008",
                         f"Expected exactly 1 empty line between different parameter blocks '{current_param[0]}' and '{next_param[0]}', found {empty_lines} at line {current_end + 1}"
                     )
+
+    def check_st009_variable_order(self, variables_content: str, main_content: str, variables_file: str, main_file: str) -> List[Dict]:
+        """
+        ST.009: Check if variable definition order in variables.tf matches usage order in main.tf
+
+        Args:
+            variables_content: Content of variables.tf file
+            main_content: Content of main.tf file
+            variables_file: Path to variables.tf file
+            main_file: Path to main.tf file
+
+        Returns:
+            List of error dictionaries with 'file', 'rule', and 'message' keys
+        """
+        errors = []
+
+        # Extract variable definitions in order from variables.tf
+        variable_definitions = self.extract_variable_definitions_in_order(variables_content)
+
+        # Extract variable references in order from main.tf
+        variable_references = self.extract_variable_references_in_order(main_content)
+
+        # Filter variable definitions to only include those referenced in main.tf
+        referenced_variables = [var for var in variable_definitions if var in variable_references]
+
+        # Check if the order matches
+        if referenced_variables != variable_references:
+            # Find the first mismatch
+            mismatch_found = False
+            for i, (expected, actual) in enumerate(zip(variable_references, referenced_variables)):
+                if expected != actual:
+                    errors.append({
+                        'file': variables_file,
+                        'rule': 'ST.009',
+                        'message': f"Variable definition order mismatch: expected '{expected}' at position {i+1}, but found '{actual}'. Variables should be defined in the same order as they are used in main.tf"
+                    })
+                    mismatch_found = True
+                    break
+
+            # If no specific mismatch found but lengths differ, report general order issue
+            if not mismatch_found:
+                errors.append({
+                    'file': variables_file,
+                    'rule': 'ST.009',
+                    'message': f"Variable definition order does not match usage order in main.tf. Expected order: {variable_references}, but found: {referenced_variables}"
+                })
+
+        return errors
+
+    def extract_variable_definitions_in_order(self, content: str) -> List[str]:
+        """
+        Extract variable names in the order they are defined in variables.tf
+
+        Args:
+            content: Content of the variables.tf file
+
+        Returns:
+            List of variable names in definition order
+        """
+        variable_names = []
+        clean_content = self.remove_comments_for_parsing(content)
+
+        # Match variable blocks and extract names in order
+        pattern = r'variable\s+"([^"]+)"\s*\{'
+        matches = re.finditer(pattern, clean_content, re.MULTILINE)
+
+        for match in matches:
+            variable_names.append(match.group(1))
+
+        return variable_names
+
+    def extract_variable_references_in_order(self, content: str) -> List[str]:
+        """
+        Extract variable references in the order they first appear in main.tf
+
+        Args:
+            content: Content of the main.tf file
+
+        Returns:
+            List of variable names in first usage order
+        """
+        variable_references = []
+        seen_variables = set()
+        clean_content = self.remove_comments_for_parsing(content)
+
+        # Match var.variable_name patterns and extract in order of first appearance
+        pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
+        matches = re.finditer(pattern, clean_content, re.MULTILINE)
+
+        for match in matches:
+            var_name = match.group(1)
+            if var_name not in seen_variables:
+                variable_references.append(var_name)
+                seen_variables.add(var_name)
+
+        return variable_references
+
+    def check_st010_quote_usage(self, file_path: str, content: str, log_error_func):
+        """
+        ST.010: Check if all data sources and resources use double quotes around type and name
+        """
+        lines = content.split('\n')
+
+        for line_num, line in enumerate(lines, 1):
+            stripped_line = line.strip()
+
+            # Skip empty lines and comments
+            if not stripped_line or stripped_line.startswith('#'):
+                continue
+
+            # Check for data source declarations
+            data_match = re.match(r'^\s*data\s+(.+?)\s*\{', line)
+            if data_match:
+                declaration = data_match.group(1).strip()
+                if not self._is_properly_quoted_declaration(declaration):
+                    log_error_func(
+                        file_path,
+                        "ST.010",
+                        f"Line {line_num}: Data source type and name must be enclosed in double quotes"
+                    )
+
+            # Check for resource declarations
+            resource_match = re.match(r'^\s*resource\s+(.+?)\s*\{', line)
+            if resource_match:
+                declaration = resource_match.group(1).strip()
+                if not self._is_properly_quoted_declaration(declaration):
+                    log_error_func(
+                        file_path,
+                        "ST.010",
+                        f"Line {line_num}: Resource type and name must be enclosed in double quotes"
+                    )
+
+    def _is_properly_quoted_declaration(self, declaration: str) -> bool:
+        """
+        Helper method to check if a resource/data declaration uses proper double quotes
+        Expected format: "type" "name"
+        """
+        # Pattern to match exactly two double-quoted strings separated by whitespace
+        pattern = r'^"[^"]*"\s+"[^"]*"$'
+        return bool(re.match(pattern, declaration))
 
     def run_all_checks(self, file_path: str, content: str, log_error_func):
         """
@@ -531,7 +678,8 @@ class STRules:
         self.check_st006_resource_data_spacing(file_path, content, log_error_func)
         self.check_st007_same_parameter_spacing(file_path, content, log_error_func)
         self.check_st008_different_parameter_spacing(file_path, content, log_error_func)
-        
+        self.check_st010_quote_usage(file_path, content, log_error_func)
+
         # ST.009 requires cross-file analysis, handle separately in main linter
         # This is called from terraform_lint.py when both variables.tf and main.tf are available
 
@@ -554,23 +702,23 @@ class STRules:
         """
         lines = content.split('\n')
         blocks = []
-        
+
         i = 0
         while i < len(lines):
             line = lines[i].strip()
-            
+
             # Match data source or resource start
             data_match = re.match(r'data\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
             resource_match = re.match(r'resource\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
-            
+
             if data_match or resource_match:
                 block_type = "data" if data_match else "resource"
                 start_line = i + 1  # 1-indexed
-                
+
                 # Find matching closing brace
                 brace_count = 1
                 i += 1
-                
+
                 while i < len(lines) and brace_count > 0:
                     current_line = lines[i]
                     for char in current_line:
@@ -579,12 +727,12 @@ class STRules:
                         elif char == '}':
                             brace_count -= 1
                     i += 1
-                
+
                 end_line = i  # 1-indexed
                 blocks.append((block_type, start_line, end_line))
             else:
                 i += 1
-        
+
         return blocks
 
     def extract_parameter_blocks_in_resource(self, block_lines: List[str]) -> List[Tuple[str, int, int]]:
@@ -594,20 +742,20 @@ class STRules:
         """
         parameter_blocks = []
         i = 0
-        
+
         while i < len(block_lines):
             line = block_lines[i].strip()
-            
+
             # Look for parameter block patterns like "tags {", "lifecycle {", etc.
             param_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*\{', line)
             if param_match and not line.strip().startswith('#'):
                 param_name = param_match.group(1)
                 start_line = i + 1  # 1-indexed relative to block
-                
+
                 # Find matching closing brace
                 brace_count = 1
                 i += 1
-                
+
                 while i < len(block_lines) and brace_count > 0:
                     current_line = block_lines[i]
                     for char in current_line:
@@ -616,12 +764,12 @@ class STRules:
                         elif char == '}':
                             brace_count -= 1
                     i += 1
-                
+
                 end_line = i  # 1-indexed relative to block
                 parameter_blocks.append((param_name, start_line, end_line))
             else:
                 i += 1
-        
+
         return parameter_blocks
 
     def get_indentation_level(self, line: str) -> int:
@@ -644,98 +792,3 @@ class STRules:
         """
         return context_level * 2
 
-    def check_variable_order(self, variables_content: str, main_content: str, variables_file: str, main_file: str) -> List[Dict]:
-        """
-        ST.009: Check if variable definition order in variables.tf matches usage order in main.tf
-        
-        Args:
-            variables_content: Content of variables.tf file
-            main_content: Content of main.tf file
-            variables_file: Path to variables.tf file
-            main_file: Path to main.tf file
-            
-        Returns:
-            List of error dictionaries with 'file', 'rule', and 'message' keys
-        """
-        errors = []
-        
-        # Extract variable definitions in order from variables.tf
-        variable_definitions = self.extract_variable_definitions_in_order(variables_content)
-        
-        # Extract variable references in order from main.tf
-        variable_references = self.extract_variable_references_in_order(main_content)
-        
-        # Filter variable definitions to only include those referenced in main.tf
-        referenced_variables = [var for var in variable_definitions if var in variable_references]
-        
-        # Check if the order matches
-        if referenced_variables != variable_references:
-            # Find the first mismatch
-            mismatch_found = False
-            for i, (expected, actual) in enumerate(zip(variable_references, referenced_variables)):
-                if expected != actual:
-                    errors.append({
-                        'file': variables_file,
-                        'rule': 'ST.009',
-                        'message': f"Variable definition order mismatch: expected '{expected}' at position {i+1}, but found '{actual}'. Variables should be defined in the same order as they are used in main.tf"
-                    })
-                    mismatch_found = True
-                    break
-            
-            # If no specific mismatch found but lengths differ, report general order issue
-            if not mismatch_found:
-                errors.append({
-                    'file': variables_file,
-                    'rule': 'ST.009',
-                    'message': f"Variable definition order does not match usage order in main.tf. Expected order: {variable_references}, but found: {referenced_variables}"
-                })
-        
-        return errors
-
-    def extract_variable_definitions_in_order(self, content: str) -> List[str]:
-        """
-        Extract variable names in the order they are defined in variables.tf
-        
-        Args:
-            content: Content of the variables.tf file
-            
-        Returns:
-            List of variable names in definition order
-        """
-        variable_names = []
-        clean_content = self.remove_comments_for_parsing(content)
-        
-        # Match variable blocks and extract names in order
-        pattern = r'variable\s+"([^"]+)"\s*\{'
-        matches = re.finditer(pattern, clean_content, re.MULTILINE)
-        
-        for match in matches:
-            variable_names.append(match.group(1))
-        
-        return variable_names
-
-    def extract_variable_references_in_order(self, content: str) -> List[str]:
-        """
-        Extract variable references in the order they first appear in main.tf
-        
-        Args:
-            content: Content of the main.tf file
-            
-        Returns:
-            List of variable names in first usage order
-        """
-        variable_references = []
-        seen_variables = set()
-        clean_content = self.remove_comments_for_parsing(content)
-        
-        # Match var.variable_name patterns and extract in order of first appearance
-        pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
-        matches = re.finditer(pattern, clean_content, re.MULTILINE)
-        
-        for match in matches:
-            var_name = match.group(1)
-            if var_name not in seen_variables:
-                variable_references.append(var_name)
-                seen_variables.add(var_name)
-        
-        return variable_references

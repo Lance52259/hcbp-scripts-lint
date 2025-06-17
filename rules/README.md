@@ -74,6 +74,11 @@ rules/
   - Makes it easier to understand variable dependencies
   - Facilitates code review and maintenance
 
+- **ST.010**: Resource and data source quote check
+  - Ensures resources and data sources are quoted correctly
+  - Improves code readability and maintainability
+  - Prevents syntax errors and runtime issues
+
 ### DC (Documentation/Comments) - Comment and Description Rules
 - **DC.001**: Comment format check
   - Ensures consistent comment formatting
@@ -187,3 +192,4 @@ Example:
 ```
 ERROR: main.tf: [ST.001] Resource 'huaweicloud_vpc' instance name 'myvpc' should be 'test'
 ```
+

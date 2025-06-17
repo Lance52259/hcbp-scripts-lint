@@ -22,6 +22,7 @@ A comprehensive linting tool for Terraform configuration files, designed to enfo
 - **ST.007**: Same parameter block spacing check (≤1 empty line between same-name blocks)
 - **ST.008**: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
 - **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
+- **ST.010**: Resource and data source quote check
 
 #### 📝 Documentation/Comments Rules (DC)
 - **DC.001**: Comment formatting standards (proper spacing after #)
@@ -264,3 +265,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you want to publish your own version to GitHub Marketplace, please refer to the
 [GitHub Actions documentation](https://docs.github.com/en/actions/creating-actions/publishing-actions-in-github-marketplace).
+
