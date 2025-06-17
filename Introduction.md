@@ -52,6 +52,7 @@ The tool implements a modular rule system organized into three distinct categori
 - **ST.007**: Same parameter block spacing (≤1 empty line)
 - **ST.008**: Different parameter block spacing (exactly 1 empty line)
 - **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
+- **ST.010**: Resource and data source quote check (double quotes around type and name)
 
 **Implementation Pattern**:
 

@@ -86,3 +86,28 @@ variable "test_var" {
   type        = string
   default     = "test"
 }
+
+# ST.010 Error: Missing quotes around data source type
+data huaweicloud_images "test" {
+  name        = "Ubuntu 20.04"
+  most_recent = true
+}
+
+# ST.010 Error: Missing quotes around data source name
+data "huaweicloud_compute_flavors" test {
+  performance_type = "normal"
+  cpu_core_count   = 2
+  memory_size      = 4
+}
+
+# ST.010 Error: Missing quotes around resource type
+resource huaweicloud_kms_key "test" {
+  key_alias    = "test-key"
+  pending_days = "7"
+}
+
+# ST.010 Error: Missing quotes around resource name
+resource "huaweicloud_obs_bucket" test {
+  bucket = "test-bucket-unique-name"
+  acl    = "private"
+}
