@@ -10,7 +10,6 @@ data "huaweicloud_availability_zones" "test" {
 resource "huaweicloud_vpc" "test" {
   name = var.vpc_name
   cidr = var.vpc_cidr
-
   # Tag configuration
   tags = {
     "Environment" = var.environment
@@ -23,4 +22,4 @@ resource "huaweicloud_vpc_subnet" "test" {
   cidr       = var.subnet_cidr
   gateway_ip = var.gateway_ip
   vpc_id     = huaweicloud_vpc.test.id
-}
+} 

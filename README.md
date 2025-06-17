@@ -1,150 +1,188 @@
-# Terraform Scripts Lint
+# Terraform Scripts Lint - Unified Rules Management System
 
-A comprehensive linting tool for Terraform configuration files, designed to enforce best practices and maintain code quality.
+[![GitHub Release](https://img.shields.io/github/v/release/Lance52259/hcbp-scripts-lint)](https://github.com/Lance52259/hcbp-scripts-lint/releases)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-compatible-green.svg)](action.yml)
 
-- **Comprehensive Rule Coverage**: Supports multiple rule categories including Style/Format (ST),
-  Documentation/Comments (DC), and Input/Output (IO) rules
-- **GitHub Actions Integration**: Seamlessly integrates with CI/CD pipelines
-- **Detailed Reporting**: Provides clear, actionable feedback with line-by-line error reporting
-- **Extensible Architecture**: Easy to add new rules and customize existing ones
+A comprehensive and enhanced linting tool for Terraform scripts that uses a **unified rules management system** to
+ensure code quality, consistency, and best practices. This tool provides advanced rule coordination, detailed analytics,
+and flexible configuration options for teams of all sizes.
 
-## Features
+## 🚀 Key Features
 
-### Rule Categories
+### Unified Rules Management System
+- **Centralized Coordination**: Single point of control for all linting rules
+- **Advanced Rule Discovery**: Automatic detection and organization of available rules
+- **Flexible Rule Filtering**: Filter by category, severity, or specific rule IDs
+- **Performance Monitoring**: Built-in analytics and execution time tracking
+- **Extensible Architecture**: Easy to add new rules and categories
 
-#### 🎨 Style/Format Rules (ST)
-- **ST.001**: Resource and data source instance naming convention (must be "test")
-- **ST.002**: Variable default value requirement (all variables must have defaults)
-- **ST.003**: Parameter alignment formatting convention
-- **ST.004**: Indentation character check (only spaces, no tabs)
-- **ST.005**: Indentation level check (2 spaces per level)
-- **ST.006**: Resource and data source spacing check (exactly 1 empty line between blocks)
-- **ST.007**: Same parameter block spacing check (≤1 empty line between same-name blocks)
-- **ST.008**: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
-- **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
-- **ST.010**: Resource and data source quote check
+### Enhanced Linting Capabilities
+- **Three Rule Categories**: ST (Style/Format), IO (Input/Output), DC (Documentation/Comments)
+- **Intelligent Path Filtering**: Include/exclude specific directories and files
+- **Git Integration**: Check only changed files in commits or pull requests
+- **Comprehensive Reporting**: Detailed reports with performance metrics
+- **GitHub Actions Ready**: Seamless CI/CD integration with enhanced outputs
 
-#### 📝 Documentation/Comments Rules (DC)
-- **DC.001**: Comment formatting standards (proper spacing after #)
+### Performance & Reliability
+- **Optimized Execution**: Parallel rule processing and efficient file handling
+- **Memory Efficient**: Processes files individually to minimize memory usage
+- **Error Resilience**: Robust error handling and recovery mechanisms
+- **Detailed Logging**: Comprehensive logging for debugging and monitoring
 
-#### 🔧 Input/Output Rules (IO)
-- **IO.001**: Variable definition file organization (variables must be in variables.tf)
-- **IO.002**: Output definition file organization (outputs must be in outputs.tf)
-- **IO.003**: Required variable declaration in tfvars (all required variables must be declared)
-- **IO.004**: Variable naming convention (lowercase and underscores only)
-- **IO.005**: Output naming convention (lowercase and underscores only)
-- **IO.006**: Variable description check (all variables must have non-empty descriptions)
-- **IO.007**: Output description check (all outputs must have non-empty descriptions)
-- **IO.008**: Variable type check (all variables must have type field defined)
+## 📋 Rule Categories
 
-### Quick Links
+Through the **unified rules management system**, all rules are organized into three main categories, each managed by a
+dedicated coordinator:
 
-📖 **Detailed Rule Descriptions**: See [rules/introduction.md](rules/introduction.md) for detailed descriptions,
-examples, and best practices for each rule.
+### ST (Style/Format) Rules
+Code formatting and style consistency rules, managed by the `STRules` coordinator:
+- **ST.001**: Resource and data source naming conventions
+- **ST.002**: Default value checking convention
+- **ST.003**: Parameter alignment and formatting
+- **ST.004**: Indentation character validation (spaces only)
+- **ST.005**: Proper indentation level enforcement
+- **ST.006**: Resource and data source spacing standards
+- **ST.007**: Same parameter block spacing consistency
+- **ST.008**: Different parameter block spacing rules
+- **ST.009**: Variable order validation
+- **ST.010**: Quote usage standards
 
-🔧 **Rule Implementation**: See [rules/README.md](rules/README.md) for technical implementation and extension
-guidelines.
+### IO (Input/Output) Rules
+Variable and output definition validation rules, managed by the `IORules` coordinator:
+- **IO.001**: Variable definition file organization
+- **IO.002**: Output definition file organization
+- **IO.003**: Required variable declaration check in terraform.tfvars
+- **IO.004**: Variable naming convention compliance
+- **IO.005**: Variable description requirements
+- **IO.006**: Output description requirements
+- **IO.007**: Variable validation constraints check
+- **IO.008**: Output documentation standards
 
-## Quick Start
+### DC (Documentation/Comments) Rules
+Documentation and comment standard rules, managed by the `DCRules` coordinator:
+- **DC.001**: Comment formatting and style standards
+- **DC.002**: Module documentation requirements
+- **DC.003**: Inline comment best practices
 
-### Using as GitHub Action
+> **Unified Management Advantages**: All rules are coordinated through the `RulesManager`, providing cross-category
+  performance monitoring, batch execution, and comprehensive reporting capabilities.
 
-Add this to your `.github/workflows/terraform-lint.yml`:
+## 🔧 Installation & Usage
 
-```yaml
-name: Terraform Lint
+### GitHub Actions (Recommended)
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  terraform-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Terraform Scripts Lint
-        uses: Lance52259/hcbp-scripts-lint@v1.1.0
-        with:
-          directory: './terraform'  # Path to your Terraform files
-```
-
-### Local Usage
-
-```bash
-# Clone the repository
-git clone https://github.com/Lance52259/hcbp-scripts-lint.git
-cd hcbp-scripts-lint
-
-# Run the linter
-python3 .github/scripts/terraform_lint.py --directory /path/to/terraform/files
-
-# With specific output format
-python3 .github/scripts/terraform_lint.py --directory ./terraform --output-format json
-```
-
-## Configuration
-
-### Action Inputs
-
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `directory` | Directory containing Terraform files to lint | No | `./` |
-| `fail-on-error` | Whether to fail the action on lint errors | No | `true` |
-| `ignore-rules` | Comma-separated list of rule IDs to ignore (e.g., ST.001,ST.003) | No | - |
-| `include-paths` | Comma-separated list of path patterns to include (e.g., modules/*,environments/*) | No | - |
-| `exclude-paths` | Comma-separated list of path patterns to exclude (e.g., examples/*,test/*) | No | - |
-| `changed-files-only` | If set to true, only check files changed in current commit/PR | No | `false` |
-| `base-ref` | Base reference for git diff when checking changed files (e.g., origin/main, HEAD~1) | No | `origin/main` |
-
-### Example Configuration
-
-#### Basic Usage
+Add the following step to your GitHub Actions workflow:
 
 ```yaml
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.0
-  with:
-    directory: './infrastructure'
-    fail-on-error: 'true'
-```
-
-#### Advanced Configuration with Rule Control
-
-```yaml
-- name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.0
+  uses: Lance52259/hcbp-scripts-lint@v2.0.0
   with:
     directory: './terraform'
-    ignore-rules: 'ST.001,DC.001'
-    include-paths: 'modules/*,environments/prod/*'
-    exclude-paths: 'examples/*,test/*'
+    rule-categories: 'ST,IO,DC'
+    ignore-rules: 'ST.001,ST.003'
     fail-on-error: 'true'
+    performance-monitoring: 'true'
 ```
 
-#### Check Only Changed Files (Recommended for Large Repositories)
+### Local Development
 
-```yaml
-- name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.0
-  with:
-    changed-files-only: 'true'
-    base-ref: 'origin/main'
-    fail-on-error: 'true'
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Lance52259/hcbp-scripts-lint.git
+   cd hcbp-scripts-lint
+   ```
+
+2. **Run the linter:**
+   ```bash
+   python3 .github/scripts/terraform_lint.py --directory ./terraform
+   ```
+
+3. **Advanced usage with filtering:**
+   ```bash
+   python3 .github/scripts/terraform_lint.py \
+     --directory ./infrastructure \
+     --categories "ST,IO" \
+     --ignore-rules "ST.001,ST.003" \
+     --exclude-paths "examples/*,test/*" \
+     --performance-monitoring
+   ```
+
+## ⚙️ Configuration Options
+
+### GitHub Actions Inputs
+
+| Input | Description | Default | Required |
+|-------|-------------|---------|----------|
+| `directory` | Target directory to check | `.` | No |
+| `rule-categories` | Rule categories to execute (ST,IO,DC) | `ST,IO,DC` | No |
+| `ignore-rules` | Comma-separated list of rules to ignore | `` | No |
+| `include-paths` | Path patterns to include | `` | No |
+| `exclude-paths` | Path patterns to exclude | `` | No |
+| `changed-files-only` | Check only changed files | `false` | No |
+| `base-ref` | Base reference for git diff | `origin/main` | No |
+| `performance-monitoring` | Enable performance analytics | `true` | No |
+| `report-format` | Output format (text/json) | `text` | No |
+| `fail-on-error` | Fail workflow on errors | `true` | No |
+
+### Command Line Options
+
+```bash
+python3 .github/scripts/terraform_lint.py [OPTIONS]
+
+Options:
+  -d, --directory TEXT          Target directory to check
+  --categories TEXT             Rule categories (ST,IO,DC)
+  --ignore-rules TEXT           Rules to ignore (comma-separated)
+  --include-paths TEXT          Paths to include (comma-separated)
+  --exclude-paths TEXT          Paths to exclude (comma-separated)
+  --changed-files-only          Check only changed files
+  --base-ref TEXT               Base reference for git diff
+  --performance-monitoring      Enable performance monitoring
+  --report-format [text|json]   Output report format
+  --help                        Show help message
 ```
 
-#### Pull Request Workflow Example
+## 📊 Enhanced Outputs
+
+### GitHub Actions Outputs
+
+| Output | Description |
+|--------|-------------|
+| `result` | Overall result (success/failure) |
+| `error-count` | Number of errors found |
+| `warning-count` | Number of warnings found |
+| `violation-count` | Total violations found |
+| `files-processed` | Number of files processed |
+| `execution-time` | Total execution time in seconds |
+| `rules-executed` | Total number of rules executed |
+| `performance-metrics` | JSON with performance data |
+| `report-file` | Path to the generated report |
+
+### Performance Metrics
+
+The unified system provides detailed performance analytics:
+
+```json
+{
+  "files_per_second": 15.2,
+  "lines_per_second": 1250,
+  "rules_per_second": 45.8,
+  "execution_time": 2.34,
+  "files_processed": 35,
+  "rules_executed": 105
+}
+```
+
+## 📈 Advanced Usage Examples
+
+### 1. Comprehensive Workflow
 
 ```yaml
-name: Terraform Lint on PR
+name: Terraform Quality Gate
 on:
   pull_request:
-    branches: [ main ]
-    paths: ['**/*.tf', '**/*.tfvars']
+    paths: ['terraform/**']
 
 jobs:
   terraform-lint:
@@ -152,117 +190,236 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for changed-files-only mode
-
-      - name: Terraform Scripts Lint
-        uses: Lance52259/hcbp-scripts-lint@v1.1.0
+          fetch-depth: 0
+      
+      - name: Terraform Lint - Full Analysis
+        id: lint
+        uses: Lance52259/hcbp-scripts-lint@v2.0.0
         with:
+          directory: './terraform'
+          rule-categories: 'ST,IO,DC'
           changed-files-only: 'true'
           base-ref: 'origin/main'
-          ignore-rules: 'ST.002'  # Ignore specific rules if needed
-          fail-on-error: 'true'
+          performance-monitoring: 'true'
+          fail-on-error: 'false'
+      
+      - name: Process Results
+        run: |
+          echo "Files processed: ${{ steps.lint.outputs.files-processed }}"
+          echo "Execution time: ${{ steps.lint.outputs.execution-time }}s"
+          echo "Performance: ${{ steps.lint.outputs.performance-metrics }}"
 ```
 
-## Output
+### 2. Multi-Environment Validation
 
-### Text Format (Default)
-
-```
-Checking file: ./terraform/main.tf
-❌ ST.001: Variable name 'myVar' should use snake_case (line 1)
-❌ DC.001: Variable 'environment' is missing description (line 5)
-✅ ST.003: Resource naming follows convention
-
-Summary:
-- Files checked: 3
-- Total errors: 2
-- Rules passed: 15
-- Rules failed: 2
-```
-
-### JSON Format
-
-```json
-{
-  "summary": {
-    "files_checked": 3,
-    "total_errors": 2,
-    "rules_passed": 15,
-    "rules_failed": 2
-  },
-  "files": [
-    {
-      "file": "./terraform/main.tf",
-      "errors": [
-        {
-          "rule": "ST.001",
-          "message": "Variable name 'myVar' should use snake_case",
-          "line": 1,
-          "severity": "error"
-        }
-      ]
-    }
-  ]
-}
+```yaml
+strategy:
+  matrix:
+    environment: [dev, staging, prod]
+    
+steps:
+  - name: Lint ${{ matrix.environment }}
+    uses: Lance52259/hcbp-scripts-lint@v2.0.0
+  with:
+      directory: './terraform/environments/${{ matrix.environment }}'
+      rule-categories: 'ST,IO'
+      exclude-paths: '*.backup,test/*'
 ```
 
-### GitHub Actions Integration
+### 3. Selective Rule Execution
 
-If errors are found during checking, the GitHub Actions workflow will fail and upload the check report as a
-workflow artifact for detailed review.
+```yaml
+- name: Style Check Only
+  uses: Lance52259/hcbp-scripts-lint@v2.0.0
+  with:
+    rule-categories: 'ST'
+    ignore-rules: 'ST.001,ST.003'
 
-## Performance
+- name: Documentation Check
+  uses: Lance52259/hcbp-scripts-lint@v2.0.0
+  with:
+    rule-categories: 'DC'
+    include-paths: 'modules/*'
+```
 
-The tool is optimized for performance and can handle large Terraform codebases efficiently:
+## 🏗️ Architecture Overview
 
-- **Small Projects** (1-50 files): ~1-3 seconds
-- **Medium Projects** (50-200 files): ~5-15 seconds
-- **Large Projects** (200+ files): ~15-30 seconds
+### Unified Rules Management System
 
-Performance may vary based on file size, complexity, and system specifications.
+```
+┌─────────────────────────────────────┐
+│         RulesManager                │
+│  (Central Unified Coordinator)     │
+├─────────────────────────────────────┤
+│ • Rule Discovery & Registration     │
+│ • Cross-System Execution            │
+│ • Performance Monitoring            │
+│ • Unified Reporting & Analytics     │
+│ • Configuration Management          │
+└─────────────────────────────────────┘
+                  │
+    ┌─────────────┼─────────────┐
+    │             │             │
+┌───▼───┐    ┌───▼───┐    ┌───▼───┐
+│ST Rules│    │IO Rules│    │DC Rules│
+│Package │    │Package │    │Package │
+├───────┤    ├───────┤    ├───────┤
+│reference│    │reference│    │reference│
+│.py     │    │.py     │    │.py     │
+└───────┘    └───────┘    └───────┘
+```
 
-## Examples
+### Key Components
 
-The tool includes comprehensive test examples in the `examples/` directory. You can validate the tool's
-functionality by running it against these examples:
+1. **RulesManager**: Central coordinator for all rule systems with unified API
+2. **Rule Packages**: Independent packages (st_rules/, io_rules/, dc_rules/) with their own coordinators
+3. **Direct Integration**: No intermediate compatibility layers - direct package imports
+4. **Execution Engine**: Optimized rule execution with performance monitoring
+5. **Reporting System**: Comprehensive analytics and detailed reporting
+6. **Configuration Manager**: Flexible rule and path filtering
+
+## 🔍 Detailed Reports
+
+### Artifact Management
+
+The enhanced system includes robust artifact management to prevent naming conflicts:
+
+- **Unique Naming**: Artifacts are named with timestamp, run ID, job ID, and matrix keys
+- **Conflict Resolution**: Automatic fallback naming if primary upload fails
+- **Multiple Formats**: Supports both text and JSON report formats
+- **Retention**: 30-day artifact retention for historical analysis
+
+### Artifact Naming Convention
+
+```
+terraform-lint-report-unified-{run_id}-{run_attempt}-{job_id}-{timestamp}
+```
+
+For matrix jobs:
+```
+terraform-lint-report-unified-{run_id}-{run_attempt}-{job_id}-matrix-{matrix_index}-{timestamp}
+```
+
+### Sample Report Output
+
+```
+============================================================
+TERRAFORM SCRIPTS LINT REPORT (UNIFIED SYSTEM)
+============================================================
+Generated: 2024-01-15 10:30:45
+
+=== SUMMARY ===
+Total Errors: 3
+Total Warnings: 7
+Total Violations: 10
+Files Processed: 25
+Total Lines Processed: 1,250
+Execution Time: 2.34 seconds
+
+=== RULE EXECUTION STATISTICS ===
+Total Rules Executed: 75
+Successful Rule Executions: 72
+Failed Rule Executions: 3
+Success Rate: 96.0%
+
+=== VIOLATIONS BY CATEGORY ===
+ST (Style/Format): 4 violations, 2 errors, 2 warnings
+IO (Input/Output): 3 violations, 1 errors, 2 warnings
+DC (Documentation): 3 violations, 0 errors, 3 warnings
+
+=== PERFORMANCE METRICS ===
+Average Lines per File: 50
+Files per Second: 10.7
+Lines per Second: 534
+Rules per Second: 32.1
+```
+
+## 🛠️ Development & Contribution
+
+### Project Structure
+
+```
+hcbp-scripts-lint/
+├── rules/                          # Unified Rules Management System
+│   ├── __init__.py                 # Package initialization and API exports
+│   ├── rules_manager.py            # Central unified coordinator
+│   ├── st_rules/                   # Style/Format rules package
+│   │   ├── __init__.py             # ST package initialization
+│   │   ├── reference.py            # ST rules coordinator
+│   │   ├── rule_001.py             # Individual ST rule 001
+│   │   ├── rule_002.py             # Individual ST rule 002
+│   │   └── rule_xxx.py             # ...
+│   ├── io_rules/                   # Input/Output rules package
+│   │   ├── __init__.py             # IO package initialization
+│   │   ├── reference.py            # IO rules coordinator
+│   │   ├── rule_001.py             # Individual IO rule 001
+│   │   ├── rule_002.py             # Individual IO rule 002
+│   │   └── rule_xxx.py             # ...
+│   └── dc_rules/                   # Documentation rules package
+│       ├── __init__.py             # DC package initialization
+│       ├── reference.py            # DC rules coordinator
+│       └── rule_001.py             # Individual DC rules
+├── .github/
+│   └── scripts/
+│       └── terraform_lint.py       # Enhanced linting script
+├── action.yml                      # GitHub Action definition
+├── README.md                       # This file
+└── QUICKSTART.md                   # Quick start guide
+```
+
+### Adding New Rules
+
+1. **Create Rule Module**: Add your rule in the appropriate category directory
+2. **Register Rule**: Update the category's reference.py file
+3. **Add Tests**: Include comprehensive test cases
+4. **Update Documentation**: Add rule description and examples
+
+### Running Tests
 
 ```bash
-# Test with valid Terraform files
-python3 .github/scripts/terraform_lint.py --directory examples/valid
+# Run all tests
+python3 -m pytest tests/
 
-# Test with files containing violations
-python3 .github/scripts/terraform_lint.py --directory examples/violations
+# Run specific category tests
+python3 -m pytest tests/test_st_rules.py
+
+# Run with coverage
+python3 -m pytest --cov=rules tests/
 ```
 
-## Contributing
+## 📚 Documentation
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+- [Quick Start Guide](QUICKSTART.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+- [Security Policy](SECURITY.md)
 
-- Setting up the development environment
-- Adding new rules
-- Running tests
-- Submitting pull requests
+## 🤝 Contributing
 
-## Security
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
 
-Security is a top priority. Please see our [Security Policy](SECURITY.md) for:
+- Code style and standards
+- Testing requirements
+- Pull request process
+- Issue reporting
 
-- Reporting security vulnerabilities
-- Security best practices
-- Supported versions
+## 📄 License
 
-## License
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🏷️ Versioning
 
-## Support
+We use [Semantic Versioning](http://semver.org/) for versioning. For the versions available, see the
+[tags on this repository](https://github.com/Lance52259/hcbp-scripts-lint/tags).
 
-- 📖 **Documentation**: Check the [rules documentation](rules/) for detailed information
-- 🐛 **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-- 💬 **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+## 📞 Support
 
-## Publishing to GitHub Marketplace
+- **Issues**: [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+- **Documentation**: [Wiki](https://github.com/Lance52259/hcbp-scripts-lint/wiki)
 
-If you want to publish your own version to GitHub Marketplace, please refer to the
-[GitHub Actions documentation](https://docs.github.com/en/actions/creating-actions/publishing-actions-in-github-marketplace).
+---
+
+**Enhanced by the Unified Rules Management System** - Providing consistent, efficient, and extensible Terraform linting
+                                                      for teams worldwide.
 

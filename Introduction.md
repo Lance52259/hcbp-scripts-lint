@@ -44,7 +44,7 @@ The tool implements a modular rule system organized into three distinct categori
 
 **Core Rules**:
 - **ST.001**: Resource and data source naming conventions
-- **ST.002**: Variable default value requirements
+- **ST.002**: Default value checking convention
 - **ST.003**: Parameter alignment and spacing standards
 - **ST.004**: Indentation character validation (spaces only)
 - **ST.005**: Indentation level consistency (2 spaces per level)
@@ -87,11 +87,11 @@ class STRules:
 **Core Rules**:
 - **IO.001**: Variable definition file organization
 - **IO.002**: Output definition file organization
-- **IO.003**: Required variable declaration validation
+- **IO.003**: Required variable declaration check in terraform.tfvars
 - **IO.004**: Variable naming conventions
 - **IO.005**: Output naming conventions
 - **IO.006**: Variable description validation (non-empty descriptions required)
-- **IO.007**: Output description validation (non-empty descriptions required)
+- **IO.007**: Variable validation constraints check
 - **IO.008**: Variable type validation (type field required)
 
 **Advanced Features**:

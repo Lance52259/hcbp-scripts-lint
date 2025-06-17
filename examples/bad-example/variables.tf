@@ -72,3 +72,16 @@ variable "_underscore_start" {
   type        = string
   default     = "test"
 }
+
+# ST.002 Error: Variables used in data source must have default values
+variable "cpu_cores" {
+  description = "CPU core count for compute flavors"
+  type        = number
+  # Missing default value but used in data source
+}
+
+variable "memory_size" {
+  description = "Memory size for compute flavors"
+  type        = number
+  # Missing default value but used in data source
+}

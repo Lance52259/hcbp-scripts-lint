@@ -244,8 +244,8 @@ def test_rule_implementation():
     """Test that rule correctly identifies violations."""
     # Arrange
     test_content = """
-    resource "aws_instance" "bad_name" {
-        ami = "ami-12345"
+    resource "huaweicloud_compute_instance" "bad_name" {
+      name = "tf_test_demo"
     }
     """
 

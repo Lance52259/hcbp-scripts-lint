@@ -1,37 +1,44 @@
 # Terraform configuration example that violates the standards
 
-# Error 1: Data source instance name is not "test"
+# ST.001 Error: Data source instance name is not "test"
 data "huaweicloud_availability_zones" "myaz" {
   region = var.region
 }
 
-# Error 2: Resource instance name is not "test"
+# ST.001 Error: Resource instance name is not "test"
 resource "huaweicloud_vpc" "myvpc" {
-  name= var.vpc_name       # ST.003 error: Missing space before equals sign
-  cidr =  var.vpc_cidr     # ST.003 error: Multiple spaces after equals sign
-  description = "test vpc" # ST.003 error: Equals signs not aligned
+  name= var.vpc_name       # ST.003 Error: Missing space before equals sign
+  cidr =  var.vpc_cidr     # ST.003 Error: Multiple spaces after equals sign
+  description = "test vpc" # ST.003 Error: Equals signs not aligned
 }
 
-# Error 3: Using variable not declared in tfvars
+# ST.002 Error: Variable used in data source must have default value
+data "huaweicloud_compute_flavors" "test" {
+  performance_type = "normal"
+  cpu_core_count   = var.cpu_cores    # Variable without default used in data source
+  memory_size      = var.memory_size  # Variable without default used in data source
+}
+
+# Using variable not declared in tfvars
 resource "huaweicloud_vpc_subnet" "test" {
-  name= var.subnet_name                 # ST.003 error: Missing space before equals sign and not aligned
+  name= var.subnet_name                 # ST.003 Error: Missing space before equals sign and not aligned
   cidr       = var.subnet_cidr
   gateway_ip = var.missing_variable
   vpc_id     = huaweicloud_vpc.myvpc.id
 }
 
-# Error 4: Incorrect comment format, missing space
+# DC.001 Error: Incorrect comment format, missing space
 resource "huaweicloud_security_group" "test" {
-  name= "test-sg"              # ST.003 error: Missing space before equals sign
-  #  Error 5: Incorrect comment format, multiple spaces
-  description =var.description # ST.003 error: Missing space after equals sign and not aligned
+  name= "test-sg"              # ST.003 Error: Missing space before equals sign
+  #DC.001 Error: Incorrect comment format, multiple spaces
+  description =var.description # ST.003 Error: Missing space after equals sign and not aligned
 }
 
 # ST.006 Error: Missing empty line between resource blocks
 resource "huaweicloud_security_group_rule" "test" {
-	direction        = "ingress"  # This line uses tab instead of spaces
+	direction        = "ingress"  # ST.004 Error: This line uses tab instead of spaces
   ethertype        = "IPv4"
-	protocol         = "tcp"      # This line uses tab instead of spaces
+	protocol         = "tcp"      # ST.004 Error: This line uses tab instead of spaces
   port_range_min   = 22
   port_range_max   = 22
   remote_ip_prefix = "0.0.0.0/0"
@@ -41,7 +48,7 @@ resource "huaweicloud_security_group_rule" "test" {
 resource "huaweicloud_compute_instance" "test" {
   name            = "test-instance"
   image_id        = "image-123"
-  flavor_id       = "flavor-456"
+  flavor_id       = data.huaweicloud_compute_flavors.test.flavors[0].id
   security_groups = [huaweicloud_security_group.test.name]
   availability_zone = data.huaweicloud_availability_zones.myaz.names[0]
 
@@ -60,7 +67,7 @@ resource "huaweicloud_compute_instance" "test" {
 resource "huaweicloud_compute_instance" "test2" {
   name            = "test-instance-2"
   image_id        = "image-123"
-  flavor_id       = "flavor-456"
+  flavor_id       = data.huaweicloud_compute_flavors.test.flavors[0].id
 
   network {
     uuid = huaweicloud_vpc_subnet.test.id
@@ -74,13 +81,21 @@ resource "huaweicloud_compute_instance" "test2" {
   }
 }
 
-# Error 6: Output definition should be in outputs.tf file
+# ST.005 Error: Additional indentation level errors
+resource "huaweicloud_nat_gateway" "test" {
+ name = "test-nat"                                 # ST.005 Error: 1 space instead of 2
+   vpc_id = huaweicloud_vpc.myvpc.id               # ST.005 Error: 3 spaces instead of 2
+     spec = "1"                                    # ST.005 Error: 5 spaces instead of 2
+       subnet_id = huaweicloud_vpc_subnet.test.id  # ST.005 Error: 7 spaces instead of 2
+}
+
+# IO.001 Error: Output definition should be in outputs.tf file
 output "vpc_id" {
   description = "VPC ID"
   value       = huaweicloud_vpc.myvpc.id
 }
 
-# Error 7: Variable definition should be in variables.tf file
+# IO.001 Error: Variable definition should be in variables.tf file
 variable "test_var" {
   description = "Test variable"
   type        = string
