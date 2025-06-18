@@ -44,49 +44,54 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Dict, Any, Optional
 
 
-def check_io007_output_description(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_io007_output_description(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all output definitions include non-empty description fields according to IO.007 rule specifications.
-
-    This function scans through the provided Terraform file content and validates
-    that all output definitions include descriptive documentation through
-    non-empty description fields. This ensures proper documentation and helps users
-    understand output purposes and values.
-
+    Validate output definitions have meaningful descriptions according to IO.007 rule specifications.
+    
+    This function validates that all output definitions include meaningful 
+    descriptions that clearly explain the purpose and value of each output. 
+    It ensures that outputs provide adequate documentation for users of the 
+    Terraform module.
+    
     The validation process:
-    1. Remove comments from content for accurate parsing
-    2. Extract all output definitions from the file
-    3. Check each output for the presence of a non-empty description field
-    4. Report violations through the error logging function
-
+    1. Extract all output definitions from the Terraform file
+    2. Check each output for the presence of a description field
+    3. Validate that descriptions are meaningful (not empty or too generic)
+    4. Report violations for outputs missing descriptions or having inadequate descriptions
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all output definitions that need to be checked.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to check for output definitions and descriptions.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-
+    
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
-        >>> content = 'output "test" { value = "example" }'
-        >>> check_io007_output_description("outputs.tf", content, mock_logger)
-        IO.007: Output 'test' must include a description field
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}:{line_num}: {msg}")
+        >>> 
+        >>> # Content with output missing description
+        >>> content = '''
+        ... output "example" {
+        ...   value = var.example
+        ... }
+        ... '''
+        >>> check_io007_output_description("outputs.tf", content, sample_log_func)
+        IO.007 at outputs.tf:None: Output 'example' must have a meaningful description
     """
     outputs = _extract_outputs(content)
     
@@ -95,13 +100,15 @@ def check_io007_output_description(file_path: str, content: str, log_error_func:
             log_error_func(
                 file_path,
                 "IO.007",
-                f"Output '{output['name']}' must include a description field"
+                f"Output '{output['name']}' must include a description field",
+                output['line_number']
             )
         elif output['description_empty']:
             log_error_func(
                 file_path,
                 "IO.007",
-                f"Output '{output['name']}' has an empty description field"
+                f"Output '{output['name']}' has an empty description field",
+                output['line_number']
             )
 
 
@@ -154,16 +161,32 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
         content (str): The cleaned Terraform content
 
     Returns:
-        List[Dict[str, Any]]: List of output definitions with metadata
+        List[Dict[str, Any]]: List of output definitions with metadata including line numbers
     """
     outputs = []
     clean_content = _remove_comments_for_parsing(content)
+    original_lines = content.split('\n')
 
     # Pattern to match output blocks with their full content
     output_pattern = r'output\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    output_matches = re.findall(output_pattern, clean_content, re.DOTALL)
-
-    for output_name, output_body in output_matches:
+    
+    # Find all output matches with their positions
+    for match in re.finditer(output_pattern, clean_content, re.DOTALL):
+        output_name = match.group(1)
+        output_body = match.group(2)
+        
+        # Find the line number where this output starts
+        # Count newlines before the match start to get line number
+        preceding_text = clean_content[:match.start()]
+        line_number = preceding_text.count('\n') + 1
+        
+        # Find the actual line number in original content by matching the output declaration
+        actual_line_number = None
+        for line_num, line in enumerate(original_lines, 1):
+            if f'output "{output_name}"' in line:
+                actual_line_number = line_num
+                break
+        
         # Check for description field
         description_match = re.search(r'description\s*=\s*"([^"]*)"', output_body)
         has_description = description_match is not None
@@ -176,6 +199,7 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
         
         output_info = {
             'name': output_name,
+            'line_number': actual_line_number or line_number,
             'has_description': has_description,
             'description_empty': description_empty,
             'has_value': bool(re.search(r'value\s*=', output_body)),

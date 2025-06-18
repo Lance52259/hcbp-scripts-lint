@@ -58,6 +58,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rule Description Corrections**: Fixed multiple inconsistencies between documentation and implementation
   - **ST.002 Rule Fix**: Corrected description from "All variables must have default values" to "Variables used in data sources must have default values"
   - **IO Rules Corrections**: Fixed descriptions for IO.003 (Required Variable Declaration Check), IO.004 (Variable Naming Convention), IO.005 (Output Naming Convention), IO.006 (Variable Description Check), IO.007 (Output Description Check), and IO.008 (Variable Type Check)
+  - **IO.001 & IO.002 Enhanced Reporting**: Updated rules to provide precise line number reporting for each violation
+    - **IO.001**: Now reports individual variable definitions with exact line numbers (e.g., `ERROR: main.tf (12): [IO.001] Variable 'example' should be defined in 'variables.tf'`)
+    - **IO.002**: Now reports individual output definitions with exact line numbers (e.g., `ERROR: main.tf (25): [IO.002] Output 'example' should be defined in 'outputs.tf'`)
+  - **IO.003 Enhanced Reporting**: Updated rule to provide precise line number reporting for each missing required variable
+    - **IO.003**: Now reports each missing required variable individually with exact line numbers (e.g., `ERROR: main.tf (15): [IO.003] Required variable 'cpu_cores' used and must be declared in terraform.tfvars`)
+    - **Individual Violation Tracking**: Each missing variable declaration is now reported separately, providing better error granularity
+    - **Precise Error Location**: Shows exact line where required variable is defined, making debugging faster and more accurate
   - **Modular Migration Status**: Updated documentation to reflect 100% completion of modular architecture migration
 - **Status Accuracy**: Corrected rule status indicators in README.md
   - All ST rules (ST.001-ST.010) now correctly marked as ✅ Modular
@@ -418,9 +425,9 @@ This major release represents a complete architectural transformation aimed at p
   - **DC (Documentation/Comments) Rules**:
     - DC.001: Comment formatting standards
   - **IO (Input/Output) Rules**:
-    - IO.001: Variable definition file organization
-    - IO.002: Output definition file organization
-    - IO.003: Required variable declaration in tfvars
+    - IO.001: Variable definition file organization (with precise line number reporting)
+    - IO.002: Output definition file organization (with precise line number reporting)
+    - IO.003: Required variable declaration in tfvars (with precise line number reporting)
     - IO.004: Variable naming conventions
     - IO.005: Output naming conventions
 

@@ -3,66 +3,59 @@
 IO.003 - Required Variable Declaration Check in terraform.tfvars
 
 This module implements the IO.003 rule which validates that all required variables
-(variables without default values) used in resources are declared in the
-terraform.tfvars file in the same directory.
+(variables without default values) are declared with values in the terraform.tfvars
+file in the same directory.
 
 Rule Specification:
-- Check all variables used in resources within the current directory
-- Required variables are those defined in variables.tf without default values
-- All required variables used in resources must be declared in terraform.tfvars
+- Check all variables defined in the current file
+- Required variables are those without default values
+- All required variables must be declared in terraform.tfvars
 - Variables with default values are optional and don't need to be in terraform.tfvars
+- Report each missing variable declaration individually with precise line numbers
 - Helps ensure all necessary input values are provided for deployment
 
 Examples:
     Valid definition:
-        # parameters defined in variables.tf (instance_name is required, flavor_id is optional)
-        variable "instance_name" {
+        # variables.tf (required variables declared in terraform.tfvars)
+        variable "instance_name" {        # Line 2: Required variable
           description = "Name of the ECS instance"
           type        = string
           # No default value - this is required
         }
 
-        variable "flavor_id" {
+        variable "flavor_id" {            # Line 8: Optional variable
           description = "The flavor ID of the ECS instance"
           type        = string
-          default     = "c6.2xlarge.4"  # Has default - optional
-        }
-
-        # instance resource using name and flavor_id variables in main.tf
-        resource "huaweicloud_compute_instance" "test" {
-          name      = var.instance_name  # Uses required variable
-          flavor_id = var.flavor_id    # Uses optional variable
-          # ...
+          default     = "c6.2xlarge.4"   # Has default - optional
         }
 
         # terraform.tfvars must contain:
-        instance_name = "my-instance"  # Required because used in resource and no default
+        instance_name = "my-instance"     # Required variable declared
         # flavor_id is optional because it has default value
 
     Invalid definition:
-        # variables.tf
-        variable "instance_name" {
-          description = "Name of the ECS instance"
-          type        = string
-          # No default - required
-        }
-
-        variable "flavor_id" {
-          description = "The flavor ID of the ECS instance"
-          type        = string
-          default     = "c6.2xlarge.4"  # Has default - optional
-        }
-
         # main.tf
-        resource "huaweicloud_compute_instance" "test" {
-          name      = var.instance_name  # Uses required variable
-          flavor_id = var.flavor_id      # Uses optional variable
-          # ...
+        variable "cpu_cores" {            # Line 2: Required variable missing from tfvars
+          description = "Number of CPU cores"
+          type        = number
+          # No default - required but missing from terraform.tfvars
+        }
+
+        variable "memory_size" {          # Line 8: Required variable missing from tfvars
+          description = "Memory size in GB"
+          type        = number
+          # No default - required but missing from terraform.tfvars
+        }
+
+        variable "flavor_id" {            # Line 14: Optional variable
+          description = "The flavor ID"
+          type        = string
+          default     = "c6.2xlarge.4"   # Has default - optional
         }
 
         # terraform.tfvars
-        # Missing declaration for required variable instance_name
-        flavor_id = "c6.4xlarge.8"  # Optional variable declared (not required)
+        # Missing declarations for required variables cpu_cores and memory_size
+        flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
 
 Author: Lance
 License: Apache 2.0
@@ -70,79 +63,65 @@ License: Apache 2.0
 
 import re
 import os
-from typing import Callable, List, Dict, Any, Set
+from typing import Callable, List, Dict, Any, Set, Optional, Tuple
 
 
-def check_io003_required_variables(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_io003_required_variables(file_path: str, content: str, 
+                                  log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all required variables used in resources are declared in terraform.tfvars according to IO.003 rule specifications.
-
-    This function checks if all variables without default values that are used in 
-    resources in the current directory are declared in the terraform.tfvars file 
-    in the same directory.
-
+    Validate that all required variables are declared in terraform.tfvars according to IO.003 rule specifications.
+    
+    This function validates that all required variables (variables without default values)
+    defined in the current file are properly declared in the terraform.tfvars file.
+    Each missing variable declaration is reported individually with precise line numbers.
+    
     The validation process:
-    1. Extract all variable usage from resource blocks in the current file
-    2. Find variables.tf in the same directory and identify required variables (no default)
-    3. Filter used variables to only include required ones
-    4. Check if terraform.tfvars exists and contains declarations for required variables
-    5. Report violations for missing required variable declarations
-
+    1. Extract all variable definitions from the current file
+    2. Identify which variables are required (no default value)
+    3. Check if terraform.tfvars exists and read its content
+    4. Verify that each required variable is declared in terraform.tfvars
+    5. Report violations for each missing variable declaration individually
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all variable and resource definitions.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to find variable definitions.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
+    Raises:
+        No exceptions are raised by this function. All errors are handled
+        gracefully and reported through the logging mechanism.
+    
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
-        >>> # Assuming resource uses required variable "instance_name"
-        >>> # but terraform.tfvars doesn't declare it
-        >>> check_io003_required_variables("main.tf", content, mock_logger)
-        IO.003: Required variable 'instance_name' used in resources must be declared in terraform.tfvars
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}:{line_num}: {msg}")
+        >>> 
+        >>> # Content with required variable missing from terraform.tfvars
+        >>> content = '''
+        ... variable "cpu_cores" {
+        ...   description = "Number of CPU cores"
+        ...   type        = number
+        ... }
+        ... '''
+        >>> check_io003_required_variables("main.tf", content, sample_log_func)
+        IO.003 at main.tf:1: Required variable 'cpu_cores' used and must be declared in terraform.tfvars
     """
     # Get the directory of the current file
     file_dir = os.path.dirname(file_path)
     
-    # Find variables.tf in the same directory
-    variables_tf_path = os.path.join(file_dir, 'variables.tf')
-    if not os.path.exists(variables_tf_path):
-        # No variables.tf file, so no variables to check
-        return
+    # Extract all required variables (those without default values) from current file
+    required_variables = _extract_required_variables_with_lines(content)
     
-    # Read variables.tf content
-    try:
-        with open(variables_tf_path, 'r', encoding='utf-8') as f:
-            variables_content = f.read()
-    except Exception:
-        # Can't read variables.tf, skip this check
-        return
-    
-    # Extract all required variables (those without default values)
-    all_required_variables = _extract_required_variables(variables_content)
-    
-    if not all_required_variables:
-        # No required variables, nothing to check
-        return
-    
-    # Extract variables used in resources in the current file
-    used_variables = _extract_variables_used_in_resources(content)
-    
-    # Find required variables that are actually used in resources
-    required_used_variables = all_required_variables.intersection(used_variables)
-    
-    if not required_used_variables:
-        # No required variables used in resources, nothing to check
+    if not required_variables:
+        # No required variables in this file, nothing to check
         return
     
     # Find terraform.tfvars in the same directory
@@ -155,74 +134,61 @@ def check_io003_required_variables(file_path: str, content: str, log_error_func:
                 tfvars_content = f.read()
             declared_variables = _extract_declared_variables(tfvars_content)
         except Exception:
-            # Can't read terraform.tfvars
+            # Can't read terraform.tfvars, treat as empty
             pass
     
-    # Check for missing required variables
-    for var_name in required_used_variables:
+    # Check each required variable for declaration in terraform.tfvars
+    for var_name, line_number in required_variables:
         if var_name not in declared_variables:
             log_error_func(
                 file_path,
                 "IO.003",
-                f"Required variable '{var_name}' used in resources must be declared in terraform.tfvars"
+                f"Required variable '{var_name}' used and must be declared in terraform.tfvars",
+                line_number
             )
 
 
-def _extract_variables_used_in_resources(content: str) -> Set[str]:
+def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     """
-    Extract variable names that are used in resource blocks.
+    Extract variable names and line numbers for variables that are required (don't have default values).
 
     Args:
         content (str): Content of the Terraform file
 
     Returns:
-        Set[str]: Set of variable names used in resources
+        List[Tuple[str, int]]: List of tuples containing (variable_name, line_number)
     """
-    used_vars = set()
-    clean_content = _remove_comments_for_parsing(content)
-    
-    # Find all resource blocks
-    resource_pattern = r'resource\s+"[^"]+"\s+"[^"]+"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    resource_matches = re.findall(resource_pattern, clean_content, re.DOTALL)
-    
-    # Find all data source blocks
-    data_pattern = r'data\s+"[^"]+"\s+"[^"]+"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    data_matches = re.findall(data_pattern, clean_content, re.DOTALL)
-    
-    # Combine resource and data source content
-    all_blocks = resource_matches + data_matches
-    
-    # Extract variable references from all blocks
-    var_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
-    
-    for block_content in all_blocks:
-        var_matches = re.findall(var_pattern, block_content)
-        used_vars.update(var_matches)
-    
-    return used_vars
-
-
-def _extract_required_variables(content: str) -> Set[str]:
-    """
-    Extract variable names that are required (don't have default values).
-
-    Args:
-        content (str): Content of variables.tf file
-
-    Returns:
-        Set[str]: Set of required variable names
-    """
-    required_vars = set()
-    clean_content = _remove_comments_for_parsing(content)
+    required_vars = []
+    lines = content.split('\n')
     
     # Pattern to match variable blocks with their full content
-    var_pattern = r'variable\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    var_matches = re.findall(var_pattern, clean_content, re.DOTALL)
+    var_pattern = r'variable\s+"([^"]+)"\s*\{'
     
-    for var_name, var_body in var_matches:
-        # Check if variable has a default value
-        if not re.search(r'default\s*=', var_body):
-            required_vars.add(var_name)
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        match = re.search(var_pattern, line)
+        if match:
+            var_name = match.group(1)
+            line_number = i + 1  # Convert to 1-indexed
+            
+            # Find the end of this variable block
+            brace_count = line.count('{') - line.count('}')
+            j = i + 1
+            var_content = line
+            
+            while j < len(lines) and brace_count > 0:
+                var_content += '\n' + lines[j]
+                brace_count += lines[j].count('{') - lines[j].count('}')
+                j += 1
+            
+            # Check if variable has a default value
+            if not re.search(r'default\s*=', var_content):
+                required_vars.append((var_name, line_number))
+            
+            i = j
+        else:
+            i += 1
     
     return required_vars
 
@@ -301,15 +267,16 @@ def get_rule_description() -> dict:
         "name": "Required variable declaration check in terraform.tfvars",
         "description": (
             "Validates that all required variables (variables without default "
-            "values) used in resources are declared in the terraform.tfvars file. "
-            "This ensures all necessary input values are provided for deployment."
+            "values) are declared in the terraform.tfvars file. Each missing "
+            "variable declaration is reported individually with precise line numbers."
         ),
         "category": "Input/Output",
         "severity": "error",
         "rationale": (
-            "Required variables used in resources must have values provided through "
-            "terraform.tfvars to ensure successful deployment. Missing required "
-            "variables will cause Terraform to fail during execution."
+            "Required variables must have values provided through terraform.tfvars "
+            "to ensure successful deployment. Missing required variables will cause "
+            "Terraform to fail during execution. Each violation is reported "
+            "separately for precise error identification."
         ),
         "examples": {
             "valid": [
@@ -327,13 +294,6 @@ variable "flavor_id" {
   default     = "c6.2xlarge.4"  # Has default - optional
 }
 
-# main.tf
-resource "huaweicloud_compute_instance" "test" {
-  name      = var.instance_name  # Uses required variable
-  flavor_id = var.flavor_id      # Uses optional variable
-  # ...
-}
-
 # terraform.tfvars
 instance_name = "my-instance"  # Required variable declared
 # flavor_id is optional, no need to declare
@@ -341,29 +301,32 @@ instance_name = "my-instance"  # Required variable declared
             ],
             "invalid": [
                 '''
-# variables.tf
-variable "instance_name" {
-  description = "Name of the ECS instance"
-  type        = string
+# main.tf
+variable "cpu_cores" {            # Line 2: Missing from terraform.tfvars
+  description = "Number of CPU cores"
+  type        = number
   # No default - required
 }
 
-variable "flavor_id" {
-  description = "The flavor ID of the ECS instance"
-  type        = string
-  default     = "c6.2xlarge.4"  # Has default - optional
+variable "memory_size" {          # Line 8: Missing from terraform.tfvars
+  description = "Memory size in GB"
+  type        = number
+  # No default - required
 }
 
-# main.tf
-resource "huaweicloud_compute_instance" "test" {
-  name      = var.instance_name  # Uses required variable
-  flavor_id = var.flavor_id      # Uses optional variable
-  # ...
+variable "flavor_id" {            # Line 14: Optional
+  description = "The flavor ID"
+  type        = string
+  default     = "c6.2xlarge.4"   # Has default - optional
 }
 
 # terraform.tfvars
-# Missing declaration for required variable instance_name
-flavor_id = "c6.4xlarge.8"  # Optional variable declared (not required)
+# Missing declarations for required variables cpu_cores and memory_size
+flavor_id = "c6.4xlarge.8"       # Optional variable (not required)
+
+# Expected errors:
+# ERROR: main.tf (2): [IO.003] Required variable 'cpu_cores' used and must be declared in terraform.tfvars
+# ERROR: main.tf (8): [IO.003] Required variable 'memory_size' used and must be declared in terraform.tfvars
 '''
             ]
         },
@@ -371,8 +334,8 @@ flavor_id = "c6.4xlarge.8"  # Optional variable declared (not required)
         "performance_impact": "minimal",
         "related_rules": ["IO.001", "IO.002"],
         "configuration": {
-            "check_resource_usage": True,
+            "check_all_required_variables": True,
             "require_tfvars_file": True,
-            "ignore_optional_variables": True
+            "report_individual_violations": True
         }
     }

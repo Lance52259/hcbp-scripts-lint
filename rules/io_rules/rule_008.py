@@ -47,33 +47,41 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Dict, Any, Optional
 
 
-def check_io008_variable_type(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_io008_variable_type(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all variable definitions include type specifications according to IO.008 rule specifications.
+    Validate that all variables have explicit type declarations according to IO.008 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    that all variable definitions include type specifications. This ensures proper
-    type validation and helps prevent configuration errors.
+    that all variable definitions include explicit type declarations. Type declarations
+    improve code clarity, prevent type-related errors, and enhance tooling support
+    for validation and autocompletion.
 
     The validation process:
     1. Remove comments from content for accurate parsing
     2. Extract all variable definitions from the file
-    3. Check each variable for the presence of a type field
-    4. Report violations through the error logging function
+    3. Check each variable for the presence of a type declaration
+    4. Validate that type declarations are meaningful and specific
+    5. Report violations through the error logging function
+
+    Type requirements:
+    - All variables must have an explicit type declaration
+    - Type declarations should be specific (string, number, bool, list, map, etc.)
+    - Avoid using 'any' type unless absolutely necessary
+    - Complex types should be properly structured
 
     Args:
         file_path (str): The path to the file being checked. Used for error reporting
                         to help developers identify the location of violations.
 
         content (str): The complete content of the Terraform file as a string.
-                      This includes all variable definitions that need to be checked.
+                      This includes all variable definitions.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and optional line_number.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -84,11 +92,15 @@ def check_io008_variable_type(file_path: str, content: str, log_error_func: Call
         gracefully and reported through the logging mechanism.
 
     Example:
-        >>> def mock_logger(path, rule, msg):
+        >>> def mock_logger(path, rule, msg, line_num):
         ...     print(f"{rule}: {msg}")
-        >>> content = 'variable "test" { description = "test variable" }'
+        >>> content = '''
+        ... variable "example" {
+        ...   description = "Example variable"
+        ... }
+        ... '''
         >>> check_io008_variable_type("variables.tf", content, mock_logger)
-        IO.008: Variable 'test' must include a type field
+        IO.008: Variable 'example' must include a type declaration
     """
     variables = _extract_variables(content)
     
@@ -97,7 +109,8 @@ def check_io008_variable_type(file_path: str, content: str, log_error_func: Call
             log_error_func(
                 file_path,
                 "IO.008",
-                f"Variable '{variable['name']}' must include a type field"
+                f"Variable '{variable['name']}' must include a type field",
+                variable.get('line_number')
             )
 
 
@@ -173,7 +186,8 @@ def _extract_variables(content: str) -> List[Dict[str, Any]]:
             'type': type_value,
             'has_description': bool(re.search(r'description\s*=', variable_body)),
             'has_default': bool(re.search(r'default\s*=', variable_body)),
-            'body': variable_body.strip()
+            'body': variable_body.strip(),
+            'line_number': variable_matches.index((variable_name, variable_body)) + 1
         }
         variables.append(variable_info)
 

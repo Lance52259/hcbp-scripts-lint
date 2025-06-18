@@ -66,10 +66,10 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable
+from typing import Callable, List, Dict, Any, Optional
 
 
-def check_st004_indentation_character(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st004_indentation_character(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate indentation character usage according to ST.004 rule specifications.
 
@@ -89,9 +89,10 @@ def check_st004_indentation_character(file_path: str, content: str, log_error_fu
         content (str): The complete content of the Terraform file as a string.
                       This includes all lines that may contain indentation.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and line_number.
+                      The line_number parameter is optional and can be None.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -117,15 +118,18 @@ def check_st004_indentation_character(file_path: str, content: str, log_error_fu
                 log_error_func(
                     file_path,
                     "ST.004",
-                    f"Line {line_num}: Mixed indentation detected (tabs and spaces). "
-                    f"Use spaces only for consistent formatting"
+                    f"Mixed indentation detected (tabs and spaces). "
+                    f"Use consistent indentation throughout the file. "
+                    f"Recommendation: Use 2 spaces for indentation",
+                    line_num
                 )
             elif tab_count > 0:
                 log_error_func(
                     file_path,
                     "ST.004",
-                    f"Line {line_num}: Tab character used for indentation. "
-                    f"Use spaces instead for consistent formatting"
+                    f"Tab character used for indentation. "
+                    f"Use 2 spaces for consistent indentation",
+                    line_num
                 )
 
 

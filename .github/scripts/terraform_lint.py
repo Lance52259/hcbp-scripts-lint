@@ -78,7 +78,7 @@ class ErrorRecord(NamedTuple):
     def to_detailed_format(self) -> str:
         """Convert to detailed format for legacy compatibility."""
         if self.line_number:
-            return f"ERROR: {self.file_path}: [{self.rule_id}] Line {self.line_number}: {self.message}"
+            return f"ERROR: {self.file_path} ({self.line_number}): [{self.rule_id}] {self.message}"
         else:
             return f"ERROR: {self.file_path}: [{self.rule_id}] {self.message}"
 
@@ -101,7 +101,7 @@ class WarningRecord(NamedTuple):
     def to_detailed_format(self) -> str:
         """Convert to detailed format for legacy compatibility."""
         if self.line_number:
-            return f"WARNING: {self.file_path}: [{self.rule_id}] Line {self.line_number}: {self.message}"
+            return f"WARNING: {self.file_path} ({self.line_number}): [{self.rule_id}] {self.message}"
         else:
             return f"WARNING: {self.file_path}: [{self.rule_id}] {self.message}"
 
@@ -131,10 +131,10 @@ class LintReport:
 class TerraformLinter:
     """
     Enhanced Terraform Scripts Linter using Unified Rules Management System
-    
+
     A comprehensive linting tool that leverages the unified rules management system
     to provide consistent, efficient, and extensible Terraform script validation.
-    
+
     Features:
     - Unified rules management with centralized coordination
     - Advanced rule filtering and path management
@@ -277,23 +277,29 @@ class TerraformLinter:
         else:
             return None, message
 
-    def log_error(self, file_path: str, rule_id: str, message: str):
+    def log_error(self, file_path: str, rule_id: str, message: str, line_number: Optional[int] = None):
         """
-        Log an error found during linting with enhanced categorization and line number extraction.
+        Log an error found during linting with enhanced categorization.
 
         Args:
             file_path: Path to the file where the error was found
             rule_id: ID of the rule that was violated
-            message: Detailed error message (may contain line number)
+            message: Detailed error message (should not contain line number)
+            line_number: Optional line number where the error occurred
         """
         if not self.should_ignore_rule(rule_id):
-            # Extract line number from message if present
-            line_number, cleaned_message = self._extract_line_number(message)
+            # If line_number is explicitly provided, use it directly
+            if line_number is not None:
+                error_line_number = line_number
+                cleaned_message = message
+            else:
+                # Fallback: extract line number from message for backward compatibility
+                error_line_number, cleaned_message = self._extract_line_number(message)
             
             # Create structured error record
             error_record = ErrorRecord(
                 file_path=file_path,
-                line_number=line_number,
+                line_number=error_line_number,
                 rule_id=rule_id,
                 message=cleaned_message
             )
@@ -308,23 +314,29 @@ class TerraformLinter:
             # Print error in detailed format for console output
             print(error_record.to_detailed_format())
 
-    def log_warning(self, file_path: str, rule_id: str, message: str):
+    def log_warning(self, file_path: str, rule_id: str, message: str, line_number: Optional[int] = None):
         """
-        Log a warning found during linting with enhanced categorization and line number extraction.
+        Log a warning found during linting with enhanced categorization.
 
         Args:
             file_path: Path to the file where the warning was found
             rule_id: ID of the rule that generated the warning
-            message: Detailed warning message (may contain line number)
+            message: Detailed warning message (should not contain line number)
+            line_number: Optional line number where the warning occurred
         """
         if not self.should_ignore_rule(rule_id):
-            # Extract line number from message if present
-            line_number, cleaned_message = self._extract_line_number(message)
+            # If line_number is explicitly provided, use it directly
+            if line_number is not None:
+                warning_line_number = line_number
+                cleaned_message = message
+            else:
+                # Fallback: extract line number from message for backward compatibility
+                warning_line_number, cleaned_message = self._extract_line_number(message)
             
             # Create structured warning record
             warning_record = WarningRecord(
                 file_path=file_path,
-                line_number=line_number,
+                line_number=warning_line_number,
                 rule_id=rule_id,
                 message=cleaned_message
             )
@@ -350,20 +362,20 @@ class TerraformLinter:
             List of paths to Terraform files that should be processed
         """
         tf_files = []
-        
+
         for root, dirs, files in os.walk(directory):
             # Skip hidden directories for performance
             dirs[:] = [d for d in dirs if not d.startswith('.') and not d.startswith('__pycache__')]
-            
+
             for file in files:
                 if file.endswith(('.tf', '.tfvars')):
                     file_path = os.path.join(root, file)
                     relative_path = os.path.relpath(file_path, directory)
-                    
+
                     # Apply path filtering
                     if not self.should_exclude_path(relative_path):
                         tf_files.append(file_path)
-        
+
         return sorted(tf_files)
 
     def read_file_content(self, file_path: str) -> Optional[str]:
@@ -389,9 +401,9 @@ class TerraformLinter:
             except Exception as e:
                 print(f"Error reading file {file_path} with fallback encoding: {e}")
                 return None
-        except Exception as e:
-            print(f"Error reading file {file_path}: {e}")
-            return None
+            except Exception as e:
+                print(f"Error reading file {file_path}: {e}")
+                return None
 
     def lint_file(self, file_path: str) -> bool:
         """
@@ -481,6 +493,118 @@ class TerraformLinter:
         self.end_time = time.time()
         return success
 
+    def _generate_line_distribution_report(self) -> Dict[str, Any]:
+        """
+        Generate error/warning distribution report by line numbers.
+        
+        Returns:
+            Dictionary containing line distribution statistics
+        """
+        line_stats = {
+            "errors_by_line": {},
+            "warnings_by_line": {},
+            "errors_without_line": [],
+            "warnings_without_line": [],
+            "rule_distribution": {},
+            "file_statistics": {}
+        }
+        
+        # Analyze errors by line numbers
+        for error in self.errors:
+            if error.line_number:
+                line_key = f"Line {error.line_number}"
+                if line_key not in line_stats["errors_by_line"]:
+                    line_stats["errors_by_line"][line_key] = []
+                line_stats["errors_by_line"][line_key].append({
+                    "file": os.path.basename(error.file_path),
+                    "rule_id": error.rule_id,
+                    "message": error.message
+                })
+                
+                # Track rule distribution
+                if error.rule_id not in line_stats["rule_distribution"]:
+                    line_stats["rule_distribution"][error.rule_id] = {"count": 0, "lines": set()}
+                line_stats["rule_distribution"][error.rule_id]["count"] += 1
+                line_stats["rule_distribution"][error.rule_id]["lines"].add(error.line_number)
+            else:
+                # Track errors without line numbers
+                line_stats["errors_without_line"].append({
+                    "file": os.path.basename(error.file_path),
+                    "rule_id": error.rule_id,
+                    "message": error.message
+                })
+                
+                # Track rule distribution for errors without line numbers
+                if error.rule_id not in line_stats["rule_distribution"]:
+                    line_stats["rule_distribution"][error.rule_id] = {"count": 0, "lines": set()}
+                line_stats["rule_distribution"][error.rule_id]["count"] += 1
+        
+        # Analyze warnings by line numbers
+        for warning in self.warnings:
+            if warning.line_number:
+                line_key = f"Line {warning.line_number}"
+                if line_key not in line_stats["warnings_by_line"]:
+                    line_stats["warnings_by_line"][line_key] = []
+                line_stats["warnings_by_line"][line_key].append({
+                    "file": os.path.basename(warning.file_path),
+                    "rule_id": warning.rule_id,
+                    "message": warning.message
+                })
+                
+                # Track rule distribution for warnings
+                if warning.rule_id not in line_stats["rule_distribution"]:
+                    line_stats["rule_distribution"][warning.rule_id] = {"count": 0, "lines": set()}
+                line_stats["rule_distribution"][warning.rule_id]["count"] += 1
+                line_stats["rule_distribution"][warning.rule_id]["lines"].add(warning.line_number)
+            else:
+                # Track warnings without line numbers
+                line_stats["warnings_without_line"].append({
+                    "file": os.path.basename(warning.file_path),
+                    "rule_id": warning.rule_id,
+                    "message": warning.message
+                })
+                
+                # Track rule distribution for warnings without line numbers
+                if warning.rule_id not in line_stats["rule_distribution"]:
+                    line_stats["rule_distribution"][warning.rule_id] = {"count": 0, "lines": set()}
+                line_stats["rule_distribution"][warning.rule_id]["count"] += 1
+        
+        # Generate file-level statistics
+        file_line_counts = {}
+        for error in self.errors:
+            file_name = os.path.basename(error.file_path)
+            if file_name not in file_line_counts:
+                file_line_counts[file_name] = {"errors": set(), "warnings": set(), "errors_without_line": 0, "warnings_without_line": 0}
+            if error.line_number:
+                file_line_counts[file_name]["errors"].add(error.line_number)
+            else:
+                file_line_counts[file_name]["errors_without_line"] += 1
+        
+        for warning in self.warnings:
+            file_name = os.path.basename(warning.file_path)
+            if file_name not in file_line_counts:
+                file_line_counts[file_name] = {"errors": set(), "warnings": set(), "errors_without_line": 0, "warnings_without_line": 0}
+            if warning.line_number:
+                file_line_counts[file_name]["warnings"].add(warning.line_number)
+            else:
+                file_line_counts[file_name]["warnings_without_line"] += 1
+        
+        # Convert sets to sorted lists for JSON serialization
+        for file_name, counts in file_line_counts.items():
+            line_stats["file_statistics"][file_name] = {
+                "error_lines": sorted(list(counts["errors"])),
+                "warning_lines": sorted(list(counts["warnings"])),
+                "total_affected_lines": len(counts["errors"] | counts["warnings"]),
+                "errors_without_line_count": counts["errors_without_line"],
+                "warnings_without_line_count": counts["warnings_without_line"]
+            }
+        
+        # Convert rule distribution sets to lists for JSON serialization
+        for rule_id, data in line_stats["rule_distribution"].items():
+            line_stats["rule_distribution"][rule_id]["lines"] = sorted(list(data["lines"]))
+        
+        return line_stats
+
     def generate_report(self, output_file: str = "terraform-lint-report.txt", format: str = "text") -> LintReport:
         """
         Generate a comprehensive lint report with enhanced statistics.
@@ -527,6 +651,9 @@ class TerraformLinter:
         # Total violations should be the sum of errors and warnings from actual detection
         actual_total_violations = total_errors + total_warnings
 
+        # Generate line distribution statistics
+        line_distribution = self._generate_line_distribution_report()
+
         if format == "json":
             # Generate JSON report
             report_data = {
@@ -566,6 +693,7 @@ class TerraformLinter:
                         "warnings": self.warnings_by_category['DC']
                     }
                 },
+                "line_distribution": line_distribution,
                 "detailed_errors": [error.to_detailed_format() for error in self.errors],
                 "detailed_warnings": [warning.to_detailed_format() for warning in self.warnings],
                 "summary_errors": [error.to_summary_format() for error in self.errors],
@@ -621,6 +749,108 @@ class TerraformLinter:
                     ""
                 ])
 
+            # Add line distribution report
+            if (line_distribution["errors_by_line"] or line_distribution["warnings_by_line"] or 
+                line_distribution["errors_without_line"] or line_distribution["warnings_without_line"]):
+                report_lines.extend([
+                    "=== LINE DISTRIBUTION REPORT ===",
+                    ""
+                ])
+                
+                # Errors by line number
+                if line_distribution["errors_by_line"]:
+                    report_lines.append("ERRORS BY LINE NUMBER:")
+                    for line_key in sorted(line_distribution["errors_by_line"].keys(), 
+                                         key=lambda x: int(x.split()[1])):
+                        errors = line_distribution["errors_by_line"][line_key]
+                        report_lines.append(f"  {line_key}: {len(errors)} error(s)")
+                        for error in errors:
+                            report_lines.append(f"    └─ {error['file']} [{error['rule_id']}] {error['message']}")
+                    report_lines.append("")
+                
+                # Errors without line numbers
+                if line_distribution["errors_without_line"]:
+                    report_lines.append("ERRORS WITHOUT LINE NUMBERS:")
+                    # Group by rule ID for better organization
+                    errors_by_rule = {}
+                    for error in line_distribution["errors_without_line"]:
+                        rule_id = error["rule_id"]
+                        if rule_id not in errors_by_rule:
+                            errors_by_rule[rule_id] = []
+                        errors_by_rule[rule_id].append(error)
+                    
+                    for rule_id in sorted(errors_by_rule.keys()):
+                        errors = errors_by_rule[rule_id]
+                        report_lines.append(f"  {rule_id}: {len(errors)} error(s)")
+                        for error in errors:
+                            report_lines.append(f"    └─ {error['file']} {error['message']}")
+                    report_lines.append("")
+                
+                # Warnings by line number
+                if line_distribution["warnings_by_line"]:
+                    report_lines.append("WARNINGS BY LINE NUMBER:")
+                    for line_key in sorted(line_distribution["warnings_by_line"].keys(), 
+                                         key=lambda x: int(x.split()[1])):
+                        warnings = line_distribution["warnings_by_line"][line_key]
+                        report_lines.append(f"  {line_key}: {len(warnings)} warning(s)")
+                        for warning in warnings:
+                            report_lines.append(f"    └─ {warning['file']} [{warning['rule_id']}] {warning['message']}")
+                    report_lines.append("")
+                
+                # Warnings without line numbers
+                if line_distribution["warnings_without_line"]:
+                    report_lines.append("WARNINGS WITHOUT LINE NUMBERS:")
+                    # Group by rule ID for better organization
+                    warnings_by_rule = {}
+                    for warning in line_distribution["warnings_without_line"]:
+                        rule_id = warning["rule_id"]
+                        if rule_id not in warnings_by_rule:
+                            warnings_by_rule[rule_id] = []
+                        warnings_by_rule[rule_id].append(warning)
+                    
+                    for rule_id in sorted(warnings_by_rule.keys()):
+                        warnings = warnings_by_rule[rule_id]
+                        report_lines.append(f"  {rule_id}: {len(warnings)} warning(s)")
+                        for warning in warnings:
+                            report_lines.append(f"    └─ {warning['file']} {warning['message']}")
+                    report_lines.append("")
+                
+                # Rule distribution by affected lines
+                if line_distribution["rule_distribution"]:
+                    report_lines.append("RULE VIOLATIONS SUMMARY:")
+                    for rule_id in sorted(line_distribution["rule_distribution"].keys()):
+                        rule_data = line_distribution["rule_distribution"][rule_id]
+                        if rule_data["lines"]:
+                            lines_str = ", ".join(map(str, rule_data["lines"]))
+                            report_lines.append(f"  {rule_id}: {rule_data['count']} violation(s) on lines [{lines_str}]")
+                        else:
+                            report_lines.append(f"  {rule_id}: {rule_data['count']} violation(s) (no specific line numbers)")
+                    report_lines.append("")
+                
+                # File statistics
+                if line_distribution["file_statistics"]:
+                    report_lines.append("FILE STATISTICS (AFFECTED LINES):")
+                    for file_name in sorted(line_distribution["file_statistics"].keys()):
+                        file_stats = line_distribution["file_statistics"][file_name]
+                        report_lines.append(f"  {file_name}:")
+                        if file_stats["error_lines"]:
+                            error_lines_str = ", ".join(map(str, file_stats["error_lines"]))
+                            report_lines.append(f"    ├─ Error lines: [{error_lines_str}]")
+                        if file_stats["errors_without_line_count"] > 0:
+                            report_lines.append(f"    ├─ Errors without line numbers: {file_stats['errors_without_line_count']}")
+                        if file_stats["warning_lines"]:
+                            warning_lines_str = ", ".join(map(str, file_stats["warning_lines"]))
+                            report_lines.append(f"    ├─ Warning lines: [{warning_lines_str}]")
+                        if file_stats["warnings_without_line_count"] > 0:
+                            report_lines.append(f"    ├─ Warnings without line numbers: {file_stats['warnings_without_line_count']}")
+                        
+                        total_issues = (len(file_stats["error_lines"]) + 
+                                      file_stats["errors_without_line_count"] + 
+                                      len(file_stats["warning_lines"]) + 
+                                      file_stats["warnings_without_line_count"])
+                        report_lines.append(f"    └─ Total issues: {total_issues} ({file_stats['total_affected_lines']} with line numbers)")
+                    report_lines.append("")
+
             # Add detailed errors
             if self.errors:
                 report_lines.extend([
@@ -656,13 +886,13 @@ class TerraformLinter:
             # Add performance metrics
             if self.files_processed > 0:
                 report_lines.extend([
-                    "=== PERFORMANCE METRICS ===",
-                    f"Average Lines per File: {performance_metrics['avg_lines_per_file']:,}",
-                    f"Files per Second: {performance_metrics['files_per_second']:.1f}",
-                    f"Lines per Second: {performance_metrics['lines_per_second']:.1f}",
-                    f"Rules per Second: {performance_metrics['rules_per_second']:.1f}",
-                    ""
-                ])
+                        "=== PERFORMANCE METRICS ===",
+                        f"Average Lines per File: {performance_metrics['avg_lines_per_file']:,}",
+                        f"Files per Second: {performance_metrics['files_per_second']:.1f}",
+                        f"Lines per Second: {performance_metrics['lines_per_second']:.1f}",
+                        f"Rules per Second: {performance_metrics['rules_per_second']:.1f}",
+                        ""
+                    ])
 
             # Add rules system information
             report_lines.extend([
@@ -674,15 +904,15 @@ class TerraformLinter:
                 ""
             ])
 
-            report_content = '\n'.join(report_lines)
+        report_content = '\n'.join(report_lines)
 
-            # Write to file
-            try:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(report_content)
-                print(f"Text report saved to: {output_file}")
-            except Exception as e:
-                print(f"Error writing text report to {output_file}: {e}")
+        # Write to file
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            print(f"Text report saved to: {output_file}")
+        except Exception as e:
+            print(f"Error writing text report to {output_file}: {e}")
 
         # Also print summary to console
         print("\n" + "=" * 60)
@@ -691,6 +921,23 @@ class TerraformLinter:
         print(f"Files: {self.files_processed}, Lines: {self.total_lines_processed:,}")
         print(f"Errors: {total_errors}, Warnings: {total_warnings}, Violations: {actual_total_violations}")
         print(f"Execution Time: {execution_time:.2f}s")
+        
+        # Add errors with line numbers to console summary
+        if self.errors:
+            print(f"\nErrors Found ({total_errors}):")
+            for error in self.errors[:10]:  # Limit to first 10 errors for readability
+                print(f"  {error.to_summary_format()}")
+            if total_errors > 10:
+                print(f"  ... and {total_errors - 10} more errors (see report file for details)")
+        
+        # Add warnings with line numbers to console summary
+        if self.warnings:
+            print(f"\nWarnings Found ({total_warnings}):")
+            for warning in self.warnings[:5]:  # Limit to first 5 warnings for readability
+                print(f"  {warning.to_summary_format()}")
+            if total_warnings > 5:
+                print(f"  ... and {total_warnings - 5} more warnings (see report file for details)")
+        
         print("=" * 60)
 
         # Create and return LintReport object

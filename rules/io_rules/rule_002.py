@@ -33,49 +33,53 @@ License: Apache 2.0
 
 import re
 import os
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Dict, Any, Optional
 
 
-def check_io002_output_file_location(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_io002_output_file_location(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all output definitions are located in outputs.tf file according to IO.002 rule specifications.
-
-    This function scans through the provided Terraform file content and validates
-    that output definitions are properly organized in the outputs.tf file.
-    This ensures consistent project structure and organization following Terraform
-    best practices.
-
+    Validate output definition file organization according to IO.002 rule specifications.
+    
+    This function validates that all output definitions are properly organized 
+    in outputs.tf files within their respective directories. It ensures that 
+    outputs are defined in the correct location for better code organization 
+    and maintainability.
+    
     The validation process:
-    1. Remove comments from content for accurate parsing
-    2. Extract all output definitions from the file
-    3. Check if non-outputs.tf files contain output definitions
-    4. Report violations through the error logging function
-
+    1. Check if the current file contains output definitions
+    2. Verify that output definitions are in the appropriate outputs.tf file
+    3. Report violations for each misplaced output definition individually
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all output definitions that need to be checked.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to check for output definitions.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-
+    
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
-        >>> content = 'output "test" { value = "example" }'
-        >>> check_io002_output_file_location("main.tf", content, mock_logger)
-        IO.002: Output 'test' should be defined in outputs.tf, not in main.tf
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}: {msg}")
+        >>> 
+        >>> # Content with output definition in wrong file
+        >>> content = '''
+        ... output "example" {
+        ...   value = var.example
+        ... }
+        ... '''
+        >>> check_io002_output_file_location("main.tf", content, sample_log_func)
+        IO.002 at main.tf: Output 'example' should be defined in 'outputs.tf'
     """
     outputs = _extract_outputs(content)
     
@@ -85,15 +89,9 @@ def check_io002_output_file_location(file_path: str, content: str, log_error_fun
             log_error_func(
                 file_path,
                 "IO.002",
-                f"Output '{output['name']}' should be defined in outputs.tf, not in {os.path.basename(file_path)}"
+                f"Output '{output['name']}' should be defined in 'outputs.tf'",
+                output['line_number']
             )
-        
-        # Provide summary error message
-        log_error_func(
-            file_path,
-            "IO.002",
-            f"File {os.path.basename(file_path)} contains {len(outputs)} output definition(s) that should be moved to outputs.tf"
-        )
 
 
 def _remove_comments_for_parsing(content: str) -> str:
@@ -145,18 +143,35 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
         content (str): The cleaned Terraform content
 
     Returns:
-        List[Dict[str, Any]]: List of output definitions with metadata
+        List[Dict[str, Any]]: List of output definitions with metadata including line numbers
     """
     outputs = []
     clean_content = _remove_comments_for_parsing(content)
+    original_lines = content.split('\n')
 
     # Pattern to match output blocks with their full content
     output_pattern = r'output\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    output_matches = re.findall(output_pattern, clean_content, re.DOTALL)
-
-    for output_name, output_body in output_matches:
+    
+    # Find all output matches with their positions
+    for match in re.finditer(output_pattern, clean_content, re.DOTALL):
+        output_name = match.group(1)
+        output_body = match.group(2)
+        
+        # Find the line number where this output starts
+        # Count newlines before the match start to get line number
+        preceding_text = clean_content[:match.start()]
+        line_number = preceding_text.count('\n') + 1
+        
+        # Find the actual line number in original content by matching the output declaration
+        actual_line_number = None
+        for line_num, line in enumerate(original_lines, 1):
+            if f'output "{output_name}"' in line:
+                actual_line_number = line_num
+                break
+        
         output_info = {
             'name': output_name,
+            'line_number': actual_line_number or line_number,
             'has_value': bool(re.search(r'value\s*=', output_body)),
             'has_description': bool(re.search(r'description\s*=', output_body)),
             'has_sensitive': bool(re.search(r'sensitive\s*=', output_body)),
@@ -193,10 +208,10 @@ def get_rule_description() -> dict:
         "id": "IO.002",
         "name": "Output definition file organization check",
         "description": (
-            "Validates that all output variables (if any) in TF scripts within each directory "
-            "are defined in the outputs.tf file in the same directory level. "
-            "This ensures consistent project structure and organization following "
-            "Terraform best practices."
+            "Validates that each output variable is properly defined in "
+            "the outputs.tf file and not in other files. Each output "
+            "definition found in non-outputs.tf files will be reported "
+            "as a separate violation."
         ),
         "category": "Input/Output",
         "severity": "error",

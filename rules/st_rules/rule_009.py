@@ -84,7 +84,7 @@ import os
 from typing import Callable, List, Dict, Optional, Tuple
 
 
-def check_st009_variable_order(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st009_variable_order(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate that variable definition order in variables.tf matches usage order in main.tf.
 
@@ -106,9 +106,9 @@ def check_st009_variable_order(file_path: str, content: str, log_error_func: Cal
         content (str): The complete content of the Terraform file as a string.
                       This should be the content of variables.tf.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and optional line_number.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -149,7 +149,7 @@ def check_st009_variable_order(file_path: str, content: str, log_error_func: Cal
     order_errors = _check_order_consistency(usage_order, definition_order)
     
     for error_msg in order_errors:
-        log_error_func(file_path, "ST.009", error_msg)
+        log_error_func(file_path, "ST.009", error_msg, None)
 
 
 def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
@@ -232,13 +232,9 @@ def _check_order_consistency(usage_order: List[str], definition_order: List[Tupl
         # Find the first variable that's out of order
         for i, expected_var in enumerate(expected_order):
             if i < len(actual_order) and actual_order[i] != expected_var:
-                # Find the line number of the misplaced variable
-                misplaced_line = next(line_num for var_name, line_num in definition_order if var_name == actual_order[i])
-                
                 errors.append(
-                    f"Line {misplaced_line}: Variable '{actual_order[i]}' is not in the correct order. "
-                    f"Expected order based on main.tf usage: {', '.join(expected_order)}, "
-                    f"but found: {', '.join(actual_order)}"
+                    f"Variable '{actual_order[i]}' is not in the correct order. "
+                    f"Expected order: {', '.join(expected_order)}. Current order: {', '.join(actual_order)}"
                 )
                 break
     

@@ -33,7 +33,7 @@ from typing import Callable, List, Tuple, Optional, Dict, Any
 
 
 def check_dc001_comment_format(file_path: str, content: str, 
-                              log_error_func: Callable[[str, str, str], None]) -> None:
+                              log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate comment formatting according to DC.001 rule specifications.
 
@@ -54,9 +54,10 @@ def check_dc001_comment_format(file_path: str, content: str,
                         to help developers identify the location of violations.
         content (str): The complete content of the Terraform file as a string.
                       This includes all lines, comments, and code blocks.
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and line_number.
+                      The line_number parameter is optional and can be None.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -67,12 +68,12 @@ def check_dc001_comment_format(file_path: str, content: str,
         gracefully and reported through the logging mechanism.
 
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
+        >>> def mock_logger(path, rule, msg, line_number):
+        ...     print(f"{rule}: {msg} (line {line_number})")
         >>> content = "# Good comment\\n#Bad comment\\n#  Multiple spaces"
         >>> check_dc001_comment_format("test.tf", content, mock_logger)
-        DC.001: Line 2: Comment should have one space after '#' character
-        DC.001: Line 3: Comment should have exactly one space after '#' character
+        DC.001: Comment should have one space after '#' character (line 2)
+        DC.001: Comment should have exactly one space after '#' character (line 3)
 
     Note:
         This function focuses on comment formatting within Terraform files and
@@ -88,7 +89,7 @@ def check_dc001_comment_format(file_path: str, content: str,
     
     # Report each violation through the error logging function
     for line_num, violation_type, message in violations:
-        log_error_func(file_path, "DC.001", f"Line {line_num}: {message}")
+        log_error_func(file_path, "DC.001", message, line_num)
 
 
 def _analyze_comment_formatting(lines: List[str]) -> List[Tuple[int, str, str]]:

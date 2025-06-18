@@ -85,7 +85,7 @@ class DCRules:
         return rule_info
     
     def execute_rule(self, rule_id: str, file_path: str, content: str,
-                    log_error_func: Callable[[str, str, str], None]) -> bool:
+                    log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:
         """
         Execute a specific DC rule.
         
@@ -99,7 +99,7 @@ class DCRules:
             bool: True if rule executed successfully, False otherwise
         """
         if rule_id not in self._rules_registry:
-            log_error_func(file_path, "SYSTEM", f"Unknown DC rule: {rule_id}")
+            log_error_func(file_path, "SYSTEM", f"Unknown DC rule: {rule_id}", None)
             return False
             
         try:
@@ -107,11 +107,11 @@ class DCRules:
             check_function(file_path, content, log_error_func)
             return True
         except Exception as e:
-            log_error_func(file_path, rule_id, f"Rule execution failed: {str(e)}")
+            log_error_func(file_path, rule_id, f"Rule execution failed: {str(e)}", None)
             return False
     
     def execute_all_rules(self, file_path: str, content: str,
-                         log_error_func: Callable[[str, str, str], None],
+                         log_error_func: Callable[[str, str, str, Optional[int]], None],
                          excluded_rules: Optional[List[str]] = None) -> Dict[str, bool]:
         """
         Execute all available DC rules.
@@ -221,7 +221,7 @@ class DCRules:
         }
 
     # Legacy compatibility methods
-    def run_all_checks(self, file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+    def run_all_checks(self, file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
         """
         Legacy method for backward compatibility.
         
@@ -275,12 +275,12 @@ def get_available_dc_rules() -> List[str]:
     return DCRules().get_available_rules()
 
 def execute_dc_rule(rule_id: str, file_path: str, content: str,
-                   log_error_func: Callable[[str, str, str], None]) -> bool:
+                   log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:
     """Execute a specific DC rule."""
     return DCRules().execute_rule(rule_id, file_path, content, log_error_func)
 
 def execute_all_dc_rules(file_path: str, content: str,
-                        log_error_func: Callable[[str, str, str], None],
+                        log_error_func: Callable[[str, str, str, Optional[int]], None],
                         excluded_rules: Optional[List[str]] = None) -> Dict[str, bool]:
     """Execute all DC rules."""
     return DCRules().execute_all_rules(file_path, content, log_error_func, excluded_rules)
