@@ -36,7 +36,7 @@ import re
 import fnmatch
 import subprocess
 import time
-from typing import List, Dict, Set, Optional, Tuple, Any
+from typing import List, Dict, Set, Optional, Tuple, Any, NamedTuple
 import traceback
 
 # Add rules directory to Python path
@@ -58,6 +58,52 @@ except ImportError as e:
     print(f"Error importing unified rules system: {e}")
     print("Please ensure the rules directory contains the unified rules management system.")
     sys.exit(1)
+
+
+class ErrorRecord(NamedTuple):
+    """Structured error record with file, line, rule and message information."""
+    file_path: str
+    line_number: Optional[int]
+    rule_id: str
+    message: str
+    
+    def to_summary_format(self) -> str:
+        """Convert to summary format for display."""
+        base_name = os.path.basename(self.file_path)
+        if self.line_number:
+            return f"{base_name}:{self.line_number} [{self.rule_id}] {self.message}"
+        else:
+            return f"{base_name} [{self.rule_id}] {self.message}"
+    
+    def to_detailed_format(self) -> str:
+        """Convert to detailed format for legacy compatibility."""
+        if self.line_number:
+            return f"ERROR: {self.file_path}: [{self.rule_id}] Line {self.line_number}: {self.message}"
+        else:
+            return f"ERROR: {self.file_path}: [{self.rule_id}] {self.message}"
+
+
+class WarningRecord(NamedTuple):
+    """Structured warning record with file, line, rule and message information."""
+    file_path: str
+    line_number: Optional[int]
+    rule_id: str
+    message: str
+    
+    def to_summary_format(self) -> str:
+        """Convert to summary format for display."""
+        base_name = os.path.basename(self.file_path)
+        if self.line_number:
+            return f"{base_name}:{self.line_number} [{self.rule_id}] {self.message}"
+        else:
+            return f"{base_name} [{self.rule_id}] {self.message}"
+    
+    def to_detailed_format(self) -> str:
+        """Convert to detailed format for legacy compatibility."""
+        if self.line_number:
+            return f"WARNING: {self.file_path}: [{self.rule_id}] Line {self.line_number}: {self.message}"
+        else:
+            return f"WARNING: {self.file_path}: [{self.rule_id}] {self.message}"
 
 
 class LintReport:
@@ -123,9 +169,9 @@ class TerraformLinter:
         self.base_ref = base_ref or 'HEAD~1'
         self.rule_categories = rule_categories or ["ST", "IO", "DC"]
 
-        # Error and warning tracking
-        self.errors = []
-        self.warnings = []
+        # Error and warning tracking - using structured records
+        self.errors: List[ErrorRecord] = []
+        self.warnings: List[WarningRecord] = []
         self.violations_by_category = {"ST": 0, "IO": 0, "DC": 0}
         self.errors_by_category = {"ST": 0, "IO": 0, "DC": 0}
         self.warnings_by_category = {"ST": 0, "IO": 0, "DC": 0}
@@ -210,45 +256,88 @@ class TerraformLinter:
 
         return False
 
+    def _extract_line_number(self, message: str) -> Tuple[Optional[int], str]:
+        """
+        Extract line number from error message if present.
+        
+        Args:
+            message: Error message that may contain line number
+            
+        Returns:
+            Tuple of (line_number, cleaned_message)
+        """
+        # Pattern to match "Line X:" at the beginning of the message
+        line_pattern = r'^Line (\d+):\s*(.+)$'
+        match = re.match(line_pattern, message)
+        
+        if match:
+            line_num = int(match.group(1))
+            cleaned_message = match.group(2)
+            return line_num, cleaned_message
+        else:
+            return None, message
+
     def log_error(self, file_path: str, rule_id: str, message: str):
         """
-        Log an error found during linting with enhanced categorization.
+        Log an error found during linting with enhanced categorization and line number extraction.
 
         Args:
             file_path: Path to the file where the error was found
             rule_id: ID of the rule that was violated
-            message: Detailed error message
+            message: Detailed error message (may contain line number)
         """
         if not self.should_ignore_rule(rule_id):
-            error_msg = f"ERROR: {file_path}: [{rule_id}] {message}"
-            self.errors.append(error_msg)
+            # Extract line number from message if present
+            line_number, cleaned_message = self._extract_line_number(message)
+            
+            # Create structured error record
+            error_record = ErrorRecord(
+                file_path=file_path,
+                line_number=line_number,
+                rule_id=rule_id,
+                message=cleaned_message
+            )
+            
+            self.errors.append(error_record)
             
             # Categorize error by rule system
             category = rule_id.split('.')[0] if '.' in rule_id else 'UNKNOWN'
             if category in self.errors_by_category:
                 self.errors_by_category[category] += 1
             
-            print(error_msg)
+            # Print error in detailed format for console output
+            print(error_record.to_detailed_format())
 
     def log_warning(self, file_path: str, rule_id: str, message: str):
         """
-        Log a warning found during linting with enhanced categorization.
+        Log a warning found during linting with enhanced categorization and line number extraction.
 
         Args:
             file_path: Path to the file where the warning was found
             rule_id: ID of the rule that generated the warning
-            message: Detailed warning message
+            message: Detailed warning message (may contain line number)
         """
         if not self.should_ignore_rule(rule_id):
-            warning_msg = f"WARNING: {file_path}: [{rule_id}] {message}"
-            self.warnings.append(warning_msg)
+            # Extract line number from message if present
+            line_number, cleaned_message = self._extract_line_number(message)
+            
+            # Create structured warning record
+            warning_record = WarningRecord(
+                file_path=file_path,
+                line_number=line_number,
+                rule_id=rule_id,
+                message=cleaned_message
+            )
+            
+            self.warnings.append(warning_record)
             
             # Categorize warning by rule system
             category = rule_id.split('.')[0] if '.' in rule_id else 'UNKNOWN'
             if category in self.warnings_by_category:
                 self.warnings_by_category[category] += 1
             
-            print(warning_msg)
+            # Print warning in detailed format for console output
+            print(warning_record.to_detailed_format())
 
     def find_tf_files(self, directory: str) -> List[str]:
         """
@@ -344,10 +433,11 @@ class TerraformLinter:
             # Store execution results for reporting
             self.execution_results.append(batch_summary)
 
-            # Update violation counts by category
-            for category, results in batch_summary.results_by_category.items():
-                violations = sum(result.violations_count for result in results)
-                self.violations_by_category[category] += violations
+            # Update violation counts by category - sync with actual error/warning counts
+            for category in ["ST", "IO", "DC"]:
+                # Calculate violations for this category as errors + warnings
+                category_violations = self.errors_by_category[category] + self.warnings_by_category[category]
+                self.violations_by_category[category] = category_violations
 
             return batch_summary.failed_rules == 0
 
@@ -411,16 +501,31 @@ class TerraformLinter:
         failed_rules = sum(result.failed_rules for result in self.execution_results)
         total_violations = sum(result.total_violations for result in self.execution_results)
 
-        # Create performance metrics
-        performance_metrics = {
-            "files_per_second": self.files_processed / execution_time if execution_time > 0 else 0,
-            "lines_per_second": self.total_lines_processed / execution_time if execution_time > 0 else 0,
-            "rules_per_second": total_rules_executed / execution_time if execution_time > 0 else 0,
-            "avg_lines_per_file": self.total_lines_processed // self.files_processed if self.files_processed > 0 else 0
-        }
+        # Create performance metrics with improved handling of small execution times
+        if execution_time > 0.0001:  # Only calculate rates if execution time is meaningful
+            performance_metrics = {
+                "files_per_second": self.files_processed / execution_time,
+                "lines_per_second": self.total_lines_processed / execution_time,
+                "rules_per_second": total_rules_executed / execution_time,
+                "avg_lines_per_file": self.total_lines_processed // self.files_processed if self.files_processed > 0 else 0
+            }
+        else:
+            # For very fast executions, set reasonable default values
+            performance_metrics = {
+                "files_per_second": 0.0,
+                "lines_per_second": 0.0,
+                "rules_per_second": 0.0,
+                "avg_lines_per_file": self.total_lines_processed // self.files_processed if self.files_processed > 0 else 0
+            }
 
         # Get rules summary
         rules_summary = self.rules_manager.get_rules_summary()
+
+        # Calculate correct counts - use actual errors and warnings lists
+        total_errors = len(self.errors)
+        total_warnings = len(self.warnings)
+        # Total violations should be the sum of errors and warnings from actual detection
+        actual_total_violations = total_errors + total_warnings
 
         if format == "json":
             # Generate JSON report
@@ -431,9 +536,9 @@ class TerraformLinter:
                     "report_format": "json"
                 },
                 "summary": {
-                    "total_errors": len(self.errors),
-                    "total_warnings": len(self.warnings),
-                    "total_violations": total_violations,
+                    "total_errors": total_errors,
+                    "total_warnings": total_warnings,
+                    "total_violations": actual_total_violations,
                     "files_processed": self.files_processed,
                     "total_lines_processed": self.total_lines_processed,
                     "execution_time": execution_time
@@ -461,8 +566,10 @@ class TerraformLinter:
                         "warnings": self.warnings_by_category['DC']
                     }
                 },
-                "detailed_errors": self.errors,
-                "detailed_warnings": self.warnings,
+                "detailed_errors": [error.to_detailed_format() for error in self.errors],
+                "detailed_warnings": [warning.to_detailed_format() for warning in self.warnings],
+                "summary_errors": [error.to_summary_format() for error in self.errors],
+                "summary_warnings": [warning.to_summary_format() for warning in self.warnings],
                 "performance_metrics": performance_metrics,
                 "rules_system": {
                     "total_available_rules": rules_summary['total_rules'],
@@ -489,9 +596,9 @@ class TerraformLinter:
                 f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}",
                 "",
                 "=== SUMMARY ===",
-                f"Total Errors: {len(self.errors)}",
-                f"Total Warnings: {len(self.warnings)}",
-                f"Total Violations: {total_violations}",
+                f"Total Errors: {total_errors}",
+                f"Total Warnings: {total_warnings}",
+                f"Total Violations: {actual_total_violations}",
                 f"Files Processed: {self.files_processed}",
                 f"Total Lines Processed: {self.total_lines_processed:,}",
                 f"Execution Time: {execution_time:.2f} seconds",
@@ -518,7 +625,7 @@ class TerraformLinter:
             if self.errors:
                 report_lines.extend([
                     "=== DETAILED ERRORS ===",
-                    *[f"  {error}" for error in self.errors],
+                    *[f"  {error.to_detailed_format()}" for error in self.errors],
                     ""
                 ])
 
@@ -526,22 +633,34 @@ class TerraformLinter:
             if self.warnings:
                 report_lines.extend([
                     "=== DETAILED WARNINGS ===", 
-                    *[f"  {warning}" for warning in self.warnings],
+                    *[f"  {warning.to_detailed_format()}" for warning in self.warnings],
+                    ""
+                ])
+
+            # Add summary errors with file:line format
+            if self.errors:
+                report_lines.extend([
+                    "=== SUMMARY ERRORS (FILE:LINE) ===",
+                    *[f"  {error.to_summary_format()}" for error in self.errors],
+                    ""
+                ])
+
+            # Add summary warnings with file:line format
+            if self.warnings:
+                report_lines.extend([
+                    "=== SUMMARY WARNINGS (FILE:LINE) ===",
+                    *[f"  {warning.to_summary_format()}" for warning in self.warnings],
                     ""
                 ])
 
             # Add performance metrics
             if self.files_processed > 0:
-                avg_lines_per_file = self.total_lines_processed // self.files_processed
-                files_per_second = self.files_processed / execution_time if execution_time > 0 else 0
-                lines_per_second = self.total_lines_processed / execution_time if execution_time > 0 else 0
-                
                 report_lines.extend([
                     "=== PERFORMANCE METRICS ===",
-                    f"Average Lines per File: {avg_lines_per_file:,}",
-                    f"Files per Second: {files_per_second:.1f}",
-                    f"Lines per Second: {lines_per_second:,.0f}",
-                    f"Rules per Second: {total_rules_executed/execution_time:.1f}" if execution_time > 0 else "Rules per Second: N/A",
+                    f"Average Lines per File: {performance_metrics['avg_lines_per_file']:,}",
+                    f"Files per Second: {performance_metrics['files_per_second']:.1f}",
+                    f"Lines per Second: {performance_metrics['lines_per_second']:.1f}",
+                    f"Rules per Second: {performance_metrics['rules_per_second']:.1f}",
                     ""
                 ])
 
@@ -570,15 +689,15 @@ class TerraformLinter:
         print("LINT SUMMARY")
         print("=" * 60)
         print(f"Files: {self.files_processed}, Lines: {self.total_lines_processed:,}")
-        print(f"Errors: {len(self.errors)}, Warnings: {len(self.warnings)}, Violations: {total_violations}")
+        print(f"Errors: {total_errors}, Warnings: {total_warnings}, Violations: {actual_total_violations}")
         print(f"Execution Time: {execution_time:.2f}s")
         print("=" * 60)
 
         # Create and return LintReport object
         return LintReport(
-            total_errors=len(self.errors),
-            total_warnings=len(self.warnings),
-            total_violations=total_violations,
+            total_errors=total_errors,
+            total_warnings=total_warnings,
+            total_violations=actual_total_violations,
             files_processed=self.files_processed,
             total_lines_processed=self.total_lines_processed,
             execution_time=execution_time,
