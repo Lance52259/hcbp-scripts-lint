@@ -32,19 +32,20 @@ These rules check variable and output definition and usage standards to ensure m
 
 ```hcl
 # ❌ Error: Instance name is not "test"
-resource "azurerm_resource_group" "main" {
-  name     = "example-resources"
-  location = "West Europe"
+resource "huaweicloud_vpc" "main" {
+  name = "example-vpc"
+  cidr = "10.0.0.0/16"
 }
 
-data "azurerm_client_config" "current" {}
+data "huaweicloud_availability_zones" "current" {
+  region = "cn-north-1"
+}
 
-resource "azurerm_storage_account" "example" {
-  name                     = "storageaccountname"
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+resource "huaweicloud_compute_instance" "example" {
+  name      = "test-instance"
+  flavor_id = "c6.large.2"
+  image_id  = "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"
+  vpc_id    = huaweicloud_vpc.main.id
 }
 ```
 
@@ -52,19 +53,20 @@ resource "azurerm_storage_account" "example" {
 
 ```hcl
 # ✅ Correct: All instance names are "test"
-resource "azurerm_resource_group" "test" {
-  name     = "example-resources"
-  location = "West Europe"
+resource "huaweicloud_vpc" "test" {
+  name = "example-vpc"
+  cidr = "10.0.0.0/16"
 }
 
-data "azurerm_client_config" "test" {}
+data "huaweicloud_availability_zones" "test" {
+  region = "cn-north-1"
+}
 
-resource "azurerm_storage_account" "test" {
-  name                     = "storageaccountname"
-  resource_group_name      = azurerm_resource_group.test.name
-  location                 = azurerm_resource_group.test.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+resource "huaweicloud_compute_instance" "test" {
+  name      = "test-instance"
+  flavor_id = "c6.large.2"
+  image_id  = "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"
+  vpc_id    = huaweicloud_vpc.test.id
 }
 ```
 
@@ -80,73 +82,61 @@ resource "azurerm_storage_account" "test" {
 **Rule Description:** All input variables must be designed as optional parameters (with default values).
 
 **Purpose:**
-- Improve module usability and flexibility
-- Reduce configuration complexity for users
-- Ensure modules work properly with minimal configuration
-- Provide reasonable default behavior
+- Ensure all required variables have explicit value definitions
+- Prevent runtime errors from undefined variables
+- Provide clear configuration entry points for required parameters
+- Improve configuration management for different environments
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Variables without default values
-variable "resource_group_name" {
-  description = "Name of the resource group"
+# ❌ Error: Required variable without default value missing from terraform.tfvars
+# variables.tf
+variable "storage_account_name" {
+  description = "Name of the storage account"
   type        = string
+  # No default value - this is a required variable
 }
 
 variable "location" {
-  description = "Azure region for resources"
+  description = "Huawei Cloud region"
   type        = string
+  # No default value - this is a required variable
 }
 
-variable "environment" {
-  description = "Environment name"
-  type        = string
-}
+# terraform.tfvars (missing required variable definitions)
+# storage_account_name is not defined
+# location is not defined
 ```
 
 **Correct Example:**
 
 ```hcl
-# ✅ Correct: All variables have default values
-variable "resource_group_name" {
-  description = "Name of the resource group"
+# ✅ Correct: All required variables have definitions in terraform.tfvars
+# variables.tf
+variable "storage_account_name" {
+  description = "Name of the storage account"
   type        = string
-  default     = "example-rg"
+  # No default value - required variable
 }
 
 variable "location" {
-  description = "Azure region for resources"
+  description = "Huawei Cloud region"
   type        = string
-  default     = "East US"
+  # No default value - required variable
 }
 
-variable "environment" {
-  description = "Environment name"
-  type        = string
-  default     = "dev"
-}
-
-# Even null or empty values are valid defaults
-variable "tags" {
-  description = "Tags to apply to resources"
-  type        = map(string)
-  default     = {}
-}
-
-variable "optional_config" {
-  description = "Optional configuration"
-  type        = string
-  default     = null
-}
+# terraform.tfvars
+storage_account_name = "myuniquestorageacct001"
+location            = "cn-north-1"
 ```
 
 **Best Practices:**
-- Provide reasonable default values for all variables
-- Use `null` as default for optional configurations
-- Use empty collections (`{}`, `[]`) as defaults for optional lists/maps
-- Explain the meaning and impact of default values in variable descriptions
-- Consider using `validation` blocks to validate variable values
+- Create a `terraform.tfvars` file for all required variables
+- Provide example values in `terraform.tfvars.example`
+- Use environment-specific `.tfvars` files for different environments
+- Document all required variables and their expected values
+- Consider using variable validation blocks for input validation
 
 ---
 
@@ -169,12 +159,12 @@ variable "optional_config" {
 
 ```hcl
 # ❌ Error: Improper formatting
-resource "azurerm_storage_account" "test" {
-  name="storageaccountname"                    # No spaces around equals
-  resource_group_name =azurerm_resource_group.test.name  # No space after equals
-  location            =  "East US"            # Multiple spaces after equals
-  account_tier        =    "Standard"         # Inconsistent spacing
-  account_replication_type="LRS"              # No spaces around equals
+resource "huaweicloud_compute_instance" "test" {
+  name="test-instance"                    # No spaces around equals
+  flavor_id =c6.large.2  # No space after equals
+  image_id            =  "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"            # Multiple spaces after equals
+  vpc_id        =    huaweicloud_vpc.test.id         # Inconsistent spacing
+  availability_zone="cn-north-1a"              # No spaces around equals
 }
 ```
 
@@ -182,12 +172,12 @@ resource "azurerm_storage_account" "test" {
 
 ```hcl
 # ✅ Correct: Proper formatting
-resource "azurerm_storage_account" "test" {
-  name                     = "storageaccountname"
-  resource_group_name      = azurerm_resource_group.test.name
-  location                 = "East US"
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+resource "huaweicloud_compute_instance" "test" {
+  name              = "test-instance"
+  flavor_id         = "c6.large.2"
+  image_id          = "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"
+  vpc_id            = huaweicloud_vpc.test.id
+  availability_zone = "cn-north-1a"
 
   tags = {
     Environment = "test"
@@ -459,7 +449,7 @@ variable "vpc_cidr" {        # Should be third, but defined second
 variable "region" {          # Should be first, but defined first (correct)
   description = "The region where resources are located"
   type        = string
-  default     = "us-east-1"
+  default     = "cn-north-1"
 }
 
 variable "vpc_name" {        # Should be second, but defined third
@@ -495,7 +485,7 @@ resource "huaweicloud_vpc_subnet" "test" {
 variable "region" {          # First variable used in main.tf
   description = "The region where resources are located"
   type        = string
-  default     = "us-east-1"
+  default     = "cn-north-1"
 }
 
 variable "vpc_name" {        # Second variable used in main.tf
@@ -590,7 +580,8 @@ resource "huaweicloud_vpc_subnet" "test" {
 - Use automated formatting tools like `terraform fmt` to ensure compliance
 - Configure IDE/editor to highlight syntax violations
 
-**Cross-references**: Works with [ST.001](#st001---resource-and-data-source-naming-convention), [ST.003](#st003---parameter-assignment-formatting)
+**Cross-references**: Works with [ST.001](#st001---resource-and-data-source-naming-convention),
+                      [ST.003](#st003---parameter-assignment-formatting)
 
 ---
 
@@ -611,11 +602,11 @@ resource "huaweicloud_vpc_subnet" "test" {
 
 ```hcl
 # ❌ Error: Improper comment formatting
-#This is an incorrect comment format                    # No space
-#  This comment has multiple spaces                      # Multiple spaces
-resource "azurerm_resource_group" "test" {
+#This is an incorrect comment format              # No space
+#  This comment has multiple spaces               # Multiple spaces
+resource "huaweicloud_resource_group" "test" {
   name     = "example-resources"
-  location = "West Europe"              #No space in inline comment
+  location = "cn-north-1"                         #No space in inline comment
 }
 
 #Another incorrect comment
@@ -632,9 +623,9 @@ variable "example" {
 # ✅ Correct: Proper comment formatting
 # This is a correct comment format
 # Create resource group to contain all related resources
-resource "azurerm_resource_group" "test" {
+resource "huaweicloud_resource_group" "test" {
   name     = "example-resources"
-  location = "West Europe"              # Resource group location
+  location = "cn-north-1"              # Resource group location
 }
 
 # Define example variable
@@ -689,15 +680,15 @@ variable "resource_group_name" {    # Variables should be in variables.tf
   default     = "example-rg"
 }
 
-resource "azurerm_resource_group" "test" {
+resource "huaweicloud_resource_group" "test" {
   name     = var.resource_group_name
   location = var.location
 }
 
 variable "location" {               # Variables should be in variables.tf
-  description = "Azure region"
+  description = "Huawei Cloud region"
   type        = string
-  default     = "East US"
+  default     = "cn-north-1"
 }
 ```
 
@@ -713,13 +704,13 @@ variable "resource_group_name" {
 }
 
 variable "location" {
-  description = "Azure region for resources"
+  description = "Huawei Cloud region for resources"
   type        = string
-  default     = "East US"
+  default     = "cn-north-1"
 }
 
 # main.tf
-resource "azurerm_resource_group" "test" {
+resource "huaweicloud_resource_group" "test" {
   name     = var.resource_group_name
   location = var.location
 }
@@ -734,30 +725,30 @@ resource "azurerm_resource_group" "test" {
 
 ---
 
-### IO.002 - Output Definition File Convention
+### IO.002 - Output Definition File Organization Convention
 
-**Rule Description:** All output variables must be defined in the `outputs.tf` file in the same directory.
+**Rule Description:** Validates that all output variables (if any) in TF scripts within each directory are defined in
+                      the outputs.tf file in the same directory level.
 
 **Purpose:**
-- Maintain project structure clarity and consistency
+- Maintain project structure clarity and consistency within each directory
 - Facilitate centralized output management and documentation
 - Improve module interface readability
 - Comply with Terraform community best practices
+- Ensure outputs are organized at the appropriate directory level
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Defining outputs in main.tf
+# ❌ Error: Outputs not defined in outputs.tf
 # main.tf
-resource "azurerm_resource_group" "test" {
+resource "huaweicloud_resource_group" "test" {
   name     = var.resource_group_name
   location = var.location
 }
 
-output "resource_group_id" {        # Outputs should be in outputs.tf
-  description = "ID of the resource group"
-  value       = azurerm_resource_group.test.id
-}
+# outputs.tf
+# No output definitions
 ```
 
 **Correct Example:**
@@ -767,16 +758,16 @@ output "resource_group_id" {        # Outputs should be in outputs.tf
 # outputs.tf
 output "resource_group_id" {
   description = "The ID of the created resource group"
-  value       = azurerm_resource_group.test.id
+  value       = huaweicloud_resource_group.test.id
 }
 
 output "resource_group_name" {
   description = "The name of the created resource group"
-  value       = azurerm_resource_group.test.name
+  value       = huaweicloud_resource_group.test.name
 }
 
 # main.tf
-resource "azurerm_resource_group" "test" {
+resource "huaweicloud_resource_group" "test" {
   name     = var.resource_group_name
   location = var.location
 }
@@ -791,10 +782,9 @@ resource "azurerm_resource_group" "test" {
 
 ---
 
-### IO.003 - Required Parameter Declaration Convention
+### IO.003 - Required Variable Declaration Check in terraform.tfvars
 
-**Rule Description:** All required variables used in resources must have input values declared in the `terraform.tfvars`
-                      file in the same directory.
+**Rule Description:** Check if variables without default values have corresponding definitions in `terraform.tfvars`.
 
 **Purpose:**
 - Ensure all required variables have explicit value definitions
@@ -814,7 +804,7 @@ variable "storage_account_name" {
 }
 
 variable "location" {
-  description = "Azure region"
+  description = "Huawei Cloud region"
   type        = string
   # No default value, this is a required variable
 }
@@ -828,7 +818,7 @@ variable "location" {
 # ✅ Correct: All required variables declared in terraform.tfvars
 # terraform.tfvars
 storage_account_name = "myuniquestorageacct001"
-location            = "East US"
+location            = "cn-north-1"
 environment         = "development"
 
 # Optional: Override variables with default values
@@ -1011,46 +1001,68 @@ variable "environment" {
 
 ---
 
-### IO.007 - Output Description Convention
+### IO.007 - Variable Validation Constraints Check
 
-**Rule Description:** All output variables must have a description field defined and not empty.
+**Rule Description:** Check for variable validation constraints to ensure input values meet specified criteria.
 
 **Purpose:**
-- Improves module interface documentation
-- Helps users understand output purposes and usage
-- Facilitates automated documentation generation
+- Improve input validation and error prevention
+- Ensure variables meet business requirements and constraints
+- Provide clear error messages for invalid inputs
+- Enhance configuration reliability and security
 
-**Good Example:**
+**Error Example:**
+
 ```hcl
-output "vpc_id" {
-  description = "The ID of the created VPC"
-  value       = huaweicloud_vpc.test.id
+# ❌ Error: Missing validation constraints for critical variables
+variable "environment" {
+  description = "The deployment environment"
+  type        = string
+  default     = "dev"
+  # Missing validation block for environment values
 }
 
-output "subnet_ids" {
-  description = "List of subnet IDs created in the VPC"
-  value       = huaweicloud_vpc_subnet.test[*].id
+variable "region" {
+  description = "Huawei Cloud region"
+  type        = string
+  default     = "cn-north-1"
+  # Missing validation block for region values
 }
 ```
 
-**Bad Example:**
+**Correct Example:**
+
 ```hcl
-output "vpc_id" {
-  # Missing description field
-  value = huaweicloud_vpc.test.id
+# ✅ Correct: Variables with proper validation constraints
+variable "environment" {
+  description = "The deployment environment"
+  type        = string
+  default     = "dev"
+  
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, staging, prod."
+  }
 }
 
-output "subnet_ids" {
-  description = ""  # Empty description
-  value       = huaweicloud_vpc_subnet.test[*].id
+variable "region" {
+  description = "Huawei Cloud region"
+  type        = string
+  default     = "cn-north-1"
+  
+  validation {
+    condition     = contains(["cn-north-1", "cn-east-2", "cn-south-1"], var.region)
+    error_message = "Region must be a valid Huawei Cloud region."
+  }
 }
 ```
 
 **Best Practices:**
-- Always provide clear descriptions for outputs
-- Describe what the output represents and how it can be used
-- Include data type information when helpful
-- Use consistent description formatting
+- Add validation blocks for critical variables
+- Use descriptive error messages
+- Validate against known good values or patterns
+- Consider using regex patterns for string validation
+- Document validation requirements in variable descriptions
 
 ---
 
@@ -1155,4 +1167,3 @@ These rules aim to improve the quality, consistency, and maintainability of Terr
 
 It is recommended to continuously use this checking tool during project development and adjust rule configurations
 according to team needs.
-

@@ -1,5 +1,5 @@
-name: 'Terraform Scripts Lint'
-description: 'Comprehensive linting tool for Terraform scripts - checks code quality, formatting, and documentation'
+name: 'Terraform Scripts Lint (Unified System)'
+description: 'Enhanced comprehensive linting tool for Terraform scripts using unified rules management system - checks code quality, formatting, and documentation with advanced analytics'
 author: 'DevOps Team'
 
 branding:
@@ -19,6 +19,10 @@ inputs:
     description: 'Comma-separated list of rule IDs to ignore (e.g., ST.001,ST.003)'
     required: false
     default: ''
+  rule-categories:
+    description: 'Comma-separated list of rule categories to execute (ST,IO,DC). Default: all categories'
+    required: false
+    default: 'ST,IO,DC'
   include-paths:
     description: 'Comma-separated list of path patterns to include (e.g., modules/*,environments/*)'
     required: false
@@ -35,6 +39,14 @@ inputs:
     description: 'Base reference for git diff when checking changed files (e.g., origin/main, HEAD~1)'
     required: false
     default: 'origin/main'
+  performance-monitoring:
+    description: 'Enable detailed performance monitoring and analytics'
+    required: false
+    default: 'true'
+  report-format:
+    description: 'Output report format (text or json)'
+    required: false
+    default: 'text'
 
 outputs:
   result:
@@ -43,8 +55,18 @@ outputs:
     description: 'Number of errors found'
   warning-count:
     description: 'Number of warnings found'
+  violation-count:
+    description: 'Total number of violations found'
+  files-processed:
+    description: 'Number of files processed'
+  execution-time:
+    description: 'Total execution time in seconds'
+  rules-executed:
+    description: 'Total number of rules executed'
   report-file:
     description: 'Path to the generated lint report file'
+  performance-metrics:
+    description: 'JSON string containing performance metrics'
 
 runs:
   using: 'composite'
@@ -57,15 +79,18 @@ runs:
     - name: Validate Input Parameters
       shell: bash
       run: |
-        echo "=== Input Parameters ==="
+        echo "=== Enhanced Terraform Linter - Unified System ==="
         echo "Directory: ${{ inputs.directory }}"
         echo "Fail on Error: ${{ inputs.fail-on-error }}"
         echo "Ignore Rules: ${{ inputs.ignore-rules }}"
+        echo "Rule Categories: ${{ inputs.rule-categories }}"
         echo "Include Paths: ${{ inputs.include-paths }}"
         echo "Exclude Paths: ${{ inputs.exclude-paths }}"
         echo "Changed Files Only: ${{ inputs.changed-files-only }}"
         echo "Base Reference: ${{ inputs.base-ref }}"
-        echo "========================"
+        echo "Performance Monitoring: ${{ inputs.performance-monitoring }}"
+        echo "Report Format: ${{ inputs.report-format }}"
+        echo "=================================================="
 
     - name: Debug Environment
       shell: bash
@@ -80,7 +105,37 @@ runs:
         git log --oneline -2 || echo "Git log not available"
         echo "========================"
 
-    - name: Run Terraform Lint
+    - name: Verify Rules System
+      shell: bash
+      run: |
+        echo "=== Verifying Unified Rules System ==="
+        ACTION_PATH="$GITHUB_ACTION_PATH"
+        
+        # Check if rules directory exists
+        if [ -d "$ACTION_PATH/rules" ]; then
+          echo "✅ Rules directory found"
+          echo "Rules structure:"
+          ls -la "$ACTION_PATH/rules/"
+          
+          # Check for key files
+          if [ -f "$ACTION_PATH/rules/__init__.py" ]; then
+            echo "✅ Unified rules package found"
+          else
+            echo "❌ Unified rules package not found"
+          fi
+          
+          if [ -f "$ACTION_PATH/rules/rules_manager.py" ]; then
+            echo "✅ Rules manager found"
+          else
+            echo "❌ Rules manager not found"
+          fi
+        else
+          echo "❌ Rules directory not found"
+          exit 1
+        fi
+        echo "=================================="
+
+    - name: Run Enhanced Terraform Lint
       shell: bash
       run: |
         # Store the action path and user workspace
@@ -90,13 +145,19 @@ runs:
         # Ensure we're in the user's workspace for git operations
         cd "$USER_WORKSPACE"
         
-        # Build command with parameters
+        # Build command with enhanced parameters
         CMD="python3 '$ACTION_PATH/.github/scripts/terraform_lint.py' --directory '${{ inputs.directory }}'"
         
+        # Add rule filtering options
         if [ -n "${{ inputs.ignore-rules }}" ]; then
           CMD="$CMD --ignore-rules '${{ inputs.ignore-rules }}'"
         fi
         
+        if [ -n "${{ inputs.rule-categories }}" ]; then
+          CMD="$CMD --categories '${{ inputs.rule-categories }}'"
+        fi
+        
+        # Add path filtering options
         if [ -n "${{ inputs.include-paths }}" ]; then
           CMD="$CMD --include-paths '${{ inputs.include-paths }}'"
         fi
@@ -105,6 +166,7 @@ runs:
           CMD="$CMD --exclude-paths '${{ inputs.exclude-paths }}'"
         fi
         
+        # Add git diff options
         if [ "${{ inputs.changed-files-only }}" = "true" ]; then
           CMD="$CMD --changed-files-only"
           
@@ -113,54 +175,202 @@ runs:
           fi
         fi
         
-        echo "Executing: $CMD"
+        # Add performance monitoring
+        if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
+          CMD="$CMD --performance-monitoring"
+        fi
+        
+        # Add report format
+        if [ -n "${{ inputs.report-format }}" ]; then
+          CMD="$CMD --report-format '${{ inputs.report-format }}'"
+        fi
+        
+        echo "Executing enhanced linter: $CMD"
         echo "Working directory: $(pwd)"
+        
+        # Execute the enhanced linter
         eval $CMD
         
         # Store exit code for later use
         echo "LINT_EXIT_CODE=$?" >> $GITHUB_ENV
 
+    - name: Parse Enhanced Report
+      shell: bash
+      run: |
+        # Parse the enhanced report for detailed metrics
+        if [ -f "terraform-lint-report.txt" ]; then
+          echo "=== Parsing Enhanced Report ==="
+          
+          # Extract basic counts
+          ERROR_COUNT=$(grep "Total Errors:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
+          WARNING_COUNT=$(grep "Total Warnings:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
+          VIOLATION_COUNT=$(grep "Total Violations:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
+          FILES_PROCESSED=$(grep "Files Processed:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
+          EXECUTION_TIME=$(grep "Execution Time:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+          RULES_EXECUTED=$(grep "Total Rules Executed:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
+          
+          # Store metrics in environment
+          echo "ERROR_COUNT=$ERROR_COUNT" >> $GITHUB_ENV
+          echo "WARNING_COUNT=$WARNING_COUNT" >> $GITHUB_ENV
+          echo "VIOLATION_COUNT=$VIOLATION_COUNT" >> $GITHUB_ENV
+          echo "FILES_PROCESSED=$FILES_PROCESSED" >> $GITHUB_ENV
+          echo "EXECUTION_TIME=$EXECUTION_TIME" >> $GITHUB_ENV
+          echo "RULES_EXECUTED=$RULES_EXECUTED" >> $GITHUB_ENV
+          
+          # Extract performance metrics for JSON output
+          FILES_PER_SECOND=$(grep "Files per Second:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+          LINES_PER_SECOND=$(grep "Lines per Second:" terraform-lint-report.txt | grep -o '[0-9,]*' | tr -d ',' || echo "0")
+          RULES_PER_SECOND=$(grep "Rules per Second:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+          
+          # Create performance metrics JSON
+          PERFORMANCE_JSON="{\"files_per_second\":$FILES_PER_SECOND,\"lines_per_second\":$LINES_PER_SECOND,\"rules_per_second\":$RULES_PER_SECOND,\"execution_time\":$EXECUTION_TIME,\"files_processed\":$FILES_PROCESSED,\"rules_executed\":$RULES_EXECUTED}"
+          echo "PERFORMANCE_METRICS=$PERFORMANCE_JSON" >> $GITHUB_ENV
+          
+          echo "📊 Enhanced Metrics Extracted:"
+          echo "  - Errors: $ERROR_COUNT"
+          echo "  - Warnings: $WARNING_COUNT"
+          echo "  - Violations: $VIOLATION_COUNT"
+          echo "  - Files: $FILES_PROCESSED"
+          echo "  - Execution Time: ${EXECUTION_TIME}s"
+          echo "  - Rules Executed: $RULES_EXECUTED"
+          echo "  - Performance: $FILES_PER_SECOND files/sec, $RULES_PER_SECOND rules/sec"
+          
+        else
+          echo "❌ Report file not found"
+          echo "ERROR_COUNT=0" >> $GITHUB_ENV
+          echo "WARNING_COUNT=0" >> $GITHUB_ENV
+          echo "VIOLATION_COUNT=0" >> $GITHUB_ENV
+          echo "FILES_PROCESSED=0" >> $GITHUB_ENV
+          echo "EXECUTION_TIME=0.0" >> $GITHUB_ENV
+          echo "RULES_EXECUTED=0" >> $GITHUB_ENV
+          echo "PERFORMANCE_METRICS={}" >> $GITHUB_ENV
+        fi
+
     - name: Generate Unique Artifact Name
       shell: bash
       run: |
-        # Generate a unique artifact name using timestamp
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        ARTIFACT_NAME="terraform-lint-report-${{ github.run_id }}-${TIMESTAMP}-$$"
+        # Generate a unique artifact name using timestamp, run details and job info
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N)  # Add milliseconds for better uniqueness
+        JOB_ID="${{ github.job }}"
+        MATRIX_KEY="${{ strategy.job-index }}"  # For matrix jobs
+        
+        # Create base name
+        BASE_NAME="terraform-lint-report-unified"
+        
+        # Add run and job identifiers
+        UNIQUE_SUFFIX="${{ github.run_id }}-${{ github.run_attempt }}-${JOB_ID}"
+        
+        # Add matrix suffix if this is a matrix job
+        if [ -n "$MATRIX_KEY" ] && [ "$MATRIX_KEY" != "null" ]; then
+          UNIQUE_SUFFIX="${UNIQUE_SUFFIX}-matrix-${MATRIX_KEY}"
+        fi
+        
+        # Add timestamp for final uniqueness
+        ARTIFACT_NAME="${BASE_NAME}-${UNIQUE_SUFFIX}-${TIMESTAMP}"
+        
         echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
-        echo "Generated artifact name: $ARTIFACT_NAME"
+        echo "Generated unique artifact name: $ARTIFACT_NAME"
+        
+        # Also create a shorter name for reference
+        SHORT_NAME="${BASE_NAME}-${{ github.run_id }}-${TIMESTAMP}"
+        echo "SHORT_ARTIFACT_NAME=$SHORT_NAME" >> $GITHUB_ENV
 
-    - name: Upload Lint Report
+    - name: Upload Enhanced Lint Report
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: ${{ env.ARTIFACT_NAME }}
-        path: terraform-lint-report.txt
+        path: |
+          terraform-lint-report.txt
+          terraform-lint-report.json
         retention-days: 30
+        if-no-files-found: warn
+        compression-level: 6
+      continue-on-error: true
+      id: upload-primary
 
-    - name: Set Outputs and Handle Results
+    - name: Upload Report with Fallback Name
+      uses: actions/upload-artifact@v4
+      if: always() && steps.upload-primary.outcome == 'failure'
+      with:
+        name: ${{ env.SHORT_ARTIFACT_NAME }}-fallback-${{ github.run_number }}
+        path: |
+          terraform-lint-report.txt
+          terraform-lint-report.json
+        retention-days: 30
+        if-no-files-found: warn
+        compression-level: 6
+      continue-on-error: true
+
+    - name: Create Summary Report
       shell: bash
+      if: always()
       run: |
-        # Read the report file to get counts
-        if [ -f "terraform-lint-report.txt" ]; then
-          ERROR_COUNT=$(grep "Total Errors:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
-          WARNING_COUNT=$(grep "Total Warnings:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
-        else
-          ERROR_COUNT=0
-          WARNING_COUNT=0
+        # Create a GitHub Actions summary
+        echo "## 🔍 Terraform Lint Report (Unified System)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Errors | $ERROR_COUNT |" >> $GITHUB_STEP_SUMMARY
+        echo "| Warnings | $WARNING_COUNT |" >> $GITHUB_STEP_SUMMARY
+        echo "| Total Violations | $VIOLATION_COUNT |" >> $GITHUB_STEP_SUMMARY
+        echo "| Files Processed | $FILES_PROCESSED |" >> $GITHUB_STEP_SUMMARY
+        echo "| Rules Executed | $RULES_EXECUTED |" >> $GITHUB_STEP_SUMMARY
+        echo "| Execution Time | ${EXECUTION_TIME}s |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add performance metrics if available
+        if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
+          echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- **Processing Speed**: $(echo $PERFORMANCE_METRICS | grep -o '"files_per_second":[0-9.]*' | cut -d: -f2) files/second" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rule Execution**: $(echo $PERFORMANCE_METRICS | grep -o '"rules_per_second":[0-9.]*' | cut -d: -f2) rules/second" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
         fi
         
-        # Set outputs
+        # Add configuration details
+        echo "### ⚙️ Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- **Directory**: \`${{ inputs.directory }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Rule Categories**: \`${{ inputs.rule-categories }}\`" >> $GITHUB_STEP_SUMMARY
+        if [ -n "${{ inputs.ignore-rules }}" ]; then
+          echo "- **Ignored Rules**: \`${{ inputs.ignore-rules }}\`" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ "${{ inputs.changed-files-only }}" = "true" ]; then
+          echo "- **Mode**: Changed files only (base: \`${{ inputs.base-ref }}\`)" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add result status
+        if [ "$LINT_EXIT_CODE" -eq 0 ]; then
+          echo "### ✅ Result: PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### ❌ Result: FAILED" >> $GITHUB_STEP_SUMMARY
+          echo "Issues found. Please check the detailed report." >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Set Enhanced Outputs and Handle Results
+      shell: bash
+      run: |
+        # Set all outputs with enhanced metrics
         echo "error-count=$ERROR_COUNT" >> $GITHUB_OUTPUT
         echo "warning-count=$WARNING_COUNT" >> $GITHUB_OUTPUT
+        echo "violation-count=$VIOLATION_COUNT" >> $GITHUB_OUTPUT
+        echo "files-processed=$FILES_PROCESSED" >> $GITHUB_OUTPUT
+        echo "execution-time=$EXECUTION_TIME" >> $GITHUB_OUTPUT
+        echo "rules-executed=$RULES_EXECUTED" >> $GITHUB_OUTPUT
         echo "report-file=terraform-lint-report.txt" >> $GITHUB_OUTPUT
+        echo "performance-metrics=$PERFORMANCE_METRICS" >> $GITHUB_OUTPUT
         
         # Determine result
         if [ "$LINT_EXIT_CODE" -eq 0 ]; then
           echo "result=success" >> $GITHUB_OUTPUT
-          echo "✅ Terraform lint completed successfully"
+          echo "✅ Enhanced Terraform lint completed successfully"
+          echo "📊 Processed $FILES_PROCESSED files with $RULES_EXECUTED rule executions in ${EXECUTION_TIME}s"
         else
           echo "result=failure" >> $GITHUB_OUTPUT
-          echo "❌ Terraform lint found issues"
+          echo "❌ Enhanced Terraform lint found issues"
+          echo "📊 Found $ERROR_COUNT errors, $WARNING_COUNT warnings, $VIOLATION_COUNT total violations"
           
           # Fail the workflow if requested
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then

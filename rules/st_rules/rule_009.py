@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+"""
+ST.009 - Variable Definition Order Check
+
+This module implements the ST.009 rule which validates that variable definitions
+in variables.tf follow the same order as their usage in main.tf.
+
+Rule Specification:
+- Variable definition order in variables.tf must match usage order in main.tf
+- The first variable used in main.tf should be defined first in variables.tf
+- This ensures logical consistency between variable definitions and usage
+- Helps developers understand variable dependencies and usage patterns
+
+Examples:
+    Valid ordering (variables.tf matches main.tf usage order):
+        # main.tf uses variables in order: flavor_id, performance_type, instance_name
+        data "huaweicloud_compute_flavors" "test" {
+          count = var.flavor_id == "" ? 1 : 0
+
+          performance_type = var.performance_type
+        }
+
+        resource "huaweicloud_compute_instance" "test" {
+          name       = var.instance_name
+          flavor_id  = try(data.huaweicloud_compute_flavors.test.flavors[0].id, var.flavor_id)
+        }
+
+        # variables.tf defines variables in same order
+        variable "flavor_id" {
+          description = "The flavor ID of the ECS instance"
+          type        = string
+          default     = ""
+        }
+
+        variable "performance_type" {
+          description = "The performance type of the ECS instance"
+          type        = string
+          default     = "normal"
+        }
+        
+        variable "instance_name" {
+          description = "The name of the ECS instance"
+          type        = string
+        }
+
+    Invalid ordering (variables.tf order doesn't match main.tf usage):
+        # main.tf uses variables in order: flavor_id, performance_type, instance_name
+        # But variables.tf defines them in different order
+        data "huaweicloud_compute_flavors" "test" {
+          count = var.flavor_id == "" ? 1 : 0
+
+          performance_type = var.performance_type
+        }
+
+        resource "huaweicloud_compute_instance" "test" {
+          name       = var.instance_name
+          flavor_id  = try(data.huaweicloud_compute_flavors.test.flavors[0].id, var.flavor_id)
+        }
+
+        # variables.tf defines variables in same order
+        variable "instance_name" {
+          description = "The name of the ECS instance"
+          type        = string
+        }
+
+        variable "flavor_id" {
+          description = "The flavor ID of the ECS instance"
+          type        = string
+          default     = ""
+        }
+
+        variable "performance_type" {
+          description = "The performance type of the ECS instance"
+          type        = string
+          default     = "normal"
+        }
+
+Author: Lance
+License: Apache 2.0
+"""
+
+import re
+import os
+from typing import Callable, List, Dict, Optional, Tuple
+
+
+def check_st009_variable_order(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+    """
+    Validate that variable definition order in variables.tf matches usage order in main.tf.
+
+    This function checks that the order of variable definitions in variables.tf
+    corresponds to the order in which variables are first used in main.tf.
+    This ensures logical consistency and helps developers understand variable
+    dependencies and usage patterns.
+
+    The validation process:
+    1. If checking variables.tf, find the corresponding main.tf in the same directory
+    2. Extract variable usage order from main.tf
+    3. Extract variable definition order from variables.tf
+    4. Compare the orders and report any inconsistencies
+
+    Args:
+        file_path (str): The path to the file being checked. Used for error reporting
+                        to help developers identify the location of violations.
+
+        content (str): The complete content of the Terraform file as a string.
+                      This should be the content of variables.tf.
+
+        log_error_func (Callable[[str, str, str], None]): A callback function used
+                      to report rule violations. The function should accept three
+                      parameters: file_path, rule_id, and error_message.
+
+    Returns:
+        None: This function doesn't return a value but reports errors through
+              the log_error_func callback.
+
+    Raises:
+        No exceptions are raised by this function. All errors are handled
+        gracefully and reported through the logging mechanism.
+    """
+    # Only check variables.tf files
+    if not file_path.endswith('variables.tf'):
+        return
+    
+    # Get the directory containing variables.tf
+    file_dir = os.path.dirname(file_path)
+    main_tf_path = os.path.join(file_dir, 'main.tf')
+    
+    # Check if main.tf exists
+    if not os.path.exists(main_tf_path):
+        return  # No main.tf to compare against
+    
+    try:
+        with open(main_tf_path, 'r', encoding='utf-8') as f:
+            main_tf_content = f.read()
+    except Exception:
+        return  # Can't read main.tf
+    
+    # Extract variable usage order from main.tf
+    usage_order = _extract_variable_usage_order(main_tf_content)
+    
+    # Extract variable definition order from variables.tf
+    definition_order = _extract_variable_definition_order(content)
+    
+    if not usage_order or not definition_order:
+        return  # No variables to check
+    
+    # Check order consistency
+    order_errors = _check_order_consistency(usage_order, definition_order)
+    
+    for error_msg in order_errors:
+        log_error_func(file_path, "ST.009", error_msg)
+
+
+def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
+    """
+    Extract the order of variable usage from main.tf content.
+
+    Args:
+        main_tf_content (str): Content of main.tf file
+
+    Returns:
+        List[str]: List of variable names in order of first usage
+    """
+    usage_order = []
+    seen_variables = set()
+    
+    # Find all variable references in order
+    var_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
+    matches = re.finditer(var_pattern, main_tf_content)
+    
+    for match in matches:
+        var_name = match.group(1)
+        if var_name not in seen_variables:
+            usage_order.append(var_name)
+            seen_variables.add(var_name)
+    
+    return usage_order
+
+
+def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[str, int]]:
+    """
+    Extract the order of variable definitions from variables.tf content.
+
+    Args:
+        variables_tf_content (str): Content of variables.tf file
+
+    Returns:
+        List[Tuple[str, int]]: List of (variable_name, line_number) tuples in definition order
+    """
+    definition_order = []
+    lines = variables_tf_content.split('\n')
+    
+    for line_num, line in enumerate(lines, 1):
+        line = line.strip()
+        # Match variable definitions
+        var_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
+        if var_match:
+            var_name = var_match.group(1)
+            definition_order.append((var_name, line_num))
+    
+    return definition_order
+
+
+def _check_order_consistency(usage_order: List[str], definition_order: List[Tuple[str, int]]) -> List[str]:
+    """
+    Check if variable definition order matches usage order.
+
+    Args:
+        usage_order (List[str]): Variables in order of usage in main.tf
+        definition_order (List[Tuple[str, int]]): Variables in definition order with line numbers
+
+    Returns:
+        List[str]: List of error messages
+    """
+    errors = []
+    
+    # Extract just the variable names from definition order
+    defined_vars = [var_name for var_name, _ in definition_order]
+    
+    # Find variables that are both used and defined
+    common_vars = [var for var in usage_order if var in defined_vars]
+    
+    if len(common_vars) < 2:
+        return errors  # Need at least 2 variables to check ordering
+    
+    # Check if the order matches
+    expected_order = common_vars
+    actual_order = [var for var in defined_vars if var in common_vars]
+    
+    if expected_order != actual_order:
+        # Find the first variable that's out of order
+        for i, expected_var in enumerate(expected_order):
+            if i < len(actual_order) and actual_order[i] != expected_var:
+                # Find the line number of the misplaced variable
+                misplaced_line = next(line_num for var_name, line_num in definition_order if var_name == actual_order[i])
+                
+                errors.append(
+                    f"Line {misplaced_line}: Variable '{actual_order[i]}' is not in the correct order. "
+                    f"Expected order based on main.tf usage: {', '.join(expected_order)}, "
+                    f"but found: {', '.join(actual_order)}"
+                )
+                break
+    
+    return errors
+
+
+def _analyze_variable_usage_patterns(main_tf_content: str, variables_tf_content: str) -> dict:
+    """
+    Analyze variable usage patterns between main.tf and variables.tf.
+
+    Args:
+        main_tf_content (str): Content of main.tf
+        variables_tf_content (str): Content of variables.tf
+
+    Returns:
+        dict: Analysis results including usage statistics
+    """
+    usage_order = _extract_variable_usage_order(main_tf_content)
+    definition_order = _extract_variable_definition_order(variables_tf_content)
+    
+    defined_vars = [var_name for var_name, _ in definition_order]
+    used_vars = set(usage_order)
+    defined_vars_set = set(defined_vars)
+    
+    # Variables used but not defined
+    missing_definitions = used_vars - defined_vars_set
+    
+    # Variables defined but not used
+    unused_definitions = defined_vars_set - used_vars
+    
+    # Variables in correct order
+    common_vars = [var for var in usage_order if var in defined_vars]
+    actual_order = [var for var in defined_vars if var in common_vars]
+    correct_order = common_vars == actual_order
+    
+    return {
+        'total_variables_used': len(usage_order),
+        'total_variables_defined': len(defined_vars),
+        'common_variables': len(common_vars),
+        'missing_definitions': list(missing_definitions),
+        'unused_definitions': list(unused_definitions),
+        'correct_order': correct_order,
+        'expected_order': common_vars,
+        'actual_order': actual_order,
+        'usage_order': usage_order,
+        'definition_order': [var_name for var_name, _ in definition_order]
+    }
+
+
+def get_rule_description() -> dict:
+    """
+    Retrieve detailed information about the ST.009 rule.
+
+    This function provides metadata about the rule including its purpose,
+    validation criteria, and examples. This information can be used for
+    documentation generation, help systems, or configuration interfaces.
+
+    Returns:
+        dict: A dictionary containing comprehensive rule information including:
+            - id: The unique rule identifier
+            - name: Human-readable rule name
+            - description: Detailed explanation of what the rule validates
+            - category: The rule category (Style/Format)
+            - severity: The severity level of violations
+            - examples: Dictionary with valid and invalid examples
+
+    Example:
+        >>> info = get_rule_description()
+        >>> print(info['name'])
+        Variable definition order consistency check
+    """
+    return {
+        "id": "ST.009",
+        "name": "Variable definition order consistency check",
+        "description": (
+            "Validates that variable definitions in variables.tf follow the same "
+            "order as their usage in main.tf. This ensures logical consistency "
+            "between variable definitions and their usage patterns, making it "
+            "easier for developers to understand variable dependencies and relationships."
+        ),
+        "category": "Style/Format",
+        "severity": "warning",
+        "rationale": (
+            "Maintaining consistent ordering between variable definitions and usage "
+            "improves code readability and helps developers understand the logical "
+            "flow of variable dependencies. When variables are defined in the same "
+            "order they are used, it becomes easier to trace variable relationships "
+            "and understand the configuration structure."
+        ),
+        "examples": {
+            "valid": [
+                '''
+# main.tf uses variables in order: flavor_id, performance_type, instance_name
+data "huaweicloud_compute_flavors" "test" {
+  count = var.flavor_id == "" ? 1 : 0
+
+  performance_type = var.performance_type
+}
+
+resource "huaweicloud_compute_instance" "test" {
+  name       = var.instance_name
+  flavor_id  = try(data.huaweicloud_compute_flavors.test.flavors[0].id, var.flavor_id)
+}
+
+# variables.tf defines variables in same order
+variable "flavor_id" {
+  description = "The flavor ID of the ECS instance"
+  type        = string
+  default     = ""
+}
+
+variable "performance_type" {
+  description = "The performance type of the ECS instance"
+  type        = string
+  default     = "normal"
+}
+        
+variable "instance_name" {
+  description = "The name of the ECS instance"
+  type        = string
+}
+'''
+            ],
+            "invalid": [
+                '''
+# main.tf uses variables in order: flavor_id, performance_type, instance_name
+# But variables.tf defines them in different order
+data "huaweicloud_compute_flavors" "test" {
+  count = var.flavor_id == "" ? 1 : 0
+
+  performance_type = var.performance_type
+}
+
+resource "huaweicloud_compute_instance" "test" {
+  name       = var.instance_name
+  flavor_id  = try(data.huaweicloud_compute_flavors.test.flavors[0].id, var.flavor_id)
+}
+
+# variables.tf defines variables in same order
+variable "instance_name" {
+  description = "The name of the ECS instance"
+  type        = string
+}
+
+variable "flavor_id" {
+  description = "The flavor ID of the ECS instance"
+  type        = string
+  default     = ""
+}
+
+variable "performance_type" {
+  description = "The performance type of the ECS instance"
+  type        = string
+  default     = "normal"
+}
+'''
+            ]
+        },
+        "auto_fixable": True,
+        "performance_impact": "minimal",
+        "related_rules": ["IO.001", "IO.003"],
+        "configuration": {
+            "check_usage_order": True,
+            "require_main_tf": True,
+            "ignore_unused_variables": False
+        }
+    }
