@@ -91,7 +91,7 @@ class STRules:
 - **IO.004**: Variable naming conventions
 - **IO.005**: Output naming conventions
 - **IO.006**: Variable description validation (non-empty descriptions required)
-- **IO.007**: Variable validation constraints check
+- **IO.007**: Output description validation (non-empty descriptions required)
 - **IO.008**: Variable type validation (type field required)
 
 **Advanced Features**:
