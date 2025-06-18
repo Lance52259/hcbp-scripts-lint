@@ -54,16 +54,14 @@ Variable and output definition validation rules, managed by the `IORules` coordi
 - **IO.002**: Output definition file organization
 - **IO.003**: Required variable declaration check in terraform.tfvars
 - **IO.004**: Variable naming convention compliance
-- **IO.005**: Variable description requirements
-- **IO.006**: Output description requirements
-- **IO.007**: Variable validation constraints check
-- **IO.008**: Output documentation standards
+- **IO.005**: Output naming convention compliance
+- **IO.006**: Variable description validation (non-empty descriptions required)
+- **IO.007**: Output description validation (non-empty descriptions required)
+- **IO.008**: Variable type validation (type field required)
 
 ### DC (Documentation/Comments) Rules
 Documentation and comment standard rules, managed by the `DCRules` coordinator:
 - **DC.001**: Comment formatting and style standards
-- **DC.002**: Module documentation requirements
-- **DC.003**: Inline comment best practices
 
 > **Unified Management Advantages**: All rules are coordinated through the `RulesManager`, providing cross-category
   performance monitoring, batch execution, and comprehensive reporting capabilities.
@@ -344,21 +342,8 @@ hcbp-scripts-lint/
 │   ├── __init__.py                 # Package initialization and API exports
 │   ├── rules_manager.py            # Central unified coordinator
 │   ├── st_rules/                   # Style/Format rules package
-│   │   ├── __init__.py             # ST package initialization
-│   │   ├── reference.py            # ST rules coordinator
-│   │   ├── rule_001.py             # Individual ST rule 001
-│   │   ├── rule_002.py             # Individual ST rule 002
-│   │   └── rule_xxx.py             # ...
 │   ├── io_rules/                   # Input/Output rules package
-│   │   ├── __init__.py             # IO package initialization
-│   │   ├── reference.py            # IO rules coordinator
-│   │   ├── rule_001.py             # Individual IO rule 001
-│   │   ├── rule_002.py             # Individual IO rule 002
-│   │   └── rule_xxx.py             # ...
 │   └── dc_rules/                   # Documentation rules package
-│       ├── __init__.py             # DC package initialization
-│       ├── reference.py            # DC rules coordinator
-│       └── rule_001.py             # Individual DC rules
 ├── .github/
 │   └── scripts/
 │       └── terraform_lint.py       # Enhanced linting script
@@ -422,4 +407,3 @@ We use [Semantic Versioning](http://semver.org/) for versioning. For the version
 
 **Enhanced by the Unified Rules Management System** - Providing consistent, efficient, and extensible Terraform linting
                                                       for teams worldwide.
-

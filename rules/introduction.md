@@ -77,66 +77,78 @@ resource "huaweicloud_compute_instance" "test" {
 
 ---
 
-### ST.002 - Variable Default Value Convention
+### ST.002 - Data Source Variable Default Value Check
 
-**Rule Description:** All input variables must be designed as optional parameters (with default values).
+**Rule Description:** All input variables used in data source blocks must be designed as optional parameters (with default values).
 
 **Purpose:**
-- Ensure all required variables have explicit value definitions
-- Prevent runtime errors from undefined variables
-- Provide clear configuration entry points for required parameters
-- Improve configuration management for different environments
+- Ensure data sources can work properly with minimal configuration
+- Prevent runtime errors from undefined variables in data source queries
+- Allow resources to use required variables while data sources use optional ones
+- Improve configuration management for data source filtering
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Required variable without default value missing from terraform.tfvars
+# ❌ Error: Variable used in data source without default value
 # variables.tf
-variable "storage_account_name" {
-  description = "Name of the storage account"
-  type        = string
-  # No default value - this is a required variable
+variable "memory_size" {
+  description = "The memory size (GB) for queried ECS flavors"
+  type        = number
+  # Missing default value but used in data source
 }
 
-variable "location" {
-  description = "Huawei Cloud region"
+variable "instance_name" {
+  description = "The name of the ECS instance"
   type        = string
-  # No default value - this is a required variable
+  # No default - OK for resource use only
 }
 
-# terraform.tfvars (missing required variable definitions)
-# storage_account_name is not defined
-# location is not defined
+# main.tf
+data "huaweicloud_compute_flavors" "test" {
+  memory_size = var.memory_size    # Uses variable without default
+}
+
+resource "huaweicloud_compute_instance" "test" {
+  name = var.instance_name         # OK - resource can use required variables
+}
 ```
 
 **Correct Example:**
 
 ```hcl
-# ✅ Correct: All required variables have definitions in terraform.tfvars
+# ✅ Correct: Data source variables have defaults, resource variables can be required
 # variables.tf
-variable "storage_account_name" {
-  description = "Name of the storage account"
-  type        = string
-  # No default value - required variable
+variable "memory_size" {
+  description = "The memory size (GB) for queried ECS flavors"
+  type        = number
+  default     = 8                  # Required because used in data source
 }
 
-variable "location" {
-  description = "Huawei Cloud region"
+variable "instance_name" {
+  description = "The name of the ECS instance"
   type        = string
-  # No default value - required variable
+  # No default - OK for resource use only
+}
+
+# main.tf
+data "huaweicloud_compute_flavors" "test" {
+  memory_size = var.memory_size    # Uses variable with default
+}
+
+resource "huaweicloud_compute_instance" "test" {
+  name = var.instance_name         # OK - resource can use required variables
 }
 
 # terraform.tfvars
-storage_account_name = "myuniquestorageacct001"
-location            = "cn-north-1"
+instance_name = "my-instance"      # Required variable declared
 ```
 
 **Best Practices:**
-- Create a `terraform.tfvars` file for all required variables
-- Provide example values in `terraform.tfvars.example`
-- Use environment-specific `.tfvars` files for different environments
-- Document all required variables and their expected values
-- Consider using variable validation blocks for input validation
+- Provide default values for all variables used in data source blocks
+- Use appropriate default values that make sense for filtering/querying
+- Required variables (without defaults) can still be used in resource blocks
+- Document the purpose of default values in variable descriptions
 
 ---
 
@@ -633,7 +645,7 @@ resource "huaweicloud_resource_group" "test" {
 variable "example" {
   description = "An example variable"
   type        = string
-  default     = "test"                  # Default value for test environment
+  default     = "test"                 # Default value for test environment
 }
 ```
 
@@ -662,10 +674,10 @@ variable "example" {
 
 ```
 terraform-project/
-├── main.tf             # Main resource definitions
-├── variables.tf        # All variable definitions
-├── outputs.tf          # All output definitions
-├── terraform.tfvars    # Variable value definitions
+├── main.tf             # Main resource definitions (For best practice required)
+├── variables.tf        # All variable definitions (For best practice required if variables are difined)
+├── outputs.tf          # All output definitions (For best practice required if outputs are difined)
+├── terraform.tfvars    # Variable value definitions (For best practice required if optional variables are difined)
 └── versions.tf         # Provider version constraints
 ```
 
@@ -1001,68 +1013,62 @@ variable "environment" {
 
 ---
 
-### IO.007 - Variable Validation Constraints Check
+### IO.007 - Output Description Check
 
-**Rule Description:** Check for variable validation constraints to ensure input values meet specified criteria.
+**Rule Description:** All output variables must have a description field defined and not empty.
 
 **Purpose:**
-- Improve input validation and error prevention
-- Ensure variables meet business requirements and constraints
-- Provide clear error messages for invalid inputs
-- Enhance configuration reliability and security
+- Improve module documentation and usability
+- Ensure outputs are properly documented for users
+- Provide clear explanations of output purposes and values
+- Enhance code maintainability and team collaboration
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Missing validation constraints for critical variables
-variable "environment" {
-  description = "The deployment environment"
-  type        = string
-  default     = "dev"
-  # Missing validation block for environment values
+# ❌ Error: Missing or empty description fields
+output "instance_id" {
+  value = huaweicloud_compute_instance.test.id
+  # Missing description field
 }
 
-variable "region" {
-  description = "Huawei Cloud region"
-  type        = string
-  default     = "cn-north-1"
-  # Missing validation block for region values
+output "vpc_cidr_block" {
+  description = ""  # Empty description
+  value       = huaweicloud_vpc.test.cidr
+}
+
+output "resource_tags" {
+  description = "   "  # Whitespace only description
+  value       = local.common_tags
 }
 ```
 
 **Correct Example:**
 
 ```hcl
-# ✅ Correct: Variables with proper validation constraints
-variable "environment" {
-  description = "The deployment environment"
-  type        = string
-  default     = "dev"
-  
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod."
-  }
+# ✅ Correct: Outputs with proper descriptions
+output "instance_id" {
+  description = "The ID of the created ECS instance"
+  value       = huaweicloud_compute_instance.test.id
 }
 
-variable "region" {
-  description = "Huawei Cloud region"
-  type        = string
-  default     = "cn-north-1"
-  
-  validation {
-    condition     = contains(["cn-north-1", "cn-east-2", "cn-south-1"], var.region)
-    error_message = "Region must be a valid Huawei Cloud region."
-  }
+output "vpc_cidr_block" {
+  description = "The CIDR block of the created VPC"
+  value       = huaweicloud_vpc.test.cidr
+}
+
+output "resource_tags" {
+  description = "Common tags applied to all resources"
+  value       = local.common_tags
 }
 ```
 
 **Best Practices:**
-- Add validation blocks for critical variables
-- Use descriptive error messages
-- Validate against known good values or patterns
-- Consider using regex patterns for string validation
-- Document validation requirements in variable descriptions
+- Always include meaningful descriptions for all outputs
+- Keep descriptions concise but informative
+- Explain what the output represents and its intended use
+- Avoid empty or whitespace-only descriptions
+- Use consistent description formatting across the module
 
 ---
 
