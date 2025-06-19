@@ -5,6 +5,164 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-06-19
+
+### 🔧 Enhanced Rule Documentation & Validation
+
+#### 📚 IO Rules Description Improvements
+- **IO.004 Rule Description Updates**: Enhanced documentation clarity across all files
+  - **Updated Files**: `README.md`, `Introduction.md`, `rules/README.md`, `rules/introduction.md`, `PUBLISHING.md`
+  - **Changes**: Updated from "Variable names must use snake_case format" to "Variable naming convention check (validates that each input variable name uses only lowercase letters and underscores, and does not start with an underscore)"
+  - **Clarification**: Now explicitly specifies validation scope for **input variables**
+  - **Enhanced Error Reporting**: Added comprehensive error output examples with file location information
+
+- **IO.005 Rule Description Updates**: Comprehensive documentation enhancement
+  - **Updated Files**: `README.md`, `Introduction.md`, `rules/README.md`, `rules/introduction.md`, `PUBLISHING.md`
+  - **Changes**: Updated from "Output names must use snake_case format" to "Output naming convention check (validates that each output variable name uses only lowercase letters and underscores, and does not start with an underscore)"
+  - **Clarification**: Now explicitly specifies validation scope for **output variables**
+  - **Enhanced Error Reporting**: Added detailed error examples and best practices documentation
+
+#### 🛠️ ST.006 Rule Critical Enhancement
+
+- **Critical Bug Fix**: Resolved single-line brace block parsing issue
+  - **Issue**: Single-line blocks (e.g., `data "..." "..." {}`) were not properly detected
+  - **Impact**: All `locals` blocks were incorrectly parsed as content of preceding data source blocks
+  - **Solution**: Added special handling for single-line `{}` blocks in `_extract_all_blocks()` function
+  - **Code Enhancement**:
+    ```python
+    # Added special handling for single-line blocks
+    if start_line_content.strip().endswith('{}'):
+        end_line = i + 1
+        blocks.append((block_type, start_line, end_line, type_name, instance_name))
+        i += 1
+        continue
+    ```
+
+#### 📊 Comprehensive ST.006 Test Coverage Expansion
+
+- **Test Coverage Dramatic Improvement**: 
+  - **Before**: 5 ST.006 errors detected
+  - **After**: 37 ST.006 errors detected (**640% increase**)
+  - **Complete Coverage**: All 25 possible block type combinations (5×5 matrix)
+
+- **Block Types Fully Supported**:
+  - `resource` blocks
+  - `data source` blocks  
+  - `variable` blocks
+  - `output` blocks
+  - `locals` blocks
+
+- **Error Scenarios Comprehensively Tested**:
+  - Missing blank lines between all block type combinations
+  - Too many blank lines between all block type combinations
+  - Complete `locals` block interaction validation
+  - Single-line vs multi-line block combinations
+  - Edge cases with various Terraform syntax patterns
+
+### 🎯 Enhanced User Experience
+
+#### 📋 Documentation Consistency Improvements
+- **Cross-File Consistency**: Ensured uniform rule descriptions across all documentation files
+- **Error Message Clarity**: Enhanced error messages with specific validation criteria
+- **Best Practices**: Added comprehensive examples of correct and incorrect usage patterns
+- **File Location Reporting**: Improved error reporting with precise file and line number information
+
+#### 🔍 Enhanced Error Reporting System
+- **Line Content Display**: Added error line content output for all rules except ST.009
+  - **Feature**: Error messages now include the actual content of the problematic line
+  - **Scope**: Applied to all linting rules except ST.009 (which has specialized cross-file reporting)
+  - **Benefit**: Faster issue identification and debugging without opening files
+  - **Format**: Enhanced error output showing both line number and actual line content for immediate context
+
+#### 🔍 Validation Robustness
+- **Parser Reliability**: Fixed critical parsing bugs affecting block detection accuracy
+- **Edge Case Handling**: Enhanced handling of various Terraform syntax edge cases
+- **Error Detection**: Improved accuracy in detecting spacing violations between blocks
+- **Coverage Completeness**: Achieved 100% theoretical coverage for ST.006 rule scenarios
+
+### 📈 Performance Impact
+
+#### 🚀 Testing & Validation Improvements
+- **Rule Coverage Verification**: All 18 rules maintain proper error coverage
+- **No Performance Regression**: Enhancements maintain existing performance characteristics
+- **Enhanced Test Suite**: Comprehensive test cases covering all rule scenarios
+- **Quality Assurance**: Rigorous validation across multiple Terraform file patterns
+
+#### 📊 Error Detection Statistics
+```
+ST.006 Error Coverage Expansion:
+├── Before: 5 errors
+├── After: 37 errors  
+├── Improvement: +640% coverage increase
+├── Block Combinations: 25/25 covered (100%)
+└── Locals Integration: 14 specific errors added
+```
+
+### 🔧 Technical Improvements
+
+#### 🏗️ Code Quality Enhancements
+- **Parser Logic**: Improved block extraction algorithm with better edge case handling
+- **Error Reporting**: Enhanced error message formatting with detailed context information
+- **Line Content Integration**: Implemented error line content display across all rules (except ST.009)
+  - **Implementation**: Enhanced error logging to include actual line content alongside line numbers
+  - **Selective Application**: Strategically excluded ST.009 due to its cross-file analysis nature
+  - **User Experience**: Provides immediate context without requiring file navigation
+  - **Debug Efficiency**: Accelerates issue resolution with inline content visibility
+- **Documentation Standards**: Elevated documentation quality across all rule descriptions
+- **Cross-Reference Accuracy**: Ensured consistency between implementation and documentation
+
+#### 🛡️ Reliability Improvements
+- **Bug Prevention**: Fixed critical parsing issues that could cause incorrect rule evaluation
+- **Test Coverage**: Comprehensive test scenarios preventing regression of identified issues
+- **Edge Case Handling**: Robust handling of various Terraform syntax patterns and edge cases
+- **Validation Accuracy**: Improved precision in detecting actual violations vs false positives
+
+### 📊 Block Combination Matrix Coverage
+
+| From\To | resource | data source | variable | output | locals |
+|---------|----------|-------------|----------|--------|--------|
+| **resource** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **data source** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **variable** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **output** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **locals** | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### 🔄 Compatibility & Migration
+
+#### ✅ Backward Compatibility
+- **No Breaking Changes**: All existing functionality remains unchanged
+- **Enhanced Functionality**: Improvements provide better accuracy without affecting existing workflows
+- **Configuration Compatibility**: All existing configuration parameters and workflows continue to work
+- **Rule Behavior**: Enhanced rule accuracy without changing fundamental rule logic
+
+#### 🎯 Upgrade Benefits
+- **Improved Accuracy**: Better detection of actual violations with reduced false negatives
+- **Enhanced Documentation**: Clearer understanding of rule purposes and validation criteria  
+- **Comprehensive Coverage**: Complete test coverage for all possible block interaction scenarios
+- **Better Error Messages**: More informative error reporting for faster issue resolution
+
+### 📈 Validation Results
+
+- ✅ **All 18 Rules Maintained**: No regression in existing rule functionality
+- ✅ **Enhanced ST.006 Coverage**: 640% increase in test scenario coverage
+- ✅ **Documentation Consistency**: Uniform rule descriptions across all files
+- ✅ **Parser Reliability**: Fixed critical single-line block parsing bug
+- ✅ **Comprehensive Testing**: All 25 block combination scenarios validated
+- ✅ **Error Reporting**: Enhanced precision and clarity in violation detection
+
+### 🎉 Summary
+
+This release focuses on **documentation clarity** and **rule validation robustness**. The major enhancement to ST.006 rule coverage ensures comprehensive block spacing validation, while the IO.004 and IO.005 description updates provide clearer guidance for variable and output naming conventions.
+
+**Key Achievements**:
+- **Documentation Excellence**: Uniform, clear rule descriptions across all documentation files
+- **Comprehensive Testing**: Complete coverage of all theoretical ST.006 scenarios  
+- **Bug Resolution**: Fixed critical parsing issues affecting rule accuracy
+- **Enhanced Error Reporting**: Added line content display for improved debugging experience (all rules except ST.009)
+- **Enhanced Reliability**: Improved rule validation precision and error reporting quality
+
+**Recommended for**: All users seeking improved rule documentation clarity, enhanced ST.006 block spacing validation accuracy, and comprehensive test coverage for edge cases.
+
 ## [2.0.0] - 2025-06-18
 
 ### 🚀 Major Architecture Overhaul - Breaking Changes
