@@ -88,8 +88,8 @@ class STRules:
 - **IO.001**: Variable definition file organization
 - **IO.002**: Output definition file organization
 - **IO.003**: Required variable declaration check in terraform.tfvars
-- **IO.004**: Variable naming conventions
-- **IO.005**: Output naming conventions
+- **IO.004**: Variable naming convention check
+- **IO.005**: Output naming convention check
 - **IO.006**: Variable description validation (non-empty descriptions required)
 - **IO.007**: Output description validation (non-empty descriptions required)
 - **IO.008**: Variable type validation (type field required)

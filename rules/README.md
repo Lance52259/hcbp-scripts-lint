@@ -95,8 +95,8 @@ Each rule package follows a consistent design pattern:
 | IO.001 | Variable File Location | Variables must be in variables.tf | ✅ Modular |
 | IO.002 | Output File Location | Outputs must be in outputs.tf | ✅ Modular |
 | IO.003 | Required Variable Declaration Check | Required variables must be declared in terraform.tfvars | ✅ Modular |
-| IO.004 | Variable Naming Convention | Variable names must use snake_case format | ✅ Modular |
-| IO.005 | Output Naming Convention | Output names must use snake_case format | ✅ Modular |
+| IO.004 | Variable Naming Convention Check | Variable names must use snake_case format | ✅ Modular |
+| IO.005 | Output Naming Convention Check | Validates that each output variable name uses only lowercase letters and underscores, and does not start with an underscore | ✅ Modular |
 | IO.006 | Variable Description Check | All variables must have non-empty descriptions | ✅ Modular |
 | IO.007 | Output Description Check | All outputs must have non-empty descriptions | ✅ Modular |
 | IO.008 | Variable Type Check | All variables must have type field defined | ✅ Modular |

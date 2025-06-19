@@ -45,34 +45,35 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Dict, Any, Optional
 
 
-def check_io006_variable_description(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_io006_variable_description(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all variable definitions include non-empty description fields according to IO.006 rule specifications.
+    Validate that all variables have meaningful descriptions according to IO.006 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    that all variable definitions include descriptive documentation through
-    non-empty description fields. This ensures proper documentation and helps users
-    understand variable purposes and expected values.
+    that all variable definitions include description fields with meaningful content.
+    Descriptions help document the purpose and usage of variables for better code
+    maintainability and understanding.
 
     The validation process:
     1. Remove comments from content for accurate parsing
     2. Extract all variable definitions from the file
-    3. Check each variable for the presence of a non-empty description field
-    4. Report violations through the error logging function
+    3. Check if each variable has a description field
+    4. Validate that descriptions are meaningful (not empty or placeholder text)
+    5. Report violations through the error logging function
 
     Args:
         file_path (str): The path to the file being checked. Used for error reporting
                         to help developers identify the location of violations.
 
         content (str): The complete content of the Terraform file as a string.
-                      This includes all variable definitions that need to be checked.
+                      This includes all variable definitions.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and optional line_number.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -83,11 +84,15 @@ def check_io006_variable_description(file_path: str, content: str, log_error_fun
         gracefully and reported through the logging mechanism.
 
     Example:
-        >>> def mock_logger(path, rule, msg):
+        >>> def mock_logger(path, rule, msg, line_num):
         ...     print(f"{rule}: {msg}")
-        >>> content = 'variable "test" { type = string }'
+        >>> content = '''
+        ... variable "example" {
+        ...   type = string
+        ... }
+        ... '''
         >>> check_io006_variable_description("variables.tf", content, mock_logger)
-        IO.006: Variable 'test' must include a non-empty description field
+        IO.006: Variable 'example' is missing a description
     """
     variables = _extract_variables(content)
     
@@ -96,13 +101,15 @@ def check_io006_variable_description(file_path: str, content: str, log_error_fun
             log_error_func(
                 file_path,
                 "IO.006",
-                f"Variable '{variable['name']}' must include a description field"
+                f"Variable '{variable['name']}' must include a description field",
+                variable.get('line_number')
             )
         elif variable['description_empty']:
             log_error_func(
                 file_path,
                 "IO.006",
-                f"Variable '{variable['name']}' has an empty description field"
+                f"Variable '{variable['name']}' has an empty description field",
+                variable.get('line_number')
             )
 
 
@@ -181,7 +188,8 @@ def _extract_variables(content: str) -> List[Dict[str, Any]]:
             'description_empty': description_empty,
             'has_type': bool(re.search(r'type\s*=', variable_body)),
             'has_default': bool(re.search(r'default\s*=', variable_body)),
-            'body': variable_body.strip()
+            'body': variable_body.strip(),
+            'line_number': variable_matches.index((variable_name, variable_body)) + 1
         }
         variables.append(variable_info)
 

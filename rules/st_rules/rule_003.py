@@ -46,34 +46,36 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 
 
-def check_st003_parameter_alignment(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st003_parameter_alignment(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate parameter alignment according to ST.003 rule specifications.
+    Validate parameter alignment in data sources and resource blocks according to ST.003 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    that all parameter assignments in resource and data blocks follow proper
-    spacing and alignment conventions.
+    that parameter assignments within data source and resource blocks are properly
+    aligned. This ensures consistent code formatting and improves readability
+    across the entire codebase.
 
     The validation process:
     1. Remove comments from content for accurate parsing
-    2. Extract all code blocks (resources and data sources)
-    3. Split each block into sections separated by empty lines
+    2. Extract all data source and resource blocks
+    3. Split each block into sections separated by blank lines
     4. Check parameter alignment within each section
     5. Report violations through the error logging function
 
     Args:
         file_path (str): The path to the file being checked. Used for error reporting
-                         to help developers identify the location of violations.
+                        to help developers identify the location of violations.
 
         content (str): The complete content of the Terraform file as a string.
-                       This includes all resource and data source definitions.
+                      This includes all data source and resource blocks.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used to report rule violations.
-                                                          The function should accept three parameters:
-                                                          file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and line_number.
+                      The line_number parameter is optional and can be None.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -91,7 +93,7 @@ def check_st003_parameter_alignment(file_path: str, content: str, log_error_func
         for section in sections:
             errors = _check_parameter_alignment_in_section(section, block_type, start_line)
             for line_num, error_msg in errors:
-                log_error_func(file_path, "ST.003", f"Line {line_num}: {error_msg}")
+                log_error_func(file_path, "ST.003", error_msg, line_num)
 
 
 def _remove_comments_for_parsing(content: str) -> str:

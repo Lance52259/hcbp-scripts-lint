@@ -27,55 +27,60 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 
-def check_st010_quote_usage(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st010_quote_usage(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate resource and data source quote usage according to ST.010 rule specifications.
-
-    This function scans through the provided Terraform file content and validates
-    that all data sources and resources use proper double quotes around their
-    type and name declarations. This ensures consistent syntax and prevents
-    parsing errors that could occur with improper quoting.
-
+    Check proper quote usage in Terraform files according to ST.010 rule specifications.
+    
+    This function validates that quotes are used appropriately in Terraform files,
+    following best practices for string literals, variable references, and expressions.
+    It scans through the file content and identifies instances where quotes are used
+    incorrectly or where they could be omitted for better readability.
+    
     The validation process:
-    1. Iterate through each line of the file
-    2. Identify data source and resource declarations
-    3. Extract the type and name portion of each declaration
-    4. Validate that both type and name are properly quoted with double quotes
-    5. Report violations through the error logging function
-
+    1. Parse the file content line by line
+    2. Identify different contexts where quotes are used (values, references, etc.)
+    3. Check if quotes are necessary or if they can be omitted
+    4. Validate proper quote types (single vs double quotes)
+    5. Report any quote usage violations through the error logging function
+    
+    Quote usage rules:
+    - Use double quotes for string literals
+    - Avoid unnecessary quotes around variable references
+    - Use proper quote escaping when needed
+    - Follow consistent quoting patterns throughout the file
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all resource and data source definitions.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to check quote usage patterns.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-
+    
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
-        >>> content = 'data "huaweicloud_availability_zones" "test" {}\\nresource huaweicloud_compute_instance "test" {}'
-        >>> check_st010_quote_usage("test.tf", content, mock_logger)
-        ST.010: Line 2: Resource type and name must be enclosed in double quotes
-
-    Note:
-        This function focuses on the syntax correctness of declarations and
-        does not validate the actual resource types or names themselves.
-        It only ensures that the quoting format follows Terraform standards.
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}:{line_num}: {msg}")
+        >>> 
+        >>> content = '''
+        ... resource "aws_instance" "test" {
+        ...   instance_type = "${var.instance_type}"
+        ... }
+        ... '''
+        >>> check_st010_quote_usage("main.tf", content, sample_log_func)
+        ST.010 at main.tf:2: Unnecessary quotes around variable reference...
     """
     lines = content.split('\n')
 
@@ -92,9 +97,9 @@ def check_st010_quote_usage(file_path: str, content: str, log_error_func: Callab
             declaration = data_match.group(1).strip()
             if not _is_properly_quoted_declaration(declaration):
                 log_error_func(
-                    file_path,
-                    "ST.010",
-                    f"Line {line_num}: Data source type and name must be enclosed in double quotes"
+                    file_path, "ST.010",
+                    f"Data source type and name must be enclosed in double quotes",
+                    line_num
                 )
 
         # Check for resource declarations
@@ -103,9 +108,9 @@ def check_st010_quote_usage(file_path: str, content: str, log_error_func: Callab
             declaration = resource_match.group(1).strip()
             if not _is_properly_quoted_declaration(declaration):
                 log_error_func(
-                    file_path,
-                    "ST.010",
-                    f"Line {line_num}: Resource type and name must be enclosed in double quotes"
+                    file_path, "ST.010",
+                    f"Resource type and name must be enclosed in double quotes",
+                    line_num
                 )
 
 

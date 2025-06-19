@@ -148,7 +148,7 @@ class STRules:
         return rule_info
     
     def execute_rule(self, rule_id: str, file_path: str, content: str,
-                    log_error_func: Callable[[str, str, str], None]) -> bool:
+                    log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:
         """
         Execute a specific ST rule.
         
@@ -162,7 +162,7 @@ class STRules:
             bool: True if rule executed successfully, False otherwise
         """
         if rule_id not in self._rules_registry:
-            log_error_func(file_path, "SYSTEM", f"Unknown ST rule: {rule_id}")
+            log_error_func(file_path, "SYSTEM", f"Unknown ST rule: {rule_id}", None)
             return False
             
         try:
@@ -170,11 +170,11 @@ class STRules:
             check_function(file_path, content, log_error_func)
             return True
         except Exception as e:
-            log_error_func(file_path, rule_id, f"Rule execution failed: {str(e)}")
+            log_error_func(file_path, rule_id, f"Rule execution failed: {str(e)}", None)
             return False
     
     def execute_all_rules(self, file_path: str, content: str,
-                         log_error_func: Callable[[str, str, str], None],
+                         log_error_func: Callable[[str, str, str, Optional[int]], None],
                          excluded_rules: Optional[List[str]] = None) -> Dict[str, bool]:
         """
         Execute all available ST rules.
@@ -298,13 +298,13 @@ def get_available_st_rules() -> List[str]:
 
 
 def execute_st_rule(rule_id: str, file_path: str, content: str,
-                   log_error_func: Callable[[str, str, str], None]) -> bool:
+                   log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:
     """Execute a specific ST rule (backward compatibility)."""
     return st_rules.execute_rule(rule_id, file_path, content, log_error_func)
 
 
 def execute_all_st_rules(file_path: str, content: str,
-                        log_error_func: Callable[[str, str, str], None],
+                        log_error_func: Callable[[str, str, str, Optional[int]], None],
                         excluded_rules: Optional[List[str]] = None) -> Dict[str, bool]:
     """Execute all ST rules (backward compatibility)."""
     return st_rules.execute_all_rules(file_path, content, log_error_func, excluded_rules)

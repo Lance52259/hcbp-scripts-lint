@@ -135,7 +135,7 @@ class IORules:
         return rule_info
     
     def execute_rule(self, rule_id: str, file_path: str, content: str,
-                    log_error_func: Callable[[str, str, str], None]) -> bool:
+                    log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:
         """
         Execute a specific IO rule.
         
@@ -149,7 +149,7 @@ class IORules:
             bool: True if rule executed successfully, False otherwise
         """
         if rule_id not in self._rules_registry:
-            log_error_func(file_path, "SYSTEM", f"Unknown IO rule: {rule_id}")
+            log_error_func(file_path, "SYSTEM", f"Unknown IO rule: {rule_id}", None)
             return False
             
         try:
@@ -157,11 +157,11 @@ class IORules:
             check_function(file_path, content, log_error_func)
             return True
         except Exception as e:
-            log_error_func(file_path, rule_id, f"Rule execution failed: {str(e)}")
+            log_error_func(file_path, rule_id, f"Rule execution failed: {str(e)}", None)
             return False
     
     def execute_all_rules(self, file_path: str, content: str,
-                         log_error_func: Callable[[str, str, str], None],
+                         log_error_func: Callable[[str, str, str, Optional[int]], None],
                          excluded_rules: Optional[List[str]] = None) -> Dict[str, bool]:
         """
         Execute all available IO rules.
@@ -271,7 +271,7 @@ class IORules:
         }
 
     # Legacy compatibility methods
-    def check_all_rules(self, file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+    def check_all_rules(self, file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
         """
         Legacy method for backward compatibility.
         
@@ -320,12 +320,12 @@ def get_available_io_rules() -> List[str]:
     return IORules().get_available_rules()
 
 def execute_io_rule(rule_id: str, file_path: str, content: str,
-                   log_error_func: Callable[[str, str, str], None]) -> bool:
+                   log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:
     """Execute a specific IO rule."""
     return IORules().execute_rule(rule_id, file_path, content, log_error_func)
 
 def execute_all_io_rules(file_path: str, content: str,
-                        log_error_func: Callable[[str, str, str], None],
+                        log_error_func: Callable[[str, str, str, Optional[int]], None],
                         excluded_rules: Optional[List[str]] = None) -> Dict[str, bool]:
     """Execute all IO rules."""
     return IORules().execute_all_rules(file_path, content, log_error_func, excluded_rules)

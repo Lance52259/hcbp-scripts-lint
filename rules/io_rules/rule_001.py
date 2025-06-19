@@ -33,49 +33,53 @@ License: Apache 2.0
 
 import re
 import os
-from typing import Callable, List, Dict, Any
+from typing import Callable, List, Dict, Any, Optional
 
 
-def check_io001_variable_file_location(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_io001_variable_file_location(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all variable definitions are located in variables.tf file according to IO.001 rule specifications.
-
-    This function scans through the provided Terraform file content and validates
-    that variable definitions are properly organized in the variables.tf file.
-    This ensures consistent project structure and organization following Terraform
-    best practices.
-
+    Validate variable definition file organization according to IO.001 rule specifications.
+    
+    This function validates that all variable definitions are properly organized 
+    in variables.tf files within their respective directories. It ensures that 
+    variables are defined in the correct location for better code organization 
+    and maintainability.
+    
     The validation process:
-    1. Remove comments from content for accurate parsing
-    2. Extract all variable definitions from the file
-    3. Check if non-variables.tf files contain variable definitions
-    4. Report violations through the error logging function
-
+    1. Check if the current file contains variable definitions
+    2. Verify that variable definitions are in the appropriate variables.tf file
+    3. Report violations for each misplaced variable definition individually
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all variable definitions that need to be checked.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to check for variable definitions.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-
+    
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
-        >>> content = 'variable "test" { type = string }'
-        >>> check_io001_variable_file_location("main.tf", content, mock_logger)
-        IO.001: Variable 'test' should be defined in variables.tf, not in main.tf
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}: {msg}")
+        >>> 
+        >>> # Content with variable definition in wrong file
+        >>> content = '''
+        ... variable "example" {
+        ...   type = string
+        ... }
+        ... '''
+        >>> check_io001_variable_file_location("main.tf", content, sample_log_func)
+        IO.001 at main.tf: Variable 'example' should be defined in 'variables.tf'
     """
     variables = _extract_variables(content)
     
@@ -85,15 +89,9 @@ def check_io001_variable_file_location(file_path: str, content: str, log_error_f
             log_error_func(
                 file_path,
                 "IO.001",
-                f"Variable '{variable['name']}' should be defined in variables.tf, not in {os.path.basename(file_path)}"
+                f"Variable '{variable['name']}' should be defined in 'variables.tf'",
+                variable['line_number']
             )
-        
-        # Provide summary error message
-        log_error_func(
-            file_path,
-            "IO.001",
-            f"File {os.path.basename(file_path)} contains {len(variables)} variable definition(s) that should be moved to variables.tf"
-        )
 
 
 def _remove_comments_for_parsing(content: str) -> str:
@@ -145,18 +143,35 @@ def _extract_variables(content: str) -> List[Dict[str, Any]]:
         content (str): The cleaned Terraform content
 
     Returns:
-        List[Dict[str, Any]]: List of variable definitions with metadata
+        List[Dict[str, Any]]: List of variable definitions with metadata including line numbers
     """
     variables = []
     clean_content = _remove_comments_for_parsing(content)
+    original_lines = content.split('\n')
 
     # Pattern to match variable blocks with their full content
     var_pattern = r'variable\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    var_matches = re.findall(var_pattern, clean_content, re.DOTALL)
-
-    for var_name, var_body in var_matches:
+    
+    # Find all variable matches with their positions
+    for match in re.finditer(var_pattern, clean_content, re.DOTALL):
+        var_name = match.group(1)
+        var_body = match.group(2)
+        
+        # Find the line number where this variable starts
+        # Count newlines before the match start to get line number
+        preceding_text = clean_content[:match.start()]
+        line_number = preceding_text.count('\n') + 1
+        
+        # Find the actual line number in original content by matching the variable declaration
+        actual_line_number = None
+        for line_num, line in enumerate(original_lines, 1):
+            if f'variable "{var_name}"' in line:
+                actual_line_number = line_num
+                break
+        
         variable_info = {
             'name': var_name,
+            'line_number': actual_line_number or line_number,
             'has_default': bool(re.search(r'default\s*=', var_body)),
             'has_description': bool(re.search(r'description\s*=', var_body)),
             'has_type': bool(re.search(r'type\s*=', var_body)),
@@ -193,10 +208,10 @@ def get_rule_description() -> dict:
         "id": "IO.001",
         "name": "Variable definition file location check",
         "description": (
-            "Validates that all variable definitions are properly organized in "
-            "the variables.tf file and not scattered across other files. This "
-            "ensures consistent project structure and organization following "
-            "Terraform best practices."
+            "Validates that each input variable is properly defined in "
+            "the variables.tf file and not in other files. Each variable "
+            "definition found in non-variables.tf files will be reported "
+            "as a separate violation."
         ),
         "category": "Input/Output",
         "severity": "error",

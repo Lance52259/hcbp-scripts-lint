@@ -205,7 +205,7 @@ class RulesManager:
         return rule_info
     
     def execute_rule(self, rule_id: str, file_path: str, content: str,
-                    log_error_func: Callable[[str, str, str], None]) -> RuleExecutionResult:
+                    log_error_func: Callable[[str, str, str, Optional[int]], None]) -> RuleExecutionResult:
         """
         Execute a specific rule with performance monitoring.
         
@@ -235,10 +235,10 @@ class RulesManager:
         violations_count = 0
         original_log_func = log_error_func
         
-        def counting_log_func(path: str, rule: str, message: str):
+        def counting_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
             nonlocal violations_count
             violations_count += 1
-            original_log_func(path, rule, message)
+            original_log_func(path, rule, message, line_number)
         
         try:
             success = coordinator.execute_rule(rule_id, file_path, content, counting_log_func)
@@ -261,7 +261,7 @@ class RulesManager:
             )
     
     def execute_rules_by_category(self, category: str, file_path: str, content: str,
-                                 log_error_func: Callable[[str, str, str], None],
+                                 log_error_func: Callable[[str, str, str, Optional[int]], None],
                                  excluded_rules: Optional[List[str]] = None) -> List[RuleExecutionResult]:
         """
         Execute all rules in a specific category.
@@ -290,7 +290,7 @@ class RulesManager:
         return results
     
     def execute_all_rules(self, file_path: str, content: str,
-                         log_error_func: Callable[[str, str, str], None],
+                         log_error_func: Callable[[str, str, str, Optional[int]], None],
                          excluded_rules: Optional[List[str]] = None,
                          excluded_categories: Optional[List[str]] = None) -> BatchExecutionSummary:
         """
@@ -386,7 +386,7 @@ class RulesManager:
         }
     
     def validate_file(self, file_path: str, content: str,
-                     log_error_func: Callable[[str, str, str], None],
+                     log_error_func: Callable[[str, str, str, Optional[int]], None],
                      rule_filter: Optional[Dict[str, Any]] = None) -> BatchExecutionSummary:
         """
         Validate a file with flexible rule filtering.
@@ -472,7 +472,7 @@ class RulesManager:
     
     # Legacy compatibility methods
     def check_all_rules(self, file_path: str, content: str,
-                       log_error_func: Callable[[str, str, str], None]) -> None:
+                       log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
         """Legacy method for backward compatibility."""
         self.execute_all_rules(file_path, content, log_error_func)
     
@@ -491,7 +491,7 @@ def get_rules_manager() -> RulesManager:
     return RulesManager()
 
 def validate_terraform_file(file_path: str, content: str,
-                           log_error_func: Callable[[str, str, str], None],
+                           log_error_func: Callable[[str, str, str, Optional[int]], None],
                            rule_filter: Optional[Dict[str, Any]] = None) -> BatchExecutionSummary:
     """
     Validate a Terraform file using all available rules.

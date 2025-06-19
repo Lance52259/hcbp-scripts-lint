@@ -34,73 +34,107 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 
 
-def check_st001_naming_convention(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st001_naming_convention(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate resource and data source naming convention according to ST.001 rule specifications.
-
-    This function scans through the provided Terraform file content and validates
-    that all data sources and resources use 'test' as their instance name. This
-    ensures consistency across Terraform configurations and follows established
-    naming conventions.
-
-    The validation process:
-    1. Remove comments from content for accurate parsing
-    2. Extract all data source definitions
-    3. Extract all resource definitions
-    4. Validate each instance name against the 'test' standard
-    5. Report violations through the error logging function
-
+    Check if resource, data source, and variable names follow proper naming conventions.
+    
+    This function validates that resource, data source, and variable names in Terraform files
+    follow the standard naming convention of using snake_case (lowercase letters, numbers,
+    and underscores only). It scans the file content for resource declarations, data source
+    declarations, and variable definitions, then checks each name against the naming pattern.
+    
+    The function specifically checks:
+    - Resource names: resource "provider_type" "name" { ... }
+    - Data source names: data "provider_type" "name" { ... }
+    - Variable names: variable "name" { ... }
+    
+    Valid naming convention:
+    - Names should use snake_case format
+    - Only lowercase letters (a-z), numbers (0-9), and underscores (_) are allowed
+    - Names should not start with numbers
+    - Names should be descriptive and meaningful
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all resource and data source definitions.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to extract and validate naming patterns.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-
+    
     Example:
-        >>> content = 'data "huaweicloud_availability_zones" "test" {}\\nresource "huaweicloud_compute_instance" "my_instance" {}'
-        >>> errors = []
-        >>> def log_func(path, rule, msg): errors.append(msg)
-        >>> check_st001_naming_convention("test.tf", content, log_func)
-        >>> len(errors)
-        1
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}:{line_num}: {msg}")
+        >>> 
+        >>> content = '''
+        ... resource "aws_instance" "web-server" {
+        ...   instance_type = "t2.micro"
+        ... }
+        ... '''
+        >>> check_st001_naming_convention("main.tf", content, sample_log_func)
+        ST.001 at main.tf:1: Resource name 'web-server' contains invalid characters...
     """
-    clean_content = _remove_comments_for_parsing(content)
+    lines = content.split('\n')
+    
+    for line_num, line in enumerate(lines, 1):
+        line = line.strip()
+        
+        # Check resource names
+        resource_match = re.match(r'(resource|data)\s+"[^"]+"\s+"([^"]+)"\s*\{', line)
+        if resource_match:
+            block_type = resource_match.group(1)
+            name = resource_match.group(2)
+            
+            if not _is_valid_name(name):
+                error_msg = (
+                    f"{block_type.capitalize()} name '{name}' contains invalid characters. "
+                    f"Use snake_case (lowercase letters, numbers, and underscores only)"
+                )
+                log_error_func(file_path, "ST.001", error_msg, line_num)
+        
+        # Check variable names
+        variable_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
+        if variable_match:
+            name = variable_match.group(1)
+            
+            if not _is_valid_name(name):
+                error_msg = (
+                    f"Variable name '{name}' contains invalid characters. "
+                    f"Use snake_case (lowercase letters, numbers, and underscores only)"
+                )
+                log_error_func(file_path, "ST.001", error_msg, line_num)
 
-    # Check data sources
-    data_sources = _extract_data_sources(clean_content)
-    for data_type, instance_name in data_sources:
-        if instance_name != 'test':
-            log_error_func(
-                file_path,
-                "ST.001",
-                f"Data source '{data_type}' instance name '{instance_name}' should be 'test'"
-            )
 
-    # Check resources
-    resources = _extract_resources(clean_content)
-    for resource_type, instance_name in resources:
-        if instance_name != 'test':
-            log_error_func(
-                file_path,
-                "ST.001",
-                f"Resource '{resource_type}' instance name '{instance_name}' should be 'test'"
-            )
+def _is_valid_name(name: str) -> bool:
+    """
+    Check if a name follows the valid naming convention.
+    
+    Args:
+        name (str): The name to validate
+        
+    Returns:
+        bool: True if the name is valid, False otherwise
+    """
+    if not name:
+        return False
+    
+    # Check if name contains only lowercase letters, numbers, and underscores
+    # and doesn't start with a number
+    pattern = r'^[a-z_][a-z0-9_]*$'
+    return bool(re.match(pattern, name))
 
 
 def _remove_comments_for_parsing(content: str) -> str:

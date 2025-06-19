@@ -45,7 +45,7 @@ import re
 from typing import Callable, List, Tuple, Optional
 
 
-def check_st005_indentation_level(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st005_indentation_level(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate indentation level consistency according to ST.005 rule specifications.
 
@@ -67,9 +67,9 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         content (str): The complete content of the Terraform file as a string.
                       This includes all lines that may contain indentation.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and line_number.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -98,8 +98,10 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
             log_error_func(
                 file_path,
                 "ST.005",
-                f"Line {line_num}: Indentation level {indent_level} is not a multiple of 2 spaces. "
-                f"Use 2-space indentation consistently"
+                f"Indentation level {indent_level} is not a multiple of 2 spaces. "
+                f"Current indentation: {indent_level} spaces, "
+                f"Expected: multiple of 2",
+                line_num
             )
             continue
         
@@ -110,7 +112,7 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         )
         
         for error_msg in validation_errors:
-            log_error_func(file_path, "ST.005", error_msg)
+            log_error_func(file_path, "ST.005", error_msg, line_num)
         
         # Update indentation stack
         _update_indentation_stack(indentation_stack, current_depth, line.strip())
@@ -157,7 +159,7 @@ def _validate_nesting_level(line_num: int, current_depth: int, indentation_stack
     if not indentation_stack:
         if current_depth != 1:
             errors.append(
-                f"Line {line_num}: First indentation level should be 2 spaces, "
+                f"First indentation level should be 2 spaces, "
                 f"found {current_depth * 2} spaces"
             )
         return errors
@@ -169,14 +171,14 @@ def _validate_nesting_level(line_num: int, current_depth: int, indentation_stack
         # Increasing indentation should only increase by 1 level
         if current_depth - last_depth > 1:
             errors.append(
-                f"Line {line_num}: Indentation increased by {(current_depth - last_depth) * 2} spaces. "
+                f"Indentation increased by {(current_depth - last_depth) * 2} spaces. "
                 f"Increase indentation by 2 spaces only"
             )
     elif current_depth < last_depth:
         # Decreasing indentation should match a previous level
         if current_depth not in indentation_stack:
             errors.append(
-                f"Line {line_num}: Indentation level {current_depth * 2} spaces "
+                f"Indentation level {current_depth * 2} spaces "
                 f"doesn't match any previous indentation level"
             )
     

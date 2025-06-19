@@ -53,10 +53,10 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Tuple, Dict
+from typing import Callable, List, Tuple, Dict, Optional
 
 
-def check_st007_same_parameter_block_spacing(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st007_same_parameter_block_spacing(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate same parameter block spacing according to ST.007 rule specifications.
 
@@ -78,9 +78,9 @@ def check_st007_same_parameter_block_spacing(file_path: str, content: str, log_e
         content (str): The complete content of the Terraform file as a string.
                       This includes all resource and data source definitions.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and optional line_number.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -108,8 +108,8 @@ def check_st007_same_parameter_block_spacing(file_path: str, content: str, log_e
                 blocks, param_name, resource_name, content
             )
             
-            for error_msg in spacing_errors:
-                log_error_func(file_path, "ST.007", error_msg)
+            for error_msg, line_num in spacing_errors:
+                log_error_func(file_path, "ST.007", error_msg, line_num)
 
 
 def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
@@ -260,7 +260,7 @@ def _group_nested_blocks_by_name(nested_blocks: List[Dict]) -> Dict[str, List[Di
     return grouped
 
 
-def _check_nested_block_spacing(blocks: List[Dict], param_name: str, resource_name: str, content: str) -> List[str]:
+def _check_nested_block_spacing(blocks: List[Dict], param_name: str, resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
     """
     Check spacing between consecutive nested blocks of the same parameter name.
 
@@ -271,7 +271,7 @@ def _check_nested_block_spacing(blocks: List[Dict], param_name: str, resource_na
         content (str): The full file content
 
     Returns:
-        List[str]: List of error messages
+        List[Tuple[str, Optional[int]]]: List of error messages and optional line numbers
     """
     errors = []
     lines = content.split('\n')
@@ -292,12 +292,13 @@ def _check_nested_block_spacing(blocks: List[Dict], param_name: str, resource_na
         
         # Check if blank lines exceed 1
         if blank_lines > 1:
-            errors.append(
+            errors.append((
                 f"Lines {current_block['end_line']}-{next_block['start_line']}: "
                 f"Found {blank_lines} blank lines between same-name parameter blocks "
                 f"'{param_name}' within {resource_name}. "
-                f"Use ≤1 blank line between same parameter blocks"
-            )
+                f"Use ≤1 blank line between same parameter blocks",
+                current_end if blank_lines > 1 else None
+            ))
     
     return errors
 

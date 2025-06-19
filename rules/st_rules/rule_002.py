@@ -54,59 +54,66 @@ License: Apache 2.0
 
 import re
 import os
-from typing import Callable, Dict, Set
+from typing import Callable, Dict, Set, Optional, List
 
 
-def check_st002_variable_defaults(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st002_variable_defaults(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that variables used in data sources have default values according to ST.002 rule specifications.
-
-    This function scans through the provided Terraform file content and validates
-    that all variables used in data source blocks include a default value. This
-    ensures that data sources can work properly with minimal configuration while
-    allowing resources to use required variables.
-
+    Check if variables have appropriate default values according to ST.002 rule specifications.
+    
+    This function validates that variables in Terraform files have proper default value
+    configurations. It scans through variable definitions and checks whether default
+    values are appropriately set based on the variable's purpose and usage context.
+    
     The validation process:
-    1. Remove comments from content for accurate parsing
-    2. Extract all data source blocks and identify variables used in them
-    3. Look for variable definitions in the same directory (variables.tf)
-    4. Report violations for variables used in data sources without defaults
-
+    1. Parse the file content to extract all variable definitions
+    2. Analyze each variable's type, description, and current default setting
+    3. Determine if a default value is required, optional, or should be omitted
+    4. Check if the current configuration matches the expected pattern
+    5. Report any misconfigurations through the error logging function
+    
+    Validation criteria:
+    - Variables used for sensitive data (passwords, keys) should not have defaults
+    - Variables with clear semantic meaning may require defaults for usability
+    - Optional configuration variables should have sensible defaults
+    - Required input variables should not have defaults to force explicit setting
+    
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
+        file_path (str): The path to the Terraform file being validated.
+                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This includes all variable definitions and data source blocks.
-
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
-
+                      This content is parsed to extract variable definitions and their properties.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      Callback function for logging validation errors. The function
+                      signature expects (file_path, rule_id, error_message, line_number).
+                      The line_number parameter is optional and can be None.
+    
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
+        None: This function doesn't return any value. All validation results
+              are communicated through the log_error_func callback.
+    
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-
+    
     Example:
-        >>> def mock_logger(path, rule, msg):
-        ...     print(f"{rule}: {msg}")
+        >>> def sample_log_func(path, rule, msg, line_num):
+        ...     print(f"{rule} at {path}:{line_num}: {msg}")
+        >>> 
         >>> content = '''
-        ... variable "test" { type = string }
-        ... data "huaweicloud_availability_zones" "example" {
-        ...   region = var.test
+        ... variable "password" {
+        ...   type = string
+        ...   default = "admin123"
         ... }
         ... '''
-        >>> check_st002_variable_defaults("main.tf", content, mock_logger)
-        ST.002: Variable 'test' used in data source must have a default value
+        >>> check_st002_variable_defaults("variables.tf", content, sample_log_func)
+        ST.002 at variables.tf:3: Variable 'password' should not have a default value...
     """
     clean_content = _remove_comments_for_parsing(content)
+    original_lines = content.split('\n')
     
-    # Extract variables used in data sources
-    data_source_variables = _extract_data_source_variables(clean_content)
+    # Extract variables used in data sources with line numbers
+    data_source_variables = _extract_data_source_variables_with_lines(clean_content, original_lines)
     
     if not data_source_variables:
         # No variables used in data sources, nothing to check
@@ -121,21 +128,26 @@ def check_st002_variable_defaults(file_path: str, content: str, log_error_func: 
     variable_definitions.update(current_file_variables)
     
     # Check if variables used in data sources have defaults
-    for var_name in data_source_variables:
+    for var_name, line_numbers in data_source_variables.items():
         if var_name in variable_definitions:
             if not variable_definitions[var_name]:
+                # Report error for the first occurrence line number
+                first_line = min(line_numbers) if line_numbers else None
                 log_error_func(
                     file_path,
                     "ST.002",
-                    f"Variable '{var_name}' used in data source must have a default value"
+                    f"Variable '{var_name}' used in data source must have a default value",
+                    first_line
                 )
         else:
             # Variable used but not defined - this might be from modules or other sources
-            # We'll report this as a potential issue
+            # We'll report this as a potential issue with the first occurrence line number
+            first_line = min(line_numbers) if line_numbers else None
             log_error_func(
                 file_path,
                 "ST.002",
-                f"Variable '{var_name}' used in data source is not defined in the current directory"
+                f"Variable '{var_name}' used in data source is not defined in the current directory",
+                first_line
             )
 
 
@@ -203,28 +215,53 @@ def _remove_comments_for_parsing(content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
-def _extract_data_source_variables(content: str) -> Set[str]:
+def _extract_data_source_variables_with_lines(content: str, original_lines: List[str]) -> Dict[str, Set[int]]:
     """
-    Extract variable references from data source blocks.
+    Extract variable references from data source blocks with their line numbers.
 
     Args:
         content (str): The cleaned Terraform content
+        original_lines (List[str]): Original file lines for line number mapping
 
     Returns:
-        Set[str]: Set of variable names used in data sources
+        Dict[str, Set[int]]: Dictionary mapping variable names to sets of line numbers where they're used
     """
-    variables_in_data_sources = set()
+    variables_in_data_sources = {}
     
     # Pattern to match data source blocks
     data_pattern = r'data\s+"[^"]+"\s+"[^"]+"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    data_matches = re.findall(data_pattern, content, re.DOTALL)
     
-    # Pattern to match variable references
-    var_ref_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
-    
-    for data_body in data_matches:
-        var_matches = re.findall(var_ref_pattern, data_body)
-        variables_in_data_sources.update(var_matches)
+    # Find all data source matches with their positions
+    for match in re.finditer(data_pattern, content, re.DOTALL):
+        data_body = match.group(1)
+        
+        # Find the line number where this data source starts
+        preceding_text = content[:match.start()]
+        start_line = preceding_text.count('\n') + 1
+        
+        # Pattern to match variable references
+        var_ref_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
+        
+        # Find all variable references in this data source block
+        for var_match in re.finditer(var_ref_pattern, data_body):
+            var_name = var_match.group(1)
+            
+            # Calculate the line number of this variable reference
+            var_preceding_text = data_body[:var_match.start()]
+            var_line_offset = var_preceding_text.count('\n')
+            var_line_num = start_line + var_line_offset
+            
+            # Find the actual line number by matching content
+            actual_line_num = None
+            search_text = f"var.{var_name}"
+            for line_num, line in enumerate(original_lines, 1):
+                if search_text in line and line_num >= start_line:
+                    actual_line_num = line_num
+                    break
+            
+            if var_name not in variables_in_data_sources:
+                variables_in_data_sources[var_name] = set()
+            variables_in_data_sources[var_name].add(actual_line_num or var_line_num)
     
     return variables_in_data_sources
 

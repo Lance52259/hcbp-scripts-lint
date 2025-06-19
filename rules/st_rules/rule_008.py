@@ -67,10 +67,10 @@ License: Apache 2.0
 """
 
 import re
-from typing import Callable, List, Tuple, Dict
+from typing import Callable, List, Tuple, Dict, Optional
 
 
-def check_st008_different_named_parameter_spacing(file_path: str, content: str, log_error_func: Callable[[str, str, str], None]) -> None:
+def check_st008_different_named_parameter_spacing(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate different-named parameter block spacing according to ST.008 rule specifications.
 
@@ -91,9 +91,9 @@ def check_st008_different_named_parameter_spacing(file_path: str, content: str, 
         content (str): The complete content of the Terraform file as a string.
                       This includes all resource and data source definitions.
 
-        log_error_func (Callable[[str, str, str], None]): A callback function used
-                      to report rule violations. The function should accept three
-                      parameters: file_path, rule_id, and error_message.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
+                      to report rule violations. The function should accept four
+                      parameters: file_path, rule_id, error_message, and optional line_number.
 
     Returns:
         None: This function doesn't return a value but reports errors through
@@ -114,8 +114,8 @@ def check_st008_different_named_parameter_spacing(file_path: str, content: str, 
             nested_blocks, resource_name, content
         )
         
-        for error_msg in spacing_errors:
-            log_error_func(file_path, "ST.008", error_msg)
+        for error_msg, line_num in spacing_errors:
+            log_error_func(file_path, "ST.008", error_msg, line_num)
 
 
 def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
@@ -241,7 +241,7 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
     return nested_blocks
 
 
-def _check_different_named_block_spacing(nested_blocks: List[Dict], resource_name: str, content: str) -> List[str]:
+def _check_different_named_block_spacing(nested_blocks: List[Dict], resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
     """
     Check spacing between consecutive different-named nested parameter blocks.
 
@@ -251,7 +251,7 @@ def _check_different_named_block_spacing(nested_blocks: List[Dict], resource_nam
         content (str): The full file content
 
     Returns:
-        List[str]: List of error messages
+        List[Tuple[str, Optional[int]]]: List of error messages and optional line numbers
     """
     errors = []
     lines = content.split('\n')
@@ -278,19 +278,21 @@ def _check_different_named_block_spacing(nested_blocks: List[Dict], resource_nam
             # Check if blank lines are not exactly 1
             if blank_lines != 1:
                 if blank_lines == 0:
-                    errors.append(
+                    errors.append((
                         f"Line {next_block['start_line']}: Missing blank line between "
                         f"different-named parameter blocks '{current_block['param_name']}' "
                         f"and '{next_block['param_name']}' in {resource_name}. "
-                        f"Add exactly one blank line between different parameter blocks"
-                    )
+                        f"Add exactly one blank line between different parameter blocks",
+                        next_block['start_line']
+                    ))
                 else:
-                    errors.append(
+                    errors.append((
                         f"Lines {current_block['end_line']}-{next_block['start_line']}: "
                         f"Found {blank_lines} blank lines between different-named parameter blocks "
                         f"'{current_block['param_name']}' and '{next_block['param_name']}' "
-                        f"in {resource_name}. Use exactly one blank line between different parameter blocks"
-                    )
+                        f"in {resource_name}. Use exactly one blank line between different parameter blocks",
+                        next_block['start_line']
+                    ))
     
     return errors
 

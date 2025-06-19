@@ -109,7 +109,7 @@ git push origin v1
 ### IO (Input/Output) Rules
 - IO.001: Variable definition file location check
 - IO.002: Output definition file location check
-- IO.003: Required parameter declaration check
+- IO.003: Required variable declaration check
 - IO.004: Variable naming convention check
 - IO.005: Output naming convention check
 - IO.006: Variable description check (all variables must have non-empty descriptions)

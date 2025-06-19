@@ -662,13 +662,16 @@ variable "example" {
 
 ### IO.001 - Variable Definition File Convention
 
-**Rule Description:** All input variables must be defined in the `variables.tf` file in the same directory.
+**Rule Description:** Validates that each input variable is properly defined in the `variables.tf` file and not in other
+files. Each variable definition found in non-`variables.tf` files will be reported as a separate violation with specific
+line numbers.
 
 **Purpose:**
 - Maintain project structure consistency and clarity
 - Facilitate centralized variable management and maintenance
 - Improve code readability and maintainability
 - Comply with Terraform community best practices
+- Ensure precise error reporting for each misplaced variable
 
 **Project Structure Example:**
 
@@ -686,7 +689,7 @@ terraform-project/
 ```hcl
 # ❌ Error: Defining variables in main.tf
 # main.tf
-variable "resource_group_name" {    # Variables should be in variables.tf
+variable "resource_group_name" {    # Line 3: Variables should be in variables.tf
   description = "Name of the resource group"
   type        = string
   default     = "example-rg"
@@ -697,7 +700,7 @@ resource "huaweicloud_resource_group" "test" {
   location = var.location
 }
 
-variable "location" {               # Variables should be in variables.tf
+variable "location" {               # Line 12: Variables should be in variables.tf
   description = "Huawei Cloud region"
   type        = string
   default     = "cn-north-1"
@@ -739,8 +742,9 @@ resource "huaweicloud_resource_group" "test" {
 
 ### IO.002 - Output Definition File Organization Convention
 
-**Rule Description:** Validates that all output variables (if any) in TF scripts within each directory are defined in
-                      the outputs.tf file in the same directory level.
+**Rule Description:** Validates that each output variable is properly defined in the `outputs.tf` file and not in other
+files. Each output definition found in non-`outputs.tf` files will be reported as a separate violation with specific
+line numbers.
 
 **Purpose:**
 - Maintain project structure clarity and consistency within each directory
@@ -748,19 +752,30 @@ resource "huaweicloud_resource_group" "test" {
 - Improve module interface readability
 - Comply with Terraform community best practices
 - Ensure outputs are organized at the appropriate directory level
+- Provide precise error reporting for each misplaced output
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Outputs not defined in outputs.tf
+# ❌ Error: Outputs defined in main.tf instead of outputs.tf
 # main.tf
 resource "huaweicloud_resource_group" "test" {
   name     = var.resource_group_name
   location = var.location
 }
 
+output "resource_group_id" {          # Line 6: Should be in outputs.tf
+  description = "The ID of the created resource group"
+  value       = huaweicloud_resource_group.test.id
+}
+
+output "resource_group_name" {        # Line 11: Should be in outputs.tf
+  description = "The name of the created resource group"
+  value       = huaweicloud_resource_group.test.name
+}
+
 # outputs.tf
-# No output definitions
+# No output definitions - outputs incorrectly placed in main.tf
 ```
 
 **Correct Example:**
@@ -796,45 +811,71 @@ resource "huaweicloud_resource_group" "test" {
 
 ### IO.003 - Required Variable Declaration Check in terraform.tfvars
 
-**Rule Description:** Check if variables without default values have corresponding definitions in `terraform.tfvars`.
+**Rule Description:** Validates that all required variables (variables without default values) are declared in the
+`terraform.tfvars` file. Each missing variable declaration is reported individually with precise line numbers.
 
 **Purpose:**
 - Ensure all required variables have explicit value definitions
 - Provide clear configuration entry points
 - Facilitate configuration management for different environments
 - Avoid runtime variable undefined errors
+- Ensure precise error reporting for each missing variable declaration
 
 **Error Example:**
 
 ```hcl
 # ❌ Error: Missing required variable values in terraform.tfvars
-# variables.tf
-variable "storage_account_name" {
-  description = "Name of the storage account"
-  type        = string
+# main.tf
+variable "cpu_cores" {            # Line 2: Required variable missing from tfvars
+  description = "Number of CPU cores"
+  type        = number
   # No default value, this is a required variable
 }
 
-variable "location" {
-  description = "Huawei Cloud region"
-  type        = string
+variable "memory_size" {          # Line 8: Required variable missing from tfvars
+  description = "Memory size in GB"
+  type        = number
   # No default value, this is a required variable
 }
 
-# Missing terraform.tfvars file or incomplete variable declarations
+variable "flavor_id" {            # Line 14: Optional variable
+  description = "The flavor ID"
+  type        = string
+  default     = "c6.2xlarge.4"   # Has default - optional
+}
+
+# terraform.tfvars
+# Missing declarations for required variables cpu_cores and memory_size
+flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
 ```
 
 **Correct Example:**
 
 ```hcl
 # ✅ Correct: All required variables declared in terraform.tfvars
-# terraform.tfvars
-storage_account_name = "myuniquestorageacct001"
-location            = "cn-north-1"
-environment         = "development"
+# variables.tf
+variable "cpu_cores" {
+  description = "Number of CPU cores"
+  type        = number
+  # No default - required
+}
 
-# Optional: Override variables with default values
-resource_group_name = "my-custom-rg"
+variable "memory_size" {
+  description = "Memory size in GB"
+  type        = number
+  # No default - required
+}
+
+variable "flavor_id" {
+  description = "The flavor ID"
+  type        = string
+  default     = "c6.2xlarge.4"   # Has default - optional
+}
+
+# terraform.tfvars
+cpu_cores = 4                     # Required variable declared
+memory_size = 8                   # Required variable declared
+# flavor_id is optional, no need to declare (but can be overridden)
 ```
 
 **Best Practices:**
@@ -843,35 +884,39 @@ resource_group_name = "my-custom-rg"
 - Use environment-specific `.tfvars` files for different environments
 - Document all required variables and their expected values
 - Consider using variable validation blocks
+- Ensure each required variable is declared individually in `terraform.tfvars`
 
 ---
 
-### IO.004 - Variable Naming Convention
+### IO.004 - Variable Naming Convention Check
 
-**Rule Description:** All variable names must only contain lowercase letters and underscores, and must not start with an
-underscore.
+**Rule Description:** Validates that each input variable name uses only lowercase letters and underscores, and does not
+start with an underscore. For each invalid variable definition, an error is reported showing the file where the variable
+is defined (e.g., if an invalid variable is defined in main.tf, the error file will show as main.tf).
 
 **Purpose:**
-- Ensure consistent variable naming patterns
+- Ensure consistent variable naming patterns across all input variables
 - Improve code readability and maintainability
 - Prevent naming conflicts and confusion
 - Comply with Terraform community naming standards
+- Provide precise error identification for each invalid variable name with accurate file location reporting
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Invalid variable naming
-variable "_invalid_name" {    # Starts with underscore
+# ❌ Error: Invalid variable naming in main.tf
+# main.tf
+variable "_invalid_name" {    # Error: Starts with underscore
   description = "Invalid variable name"
   type        = string
 }
 
-variable "InvalidName" {      # Contains uppercase letters
+variable "InvalidName" {      # Error: Contains uppercase letters
   description = "Invalid variable name"
   type        = string
 }
 
-variable "invalid-name" {     # Contains hyphen
+variable "invalid-name" {     # Error: Contains hyphen
   description = "Invalid variable name"
   type        = string
 }
@@ -891,47 +936,52 @@ variable "another_valid_name" {
   type        = string
 }
 
-variable "validname" {
-  description = "Valid variable name without underscores"
-  type        = string
+variable "instance_count" {
+  description = "Valid variable name with descriptive purpose"
+  type        = number
 }
 ```
 
 **Best Practices:**
 - Use lowercase letters and underscores only
-- Avoid starting names with underscores
+- Never start variable names with underscores
 - Use descriptive but concise names
-- Follow consistent naming patterns
-- Consider using prefixes for related variables
+- Follow consistent naming patterns across the project
+- Consider using prefixes for related variables (e.g., `vpc_name`, `vpc_cidr`)
+- Each variable naming violation is reported individually for precise error identification
+- Error messages show the exact file where the variable is defined
 
 ---
 
-### IO.005 - Output Naming Convention
+### IO.005 - Output Naming Convention Check
 
-**Rule Description:** All output names must only contain lowercase letters and underscores, and must not start with an
-                      underscore.
+**Rule Description:** Validates that each output variable name uses only lowercase letters and underscores, and does not
+start with an underscore. For each invalid output definition, an error is reported showing the file where the output
+is defined (e.g., if an invalid output is defined in main.tf, the error file will show as main.tf).
 
 **Purpose:**
-- Ensure consistent output naming patterns
-- Improve module interface clarity
+- Ensure consistent output naming patterns across all output variables
+- Improve module interface clarity and readability
 - Maintain consistent output naming standards
 - Comply with Terraform community naming standards
+- Provide precise error identification for each invalid output name with accurate file location reporting
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Invalid output naming
-output "_invalid_output" {    # Starts with underscore
+# ❌ Error: Invalid output naming in main.tf
+# main.tf
+output "_invalid_output" {    # Error: Starts with underscore
   description = "Invalid output name"
   value       = "test"
 }
 
-output "InvalidOutput" {      # Contains uppercase letters
+output "BadOutputName" {      # Error: Contains uppercase letters
   description = "Invalid output name"
   value       = "test"
 }
 
-output "invalid-output" {     # Contains hyphen
+output "invalid-output" {     # Error: Contains hyphen
   description = "Invalid output name"
   value       = "test"
 }
@@ -951,24 +1001,26 @@ output "another_valid_output" {
   value       = "test"
 }
 
-output "validoutput" {
-  description = "Valid output name without underscores"
-  value       = "test"
+output "instance_id" {
+  description = "Valid output name with descriptive purpose"
+  value       = "instance-123"
 }
 ```
 
 **Best Practices:**
 - Use lowercase letters and underscores only
-- Avoid starting names with underscores
+- Never start output names with underscores
 - Use descriptive but concise names
-- Follow consistent naming patterns
-- Consider using prefixes for related outputs
+- Follow consistent naming patterns across the project
+- Consider using prefixes for related outputs (e.g., `vpc_id`, `vpc_cidr`)
+- Each output naming violation is reported individually for precise error identification
+- Error messages show the exact file where the output is defined
 
 ---
 
 ### IO.006 - Variable Description Convention
 
-**Rule Description:** All input variables must have a description field defined and not empty.
+**Rule Description:** The input variables must have a description field defined and not empty.
 
 **Purpose:**
 - Improves code documentation and usability
@@ -1173,3 +1225,4 @@ These rules aim to improve the quality, consistency, and maintainability of Terr
 
 It is recommended to continuously use this checking tool during project development and adjust rule configurations
 according to team needs.
+
