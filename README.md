@@ -245,26 +245,26 @@ steps:
 ### Unified Rules Management System
 
 ```
-┌─────────────────────────────────────┐
-│         RulesManager                │
-│  (Central Unified Coordinator)     │
-├─────────────────────────────────────┤
-│ • Rule Discovery & Registration     │
-│ • Cross-System Execution            │
-│ • Performance Monitoring            │
-│ • Unified Reporting & Analytics     │
-│ • Configuration Management          │
-└─────────────────────────────────────┘
-                  │
-    ┌─────────────┼─────────────┐
-    │             │             │
-┌───▼───┐    ┌───▼───┐    ┌───▼───┐
-│ST Rules│    │IO Rules│    │DC Rules│
-│Package │    │Package │    │Package │
-├───────┤    ├───────┤    ├───────┤
+ ┌─────────────────────────────────────┐
+ │         RulesManager                │
+ │  (Central Unified Coordinator)      │
+ ├─────────────────────────────────────┤
+ │ • Rule Discovery & Registration     │
+ │ • Cross-System Execution            │
+ │ • Performance Monitoring            │
+ │ • Unified Reporting & Analytics     │
+ │ • Configuration Management          │
+ └─────────────────────────────────────┘
+                    │
+     ┌──────────────┼──────────────┐
+     │              │              │
+┌────▼────┐    ┌────▼────┐    ┌────▼────┐
+│ST Rules │    │IO Rules │    │DC Rules │
+│Package  │    │Package  │    │Package  │
+├─────────┤    ├─────────┤    ├─────────┤
 │reference│    │reference│    │reference│
-│.py     │    │.py     │    │.py     │
-└───────┘    └───────┘    └───────┘
+│.py      │    │.py      │    │.py      │
+└─────────┘    └─────────┘    └─────────┘
 ```
 
 ### Key Components
