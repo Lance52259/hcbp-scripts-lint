@@ -2,25 +2,31 @@
 """
 ST.010 - Quote Usage Standards Check
 
-This module implements the ST.010 rule which validates that resource and data
-source declarations use proper double quotes around both the resource type
-and instance name.
+This module implements the ST.010 rule which validates that resource, data
+source, variable, and output declarations use proper double quotes around both
+the resource type and instance name, or variable/output names.
 
 Rule Specification:
 - Resource type must be enclosed in double quotes
 - Instance name must be enclosed in double quotes
+- Variable names must be enclosed in double quotes
+- Output names must be enclosed in double quotes
 - Single quotes or missing quotes are not allowed
-- Applies to both resource and data source blocks
+- Applies to resource, data source, variable, and output blocks
 
 Examples:
     Valid declarations:
         resource "huaweicloud_compute_instance" "test" { ... }
         data "huaweicloud_availability_zones" "test" { ... }
+        variable "instance_name" { ... }
+        output "instance_id" { ... }
 
     Invalid declarations:
-        resource huaweicloud_compute_instance "test" { ... }    # Missing quotes on type
+        data huaweicloud_compute_instances "test" { ... }       # Missing quotes on type
         resource "huaweicloud_compute_instance" test { ... }    # Missing quotes on name
         resource 'huaweicloud_compute_instance' 'test' { ... }  # Single quotes
+        variable instance_name { ... }                          # Missing quotes on variable name
+        output instance_id { ... }                              # Missing quotes on output name
 
 Author: Lance
 License: Apache 2.0
@@ -113,6 +119,28 @@ def check_st010_quote_usage(file_path: str, content: str, log_error_func: Callab
                     line_num
                 )
 
+        # Check for variable declarations
+        variable_match = re.match(r'^\s*variable\s+(.+?)\s*\{', line)
+        if variable_match:
+            declaration = variable_match.group(1).strip()
+            if not _is_properly_quoted_single_name(declaration):
+                log_error_func(
+                    file_path, "ST.010",
+                    f"Variable name must be enclosed in double quotes",
+                    line_num
+                )
+
+        # Check for output declarations
+        output_match = re.match(r'^\s*output\s+(.+?)\s*\{', line)
+        if output_match:
+            declaration = output_match.group(1).strip()
+            if not _is_properly_quoted_single_name(declaration):
+                log_error_func(
+                    file_path, "ST.010",
+                    f"Output name must be enclosed in double quotes",
+                    line_num
+                )
+
 
 def _is_properly_quoted_declaration(declaration: str) -> bool:
     """
@@ -141,6 +169,33 @@ def _is_properly_quoted_declaration(declaration: str) -> bool:
     return bool(re.match(pattern, declaration))
 
 
+def _is_properly_quoted_single_name(declaration: str) -> bool:
+    """
+    Helper method to check if a variable/output declaration uses proper double quotes.
+
+    This function validates that the declaration follows the expected format:
+    "name" where the name is enclosed in double quotes.
+
+    Args:
+        declaration (str): The declaration part extracted from the line
+                          (everything between 'variable'/'output' and '{')
+
+    Returns:
+        bool: True if the declaration uses proper double quotes, False otherwise
+
+    Example:
+        >>> _is_properly_quoted_single_name('"instance_name"')
+        True
+        >>> _is_properly_quoted_single_name('instance_name')
+        False
+        >>> _is_properly_quoted_single_name("'instance_name'")
+        False
+    """
+    # Pattern to match exactly one double-quoted string
+    pattern = r'^"[^"]*"$'
+    return bool(re.match(pattern, declaration))
+
+
 def get_rule_description() -> dict:
     """
     Retrieve detailed information about the ST.010 rule.
@@ -161,13 +216,13 @@ def get_rule_description() -> dict:
     Example:
         >>> info = get_rule_description()
         >>> print(info['name'])
-        Resource and data source quote check
+        Resource, data source, variable, and output quote check
     """
     return {
         "id": "ST.010",
-        "name": "Resource and data source quote check",
+        "name": "Resource, data source, variable, and output quote check",
         "description": (
-            "Validates that all data sources and resources use proper double quotes "
+            "Validates that all data sources, resources, variables, and outputs use proper double quotes "
             "around their type and name declarations. This ensures consistent syntax "
             "and prevents parsing errors that could occur with improper quoting. "
             "The rule enforces the standard Terraform syntax format."
@@ -185,13 +240,17 @@ def get_rule_description() -> dict:
                 'data "huaweicloud_availability_zones" "test" { ... }',
                 'data "huaweicloud_compute_flavors" "test" { ... }',
                 'resource "huaweicloud_networking_secgroup" "test" { ... }',
-                'resource "huaweicloud_compute_instance" "test" { ... }'
+                'resource "huaweicloud_compute_instance" "test" { ... }',
+                'variable "instance_name" { ... }',
+                'output "instance_id" { ... }'
             ],
             "invalid": [
                 'data huaweicloud_availability_zones "test" { ... }',
                 'data "huaweicloud_compute_flavors" test { ... }',
                 "resource huaweicloud_networking_secgroup test { ... }",
-                'resource \'huaweicloud_compute_instance\' \'test\' { ... }'
+                'resource \'huaweicloud_compute_instance\' \'test\' { ... }',
+                'variable instance_name { ... }',
+                'output instance_id { ... }'
             ]
         },
         "auto_fixable": True,

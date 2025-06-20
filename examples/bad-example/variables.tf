@@ -85,3 +85,24 @@ variable "memory_size" {
   type        = number
   # Missing default value but used in data source
 }
+
+# ST.010 Error: Variable name starts with underscore
+variable "_underscore_start" {
+  description = "Variable name starts with underscore"
+  type        = string
+  default     = "test"
+}
+
+# ST.010 Error: Variable name without quotes
+variable no_quotes_var {
+  description = "Variable name without quotes"
+  type        = string
+  default     = "test"
+}
+
+# ST.010 Error: Variable name with single quotes
+variable 'single_quotes_var' {
+  description = "Variable name with single quotes"
+  type        = string
+  default     = "test"
+}
