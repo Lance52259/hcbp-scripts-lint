@@ -5,18 +5,19 @@ data "huaweicloud_availability_zones" "myaz" {
   region = var.region
 }
 
-# ST.001 Error: Resource instance name is not "test"
+# ST.001 Error: Resource instance name is not "test"  
+# ST.011 Error: Line above has trailing spaces
 resource "huaweicloud_vpc" "myvpc" {
   name= var.vpc_name       # ST.003 Error: Missing space before equals sign
-  cidr =  var.vpc_cidr     # ST.003 Error: Multiple spaces after equals sign
+  cidr =  var.vpc_cidr     # ST.003 Error: Multiple spaces after equals sign		
   description = "test vpc" # ST.003 Error: Equals signs not aligned
 }
 
 # ST.002 Error: Variable used in data source must have default value
 data "huaweicloud_compute_flavors" "test" {
-  performance_type = "normal"
+  performance_type = "normal" 
   cpu_core_count   = var.cpu_cores    # Variable without default used in data source
-  memory_size      = var.memory_size  # Variable without default used in data source
+  memory_size      = var.memory_size  # Variable without default used in data source	
 }
 
 # Using variable not declared in tfvars
@@ -37,7 +38,7 @@ resource "huaweicloud_security_group" "test" {
 # ST.006 Error: Missing empty line between resource blocks
 resource "huaweicloud_security_group_rule" "test" {
 	direction        = "ingress"  # ST.004 Error: This line uses tab instead of spaces
-  ethertype        = "IPv4"
+  ethertype        = "IPv4"   
 	protocol         = "tcp"      # ST.004 Error: This line uses tab instead of spaces
   port_range_min   = 22
   port_range_max   = 22
@@ -121,7 +122,7 @@ variable "test_var" {
 }
 # ST.006 Error: Missing blank line between variable blocks
 variable "another_test_var" {
-  description = "Another test variable"
+  description = "Another test variable"  
   type        = string
   default     = "test2"
 }

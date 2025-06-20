@@ -24,6 +24,7 @@ rules/
 │   ├── reference.py            # Main STRules coordinator class
 │   ├── rule_001.py             # ST.001 - Naming convention check
 │   ├── rule_010.py             # ST.010 - Quote usage check
+│   ├── rule_011.py             # ST.011 - Trailing whitespace check
 │   └── [future rule modules]   # Additional ST rules as separate modules
 ├── dc_rules/                   # DC rules modular package
 │   ├── __init__.py             # Package initialization
@@ -81,6 +82,7 @@ Each rule package follows a consistent design pattern:
 | ST.008 | Different Parameter Spacing | Exactly 1 empty line between different parameter blocks | ✅ Modular |
 | ST.009 | Variable Order | Variable definition order matches usage order | ✅ Modular |
 | ST.010 | Quote Usage | Double quotes around resource, data source, variable, and output names | ✅ Modular |
+| ST.011 | Trailing Whitespace | No trailing spaces or tabs at line ends | ✅ Modular |
 
 ### DC (Documentation/Comments) Rules
 
