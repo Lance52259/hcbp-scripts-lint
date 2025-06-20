@@ -80,7 +80,7 @@ Each rule package follows a consistent design pattern:
 | ST.007 | Same Parameter Spacing | ≤1 empty line between same parameter blocks | ✅ Modular |
 | ST.008 | Different Parameter Spacing | Exactly 1 empty line between different parameter blocks | ✅ Modular |
 | ST.009 | Variable Order | Variable definition order matches usage order | ✅ Modular |
-| ST.010 | Quote Usage | Double quotes around resource type and name | ✅ Modular |
+| ST.010 | Quote Usage | Double quotes around resource, data source, variable, and output names | ✅ Modular |
 
 ### DC (Documentation/Comments) Rules
 

@@ -101,7 +101,7 @@ git push origin v1
 - ST.007: Same parameter block spacing check (≤1 empty line between same-name blocks)
 - ST.008: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
 - ST.009: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
-- ST.010: Resource and data source quote check (double quotes around type and name)
+- ST.010: Resource, data source, variable, and output quote check (double quotes around names)
 
 ### DC (Documentation/Comments) Rules
 - DC.001: Comment format check

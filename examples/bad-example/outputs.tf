@@ -27,4 +27,16 @@ output "BadOutputName" {
 output "_underscore_output" {
   description = "Output name starts with underscore"
   value       = huaweicloud_vpc_subnet.test.name
-} 
+}
+
+# ST.010 Error: Output name without quotes
+output no_quotes_output {
+  description = "Output name without quotes"
+  value       = huaweicloud_vpc.myvpc.cidr
+}
+
+# ST.010 Error: Output name with single quotes
+output 'single_quotes_output' {
+  description = "Output name with single quotes"
+  value       = huaweicloud_security_group.test.name
+}

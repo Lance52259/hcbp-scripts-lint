@@ -526,20 +526,21 @@ variable "subnet_name" {     # Fourth variable used in main.tf
 - Use consistent variable ordering across similar modules
 - Document any intentional deviations from usage order with comments
 
-### ST.010 - Resource and Data Source Quote Check
+### ST.010 - Resource, Data Source, Variable, and Output Quote Check
 
-**Rule Description:** All data sources and resources must have their type and name enclosed in double quotes.
+**Rule Description:** All data sources, resources, variables, and outputs must have their type and name (or just name
+for variables/outputs) enclosed in double quotes.
 
 **Purpose:**
 - Ensures consistent Terraform syntax across all configurations
 - Prevents syntax errors and improves code readability
 - Maintains compatibility with Terraform formatting tools
-- Follows Terraform community standards for resource declarations
+- Follows Terraform community standards for all block declarations
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Missing quotes around data source type and name
+# ❌ Error: Missing quotes around various declaration types
 # main.tf - Various quoting violations
 data huaweicloud_availability_zones test {
   region = var.region
@@ -558,6 +559,30 @@ resource huaweicloud_vpc "test" {
 resource "huaweicloud_vpc_subnet" test_subnet {
   name   = var.subnet_name
   vpc_id = huaweicloud_vpc.test.id
+}
+
+# variables.tf - Variable quoting violations
+variable test_var {
+  description = "Variable without quotes"
+  type        = string
+  default     = "test"
+}
+
+variable 'single_quote_var' {
+  description = "Variable with single quotes"
+  type        = string
+  default     = "test"
+}
+
+# outputs.tf - Output quoting violations
+output test_output {
+  description = "Output without quotes"
+  value       = "test_value"
+}
+
+output 'single_quote_output' {
+  description = "Output with single quotes"
+  value       = "test_value"
 }
 ```
 
@@ -584,10 +609,35 @@ resource "huaweicloud_vpc_subnet" "test" {
   name   = var.subnet_name
   vpc_id = huaweicloud_vpc.test.id
 }
+
+# variables.tf - Proper variable quoting
+variable "test_var" {
+  description = "Variable with proper quotes"
+  type        = string
+  default     = "test"
+}
+
+variable "correct_var" {
+  description = "Another variable with proper quotes"
+  type        = string
+  default     = "test"
+}
+
+# outputs.tf - Proper output quoting
+output "test_output" {
+  description = "Output with proper quotes"
+  value       = "test_value"
+}
+
+output "correct_output" {
+  description = "Another output with proper quotes"
+  value       = "test_value"
+}
 ```
 
 **Best Practices:**
-- Always use double quotes for both resource type and name
+- Always use double quotes for resource/data source types and names
+- Always use double quotes for variable and output names
 - Maintain consistent quoting style throughout all Terraform files
 - Use automated formatting tools like `terraform fmt` to ensure compliance
 - Configure IDE/editor to highlight syntax violations
