@@ -17,6 +17,7 @@ Available Rules:
 - ST.008: Different parameter block spacing check
 - ST.009: Variable definition order check
 - ST.010: Resource, data source, variable, and output quote check
+- ST.011: Trailing whitespace check
 
 Author: Lance
 License: Apache 2.0

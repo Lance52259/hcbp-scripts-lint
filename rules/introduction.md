@@ -645,6 +645,70 @@ output "correct_output" {
 **Cross-references**: Works with [ST.001](#st001---resource-and-data-source-naming-convention),
                       [ST.003](#st003---parameter-assignment-formatting)
 
+### ST.011 - Trailing Whitespace Check
+
+**Rule Description:** All lines in Terraform files must not contain trailing whitespace characters (spaces, tabs, or
+other whitespace) at the end of lines.
+
+**Purpose:**
+- Prevents unnecessary diff noise in version control systems
+- Maintains clean and consistent code formatting
+- Follows general coding best practices for all languages
+- Ensures compatibility with automated formatting tools
+- Reduces merge conflicts caused by inconsistent whitespace
+
+**Error Example:**
+
+```hcl
+# ❌ Error: Lines with trailing whitespace
+resource "huaweicloud_compute_instance" "test" { 
+  name                 = "example"  
+  instance_type        = "s6.large.2"	
+  availability_zone    = "cn-north-4a"
+
+  network {
+    uuid = data.huaweicloud_vpc_subnet.test.id
+  }
+}
+
+variable "region" {  
+  description = "The region where resources will be created"
+  type        = string
+  default     = "cn-north-4"   
+} 
+```
+
+**Correct Example:**
+
+```hcl
+# ✅ Correct: No trailing whitespace
+resource "huaweicloud_compute_instance" "test" {
+  name                 = "example"
+  instance_type        = "s6.large.2"
+  availability_zone    = "cn-north-4a"
+
+  network {
+    uuid = data.huaweicloud_vpc_subnet.test.id
+  }
+}
+
+variable "region" {
+  description = "The region where resources will be created"
+  type        = string
+  default     = "cn-north-4"
+}
+```
+
+**Best Practices:**
+- Configure your editor to automatically trim trailing whitespace on save
+- Use `.editorconfig` files to standardize whitespace handling across team members
+- Enable editor settings to visualize trailing whitespace
+- Use automated formatting tools like `terraform fmt` which removes trailing whitespace
+- Set up pre-commit hooks to prevent trailing whitespace from being committed
+
+**Cross-references**: Works with [ST.004](#st004---indentation-character-check),
+                      [ST.005](#st005---indentation-level-check)
+
 ---
 
 ## DC (Documentation/Comments) Rule Details

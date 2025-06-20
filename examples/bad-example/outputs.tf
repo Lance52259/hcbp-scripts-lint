@@ -7,7 +7,7 @@ output "no_description_output" {
 
 # IO.007 Error: Output with empty description
 output "empty_description_output" {
-  description = ""
+  description = ""	
   value       = huaweicloud_vpc_subnet.test.id
 }
 
@@ -32,7 +32,7 @@ output "_underscore_output" {
 # ST.010 Error: Output name without quotes
 output no_quotes_output {
   description = "Output name without quotes"
-  value       = huaweicloud_vpc.myvpc.cidr
+  value       = huaweicloud_vpc.myvpc.cidr 
 }
 
 # ST.010 Error: Output name with single quotes

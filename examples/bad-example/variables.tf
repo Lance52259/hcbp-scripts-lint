@@ -12,7 +12,7 @@ variable "vpc_cidr" {
 
 variable "vpc_name" {
   description = "The name of the VPC"
-  type        = string
+  type        = string 
   default     = ""
 }
 
@@ -45,7 +45,7 @@ variable "no_description_var" {
   type    = string
   default = "test"
 }
-
+  
 # IO.006 Error: Variable with empty description
 variable "empty_description_var" {
   description = ""

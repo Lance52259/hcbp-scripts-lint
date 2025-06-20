@@ -47,6 +47,7 @@ Code formatting and style consistency rules, managed by the `STRules` coordinato
 - **ST.008**: Different parameter block spacing rules
 - **ST.009**: Variable order validation
 - **ST.010**: Resource, data source, variable, and output quote standards
+- **ST.011**: Trailing whitespace check
 
 ### IO (Input/Output) Rules
 Variable and output definition validation rules, managed by the `IORules` coordinator:

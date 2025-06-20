@@ -29,6 +29,7 @@ from .rule_007 import check_st007_same_parameter_block_spacing, get_rule_descrip
 from .rule_008 import check_st008_different_named_parameter_spacing, get_rule_description as get_st008_description
 from .rule_009 import check_st009_variable_order, get_rule_description as get_st009_description
 from .rule_010 import check_st010_quote_usage, get_rule_description as get_st010_description
+from .rule_011 import check_st011_trailing_whitespace, get_rule_description as get_st011_description
 
 
 class STRules:
@@ -110,6 +111,12 @@ class STRules:
                 "check_function": check_st010_quote_usage,
                 "description_function": get_st010_description,
                 "name": "Quote usage check",
+                "status": "modular"
+            },
+            "ST.011": {
+                "check_function": check_st011_trailing_whitespace,
+                "description_function": get_st011_description,
+                "name": "Trailing whitespace check",
                 "status": "modular"
             }
         }
