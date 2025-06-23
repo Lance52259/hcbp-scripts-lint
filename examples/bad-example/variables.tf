@@ -1,14 +1,14 @@
 # Variables definition
 
-# ST.010 Error: Variable name without quotes
+# ST.010 Error: Variable name is without quotes
 variable instance_flavor_performance_type {
-  # ST.003 Error: Equals signs not aligned
+  # ST.003 Error: Equals signs not aligned while variable name is without quotes
   description = "The performance type of the flavor that ECS instance will use"
   type =string
   default = "normal"
 }
 # ST.006 Error: Missing blank line between variable blocks
-# ST.010 Error: Variable name with single quotes
+# ST.010 Error: Variable name is with single quotes
 variable 'instance_flavor_cpu_core_number' {
   description= "The CPU core number of the flavor that ECS instance will use" # ST.003 Error: Missing space before equals sign
   type       =number  # ST.003 Error: No space after equals sign
@@ -29,6 +29,7 @@ variable "instance_image_id" {
   type        = string
 }
 
+# ST.009 Error: Variable order mismatch - instance_image_os should come after instance_image_visibility based on main.tf usage
 variable "instance_image_os" {
   description = "The operating system of the image that ECS instance will use"
   type        = string

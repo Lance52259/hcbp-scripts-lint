@@ -50,10 +50,11 @@ resource huaweicloud_vpc "test" {
 # ST.010 Error: Missing quotes around resource name
 #The subnet resource definition (DC.001 Error: Incorrect comment format, missing space after # character)
 resource "huaweicloud_vpc_subnet" test {
-	vpc_id     = huaweicloud_vpc.incorrect_resource_name.id  # ST.004 Error: This line uses tab instead of spaces
-  name       = var.subnet_name                             # IO.003 Error: Using required variable and the value is not declared in tfvars file
-  cidr       = cidrsubnet(var.vpc_cidr, 4, 1)
-  gateway_ip = cidrhost(cidrsubnet(var.vpc_cidr, 4, 1), 1)
+	vpc_id     = huaweicloud_vpc.incorrect_resource_name.id    # ST.004 Error: This line uses tab instead of spaces
+  name       = var.subnet_name                               # IO.003 Error: Using required variable and the value is not declared in tfvars file
+  cidr       = cidrsubnet(var.vpc_cidr, 4, 1)	               # ST.011 Error: Tab exist in the end of line
+  # ST.011 Error: White spaces exist in the end of line
+  gateway_ip = cidrhost(cidrsubnet(var.vpc_cidr, 4, 1), 1)  
 }
 
 

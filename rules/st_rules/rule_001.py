@@ -92,18 +92,39 @@ def check_st001_naming_convention(file_path: str, content: str, log_error_func: 
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
         
-        # Check resource names
-        resource_match = re.match(r'(resource|data)\s+"[^"]+"\s+"([^"]+)"\s*\{', line)
-        if resource_match:
-            block_type = resource_match.group(1)
-            name = resource_match.group(2)
-            
-            if not _is_valid_name(name):
-                error_msg = (
-                    f"{block_type.capitalize()} name '{name}' contains invalid characters. "
-                    f"Use snake_case (lowercase letters, numbers, and underscores only)"
-                )
-                log_error_func(file_path, "ST.001", error_msg, line_num)
+        # Check resource and data source names with multiple patterns to handle quotes and no quotes
+        # Pattern 1: Standard format with quotes: resource "type" "name" {
+        # Pattern 2: Type without quotes: resource type "name" {
+        # Pattern 3: Name without quotes: resource "type" name {
+        # Pattern 4: Both without quotes: resource type name {
+        
+        patterns = [
+            r'(resource|data)\s+"([^"]+)"\s+"([^"]+)"\s*\{',  # Standard: both quoted
+            r'(resource|data)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+"([^"]+)"\s*\{',  # Type unquoted, name quoted
+            r'(resource|data)\s+"([^"]+)"\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Type quoted, name unquoted
+            r'(resource|data)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Both unquoted
+        ]
+        
+        for pattern in patterns:
+            resource_match = re.match(pattern, line)
+            if resource_match:
+                block_type = resource_match.group(1)
+                if len(resource_match.groups()) == 3:
+                    # Standard format or type unquoted
+                    if pattern == patterns[0] or pattern == patterns[1]:
+                        name = resource_match.group(3)  # Name is in group 3
+                    else:
+                        name = resource_match.group(3)  # Name is in group 3
+                
+                # Check if the instance name is "test" (ST.001 requirement)
+                if name != "test":
+                    error_msg = (
+                        f"{block_type.capitalize()} instance name '{name}' should be 'test'. "
+                        f"All resource and data source instances should use 'test' as the name "
+                        f"for consistency in example and test code."
+                    )
+                    log_error_func(file_path, "ST.001", error_msg, line_num)
+                break  # Found a match, no need to check other patterns
         
         # Check variable names
         variable_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
