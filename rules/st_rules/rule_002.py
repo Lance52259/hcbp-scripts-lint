@@ -228,8 +228,11 @@ def _extract_data_source_variables_with_lines(content: str, original_lines: List
     """
     variables_in_data_sources = {}
     
-    # Pattern to match data source blocks
-    data_pattern = r'data\s+"[^"]+"\s+"[^"]+"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    # Pattern to match data source blocks - support quoted, single-quoted, and unquoted syntax
+    # Quoted: data "type" "name" { ... }
+    # Single-quoted: data 'type' 'name' { ... }
+    # Unquoted: data type name { ... }
+    data_pattern = r'data\s+(?:"[^"]+"|\'[^\']+\'|[a-zA-Z_][a-zA-Z0-9_]*)\s+(?:"[^"]+"|\'[^\']+\'|[a-zA-Z_][a-zA-Z0-9_]*)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
     
     # Find all data source matches with their positions
     for match in re.finditer(data_pattern, content, re.DOTALL):
@@ -247,28 +250,19 @@ def _extract_data_source_variables_with_lines(content: str, original_lines: List
             var_name = var_match.group(1)
             
             # Calculate the line number of this variable reference
-            var_preceding_text = data_body[:var_match.start()]
-            var_line_offset = var_preceding_text.count('\n')
-            var_line_num = start_line + var_line_offset
-            
-            # Find the actual line number by matching content
-            actual_line_num = None
-            search_text = f"var.{var_name}"
-            for line_num, line in enumerate(original_lines, 1):
-                if search_text in line and line_num >= start_line:
-                    actual_line_num = line_num
-                    break
+            var_preceding_text = content[:match.start() + var_match.start()]
+            var_line = var_preceding_text.count('\n') + 1
             
             if var_name not in variables_in_data_sources:
                 variables_in_data_sources[var_name] = set()
-            variables_in_data_sources[var_name].add(actual_line_num or var_line_num)
+            variables_in_data_sources[var_name].add(var_line)
     
     return variables_in_data_sources
 
 
 def _extract_variables(content: str) -> Dict[str, bool]:
     """
-    Extract variable definitions and check if they have default values.
+    Extract variable definitions from content and check if they have defaults.
 
     Args:
         content (str): The cleaned Terraform content
@@ -277,13 +271,22 @@ def _extract_variables(content: str) -> Dict[str, bool]:
         Dict[str, bool]: Dictionary mapping variable names to whether they have defaults
     """
     variables = {}
-    var_pattern = r'variable\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    var_matches = re.findall(var_pattern, content, re.DOTALL)
-
-    for var_name, var_body in var_matches:
-        has_default = bool(re.search(r'default\s*=', var_body))
+    
+    # Pattern to match variable definitions - support quoted, single-quoted, and unquoted syntax
+    # Quoted: variable "name" { ... }
+    # Single-quoted: variable 'name' { ... }
+    # Unquoted: variable name { ... }
+    var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    
+    for match in re.finditer(var_pattern, content, re.DOTALL):
+        # Get variable name from quoted, single-quoted, or unquoted group
+        var_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
+        var_body = match.group(4)
+        
+        # Check if variable has a default value
+        has_default = bool(re.search(r'\bdefault\s*=', var_body))
         variables[var_name] = has_default
-
+    
     return variables
 
 

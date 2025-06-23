@@ -129,28 +129,28 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
     while i < len(lines):
         line = lines[i].strip()
         
-        # Match resource or data blocks
-        resource_match = re.match(r'(resource|data)\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
+        # Match resource or data blocks (support quoted, single-quoted, and unquoted syntax)
+        resource_match = re.match(r'(resource|data)\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
         
         if resource_match:
             block_type = resource_match.group(1)
-            resource_type = resource_match.group(2)
-            resource_name = resource_match.group(3)
+            # Extract resource type (quoted, single-quoted, or unquoted)
+            resource_type = resource_match.group(2) if resource_match.group(2) else (resource_match.group(3) if resource_match.group(3) else resource_match.group(4))
+            # Extract resource name (quoted, single-quoted, or unquoted)
+            resource_name = resource_match.group(5) if resource_match.group(5) else (resource_match.group(6) if resource_match.group(6) else resource_match.group(7))
             full_name = f'{block_type} "{resource_type}" "{resource_name}"'
             
             resource_start = i + 1
-            brace_count = 1
+            
+            # Count braces in the resource declaration line first
+            brace_count = line.count('{') - line.count('}')
             i += 1
             
             # Find the end of the resource block
             resource_end = i
             while i < len(lines) and brace_count > 0:
                 current_line = lines[i]
-                for char in current_line:
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
+                brace_count += current_line.count('{') - current_line.count('}')
                 i += 1
                 if brace_count > 0:
                     resource_end = i

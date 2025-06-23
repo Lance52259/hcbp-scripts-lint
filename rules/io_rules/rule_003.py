@@ -150,10 +150,10 @@ def check_io003_required_variables(file_path: str, content: str,
 
 def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     """
-    Extract variable names and line numbers for variables that are required (don't have default values).
+    Extract required variables (variables without defaults) with their line numbers.
 
     Args:
-        content (str): Content of the Terraform file
+        content (str): The Terraform file content
 
     Returns:
         List[Tuple[str, int]]: List of tuples containing (variable_name, line_number)
@@ -161,15 +161,16 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
     required_vars = []
     lines = content.split('\n')
     
-    # Pattern to match variable blocks with their full content
-    var_pattern = r'variable\s+"([^"]+)"\s*\{'
+    # Pattern to match variable definitions - support quoted, single-quoted, and unquoted syntax
+    var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{'
     
     i = 0
     while i < len(lines):
         line = lines[i]
         match = re.search(var_pattern, line)
         if match:
-            var_name = match.group(1)
+            # Extract variable name from quoted, single-quoted, or unquoted group
+            var_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
             line_number = i + 1  # Convert to 1-indexed
             
             # Find the end of this variable block

@@ -33,7 +33,7 @@ License: Apache 2.0
 
 import re
 import os
-from typing import Callable, List, Dict, Any, Optional
+from typing import Callable, List, Dict, Any, Optional, Tuple
 
 
 def check_io001_variable_file_location(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
@@ -81,7 +81,7 @@ def check_io001_variable_file_location(file_path: str, content: str, log_error_f
         >>> check_io001_variable_file_location("main.tf", content, sample_log_func)
         IO.001 at main.tf: Variable 'example' should be defined in 'variables.tf'
     """
-    variables = _extract_variables(content)
+    variables = _extract_variables_with_lines(content)
     
     # Check if non-variables.tf files contain variable definitions
     if variables and not file_path.endswith('variables.tf'):
@@ -89,8 +89,8 @@ def check_io001_variable_file_location(file_path: str, content: str, log_error_f
             log_error_func(
                 file_path,
                 "IO.001",
-                f"Variable '{variable['name']}' should be defined in 'variables.tf'",
-                variable['line_number']
+                f"Variable '{variable[0]}' should be defined in 'variables.tf'",
+                variable[1]
             )
 
 
@@ -132,53 +132,33 @@ def _remove_comments_for_parsing(content: str) -> str:
     return '\n'.join(cleaned_lines)
 
 
-def _extract_variables(content: str) -> List[Dict[str, Any]]:
+def _extract_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     """
-    Extract variable definitions with their metadata from the content.
+    Extract variable names from the content with their line numbers.
 
-    This function parses the content to find all variable definitions and
-    extracts relevant metadata for validation purposes.
+    This function searches for all variable definitions in the Terraform content
+    and returns their names along with the line numbers where they are defined.
 
     Args:
-        content (str): The cleaned Terraform content
+        content (str): The Terraform file content
 
     Returns:
-        List[Dict[str, Any]]: List of variable definitions with metadata including line numbers
+        List[Tuple[str, int]]: List of tuples containing (variable_name, line_number)
     """
     variables = []
-    clean_content = _remove_comments_for_parsing(content)
-    original_lines = content.split('\n')
-
-    # Pattern to match variable blocks with their full content
-    var_pattern = r'variable\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    lines = content.split('\n')
     
-    # Find all variable matches with their positions
-    for match in re.finditer(var_pattern, clean_content, re.DOTALL):
-        var_name = match.group(1)
-        var_body = match.group(2)
-        
-        # Find the line number where this variable starts
-        # Count newlines before the match start to get line number
-        preceding_text = clean_content[:match.start()]
-        line_number = preceding_text.count('\n') + 1
-        
-        # Find the actual line number in original content by matching the variable declaration
-        actual_line_number = None
-        for line_num, line in enumerate(original_lines, 1):
-            if f'variable "{var_name}"' in line:
-                actual_line_number = line_num
-                break
-        
-        variable_info = {
-            'name': var_name,
-            'line_number': actual_line_number or line_number,
-            'has_default': bool(re.search(r'default\s*=', var_body)),
-            'has_description': bool(re.search(r'description\s*=', var_body)),
-            'has_type': bool(re.search(r'type\s*=', var_body)),
-            'body': var_body.strip()
-        }
-        variables.append(variable_info)
-
+    for i, line in enumerate(lines, 1):
+        # Match variable definitions - support quoted, single-quoted, and unquoted syntax
+        # Quoted: variable "name" { ... }
+        # Single-quoted: variable 'name' { ... }
+        # Unquoted: variable name { ... }
+        var_match = re.match(r'\s*variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
+        if var_match:
+            # Get variable name from quoted, single-quoted, or unquoted group
+            var_name = var_match.group(1) if var_match.group(1) else (var_match.group(2) if var_match.group(2) else var_match.group(3))
+            variables.append((var_name, i))
+    
     return variables
 
 

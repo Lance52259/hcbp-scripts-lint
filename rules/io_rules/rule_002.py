@@ -148,14 +148,15 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
     outputs = []
     clean_content = _remove_comments_for_parsing(content)
     original_lines = content.split('\n')
-
-    # Pattern to match output blocks with their full content
-    output_pattern = r'output\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    
+    # Pattern to match output blocks - support quoted, single-quoted, and unquoted syntax
+    output_pattern = r'output\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
     
     # Find all output matches with their positions
     for match in re.finditer(output_pattern, clean_content, re.DOTALL):
-        output_name = match.group(1)
-        output_body = match.group(2)
+        # Extract output name from quoted, single-quoted, or unquoted group
+        output_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
+        output_body = match.group(4)
         
         # Find the line number where this output starts
         # Count newlines before the match start to get line number
@@ -165,20 +166,18 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
         # Find the actual line number in original content by matching the output declaration
         actual_line_number = None
         for line_num, line in enumerate(original_lines, 1):
-            if f'output "{output_name}"' in line:
+            if f'output "{output_name}"' in line or f'output \'{output_name}\'' in line or f'output {output_name}' in line:
                 actual_line_number = line_num
                 break
         
         output_info = {
             'name': output_name,
             'line_number': actual_line_number or line_number,
-            'has_value': bool(re.search(r'value\s*=', output_body)),
             'has_description': bool(re.search(r'description\s*=', output_body)),
-            'has_sensitive': bool(re.search(r'sensitive\s*=', output_body)),
             'body': output_body.strip()
         }
         outputs.append(output_info)
-
+    
     return outputs
 
 
