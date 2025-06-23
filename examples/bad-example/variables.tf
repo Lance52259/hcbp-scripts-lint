@@ -1,108 +1,91 @@
-# Error 4: Variable missing default value
-variable "region" {
-  description = "The region where the resources are located"
+# Variables definition
+
+# ST.010 Error: Variable name without quotes
+variable instance_flavor_performance_type {
+  # ST.003 Error: Equals signs not aligned
+  description = "The performance type of the flavor that ECS instance will use"
+  type =string
+  default = "normal"
+}
+# ST.006 Error: Missing blank line between variable blocks
+# ST.010 Error: Variable name with single quotes
+variable 'instance_flavor_cpu_core_number' {
+  description= "The CPU core number of the flavor that ECS instance will use" # ST.003 Error: Missing space before equals sign
+  type       =number  # ST.003 Error: No space after equals sign
+  default    =   2    # ST.003 Error: Multiple spaces after equals sign
+}
+
+
+# ST.006 Error: Too many blank lines between variable blocks
+variable "instance_flavor_memory_size" {
+  # IO.008 Error: Variable missing type field
+  description = "The memory size of the flavor that ECS instance will use"
+  default     = 4
+}
+
+# ST.002 Error: Variable used in data source must have default value
+variable "instance_image_id" {
+  description = "The ID of the image that ECS instance will use"
   type        = string
 }
 
-# ST.009 Error: Variable order mismatch - vpc_cidr should come before vpc_name based on main.tf usage
-variable "vpc_cidr" {
-  description = "The CIDR block for the VPC"
+variable "instance_image_os" {
+  description = "The operating system of the image that ECS instance will use"
   type        = string
+  default     = "Ubuntu"
+}
+
+# ST.009 Error: Variable order mismatch - instance_image_visibility should come before instance_image_os based on main.tf usage
+variable "instance_image_visibility" {
+  description = "The visibility of the image that ECS instance will use"
+  type        = string
+  default     = "public"
 }
 
 variable "vpc_name" {
   description = "The name of the VPC"
-  type        = string 
-  default     = ""
+  type        = string
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.vpc_name))
+    error_message = "VPC name must contain only alphanumeric characters, underscores, and hyphens."
+  }
+}
+
+variable "vpc_cidr" {
+  # IO.007 Error: Variable missing description field
+  type = string
 }
 
 variable "subnet_name" {
-  description = "The name of the subnet"
-  type        = string
-  default     = ""
-}
-
-# Error 6: Variable missing default value
-variable "subnet_cidr" {
-  description = "The CIDR block for the subnet"
+  description = "The name of the VPC subnet"
   type        = string
 }
 
-variable "missing_variable" {
-  description = "This variable won't be in tfvars"
+variable "security_group_name" {
+  description = "The name of the security group"
   type        = string
-  default     = "default_value"
 }
 
-variable "description" {
-  description = "The description of the resource"
+variable "instance_name" {
+  description = "The name of the ECS instance"
   type        = string
-  default     = "test description"
 }
 
-# IO.006 Error: Variable missing description field
-variable "no_description_var" {
-  type    = string
-  default = "test"
-}
-  
-# IO.006 Error: Variable with empty description
-variable "empty_description_var" {
-  description = ""
-  type        = string
-  default     = "test"
-}
-
-# IO.008 Error: Variable missing type field
-variable "no_type_var" {
-  description = "Variable without type field"
-  default     = "test"
-}
-
-# IO.004 Error: Variable name contains uppercase letters
-variable "BadVariableName" {
-  description = "Variable with uppercase letters in name"
-  type        = string
-  default     = "test"
+variable "custom_tags" {
+  description = "The custom tags of the ECS instance"
+  type        = map(string)
 }
 
 # IO.004 Error: Variable name starts with underscore
-variable "_underscore_start" {
+variable "_variable_starts_with_underscore" {
   description = "Variable name starts with underscore"
   type        = string
-  default     = "test"
+  default     = "incorrect_variable_naming"
 }
 
-# ST.002 Error: Variables used in data source must have default values
-variable "cpu_cores" {
-  description = "CPU core count for compute flavors"
-  type        = number
-  # Missing default value but used in data source
-}
-
-variable "memory_size" {
-  description = "Memory size for compute flavors"
-  type        = number
-  # Missing default value but used in data source
-}
-
-# ST.010 Error: Variable name starts with underscore
-variable "_underscore_start" {
-  description = "Variable name starts with underscore"
+# IO.006 Error: Variable with empty description
+variable "BadVariableName" {
+  description = "Variable with uppercase letters in name"
   type        = string
-  default     = "test"
-}
-
-# ST.010 Error: Variable name without quotes
-variable no_quotes_var {
-  description = "Variable name without quotes"
-  type        = string
-  default     = "test"
-}
-
-# ST.010 Error: Variable name with single quotes
-variable 'single_quotes_var' {
-  description = "Variable name with single quotes"
-  type        = string
-  default     = "test"
+  default     = "incorrect_variable_naming"
 }

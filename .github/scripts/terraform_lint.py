@@ -4,7 +4,7 @@ Terraform Scripts Lint Tool
 
 A comprehensive linting tool for Terraform scripts using the unified rules management system.
 This tool provides flexible rule execution, detailed reporting, and performance monitoring
-across three rule categories: ST (Style/Format), IO (Input/Output), and DC (Documentation/Comments).
+across four rule categories: ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and SC (Security Code).
 
 Key Features:
 - Unified rules management with centralized coordination
@@ -18,6 +18,7 @@ Rule Categories:
 - ST (Style/Format): Code formatting and style rules
 - IO (Input/Output): Variable and output definition rules
 - DC (Documentation/Comments): Comment and documentation rules
+- SC (Security Code): Security and safety validation rules
 
 Security Features:
 - Local processing only, no network requests
@@ -156,7 +157,7 @@ class TerraformLinter:
             exclude_paths: List of path patterns to exclude from checking
             changed_files_only: If True, only check files changed in current commit/PR
             base_ref: Base reference for git diff (e.g., 'origin/main', 'HEAD~1')
-            rule_categories: List of rule categories to execute (ST, IO, DC). If None, all categories are used.
+            rule_categories: List of rule categories to execute (ST, IO, DC, SC). If None, all categories are used.
         """
         # Initialize unified rules manager
         self.rules_manager = RulesManager()
@@ -167,14 +168,14 @@ class TerraformLinter:
         self.exclude_paths = exclude_paths or []
         self.changed_files_only = changed_files_only
         self.base_ref = base_ref or 'HEAD~1'
-        self.rule_categories = rule_categories or ["ST", "IO", "DC"]
+        self.rule_categories = rule_categories or ["ST", "IO", "DC", "SC"]
 
         # Error and warning tracking - using structured records
         self.errors: List[ErrorRecord] = []
         self.warnings: List[WarningRecord] = []
-        self.violations_by_category = {"ST": 0, "IO": 0, "DC": 0}
-        self.errors_by_category = {"ST": 0, "IO": 0, "DC": 0}
-        self.warnings_by_category = {"ST": 0, "IO": 0, "DC": 0}
+        self.violations_by_category = {"ST": 0, "IO": 0, "DC": 0, "SC": 0}
+        self.errors_by_category = {"ST": 0, "IO": 0, "DC": 0, "SC": 0}
+        self.warnings_by_category = {"ST": 0, "IO": 0, "DC": 0, "SC": 0}
 
         # Performance metrics
         self.files_processed = 0
@@ -190,9 +191,10 @@ class TerraformLinter:
         print(f"- ST rules: {summary['rules_by_system']['ST']}")
         print(f"- IO rules: {summary['rules_by_system']['IO']}")
         print(f"- DC rules: {summary['rules_by_system']['DC']}")
+        print(f"- SC rules: {summary['rules_by_system']['SC']}")
         if self.ignored_rules:
             print(f"- Ignored rules: {', '.join(sorted(self.ignored_rules))}")
-        if self.rule_categories != ["ST", "IO", "DC"]:
+        if self.rule_categories != ["ST", "IO", "DC", "SC"]:
             print(f"- Active categories: {', '.join(self.rule_categories)}")
 
     def should_ignore_rule(self, rule_id: str) -> bool:
@@ -446,7 +448,7 @@ class TerraformLinter:
             self.execution_results.append(batch_summary)
 
             # Update violation counts by category - sync with actual error/warning counts
-            for category in ["ST", "IO", "DC"]:
+            for category in ["ST", "IO", "DC", "SC"]:
                 # Calculate violations for this category as errors + warnings
                 category_violations = self.errors_by_category[category] + self.warnings_by_category[category]
                 self.violations_by_category[category] = category_violations
@@ -691,6 +693,11 @@ class TerraformLinter:
                         "violations": self.violations_by_category['DC'],
                         "errors": self.errors_by_category['DC'],
                         "warnings": self.warnings_by_category['DC']
+                    },
+                    "SC": {
+                        "violations": self.violations_by_category['SC'],
+                        "errors": self.errors_by_category['SC'],
+                        "warnings": self.warnings_by_category['SC']
                     }
                 },
                 "line_distribution": line_distribution,
@@ -746,6 +753,7 @@ class TerraformLinter:
                     f"ST (Style/Format): {self.violations_by_category['ST']} violations, {self.errors_by_category['ST']} errors, {self.warnings_by_category['ST']} warnings",
                     f"IO (Input/Output): {self.violations_by_category['IO']} violations, {self.errors_by_category['IO']} errors, {self.warnings_by_category['IO']} warnings",
                     f"DC (Documentation): {self.violations_by_category['DC']} violations, {self.errors_by_category['DC']} errors, {self.warnings_by_category['DC']} warnings",
+                    f"SC (Security Code): {self.violations_by_category['SC']} violations, {self.errors_by_category['SC']} errors, {self.warnings_by_category['SC']} warnings",
                     ""
                 ])
 
@@ -1083,6 +1091,7 @@ Rule Categories:
   ST (Style/Format): Code formatting and style rules
   IO (Input/Output): Variable and output definition rules  
   DC (Documentation/Comments): Comment and documentation rules
+  SC (Security Code): Security and safety validation rules
 
 Available Rules:
 {chr(10).join(f"  {rule_id}: {info.get('name', 'Unknown rule')}" 
@@ -1092,7 +1101,7 @@ Available Rules:
 System Information:
   Unified Rules Manager: v1.0.0
   Total Available Rules: {len(get_all_available_rules())}
-  Rule Systems: ST, IO, DC
+  Rule Systems: ST, IO, DC, SC
         """
     )
 
@@ -1108,7 +1117,7 @@ System Information:
                        help='Comma-separated list of rule IDs to ignore (e.g., ST.001,DC.001)')
 
     parser.add_argument('--categories',
-                       help='Comma-separated list of rule categories to execute (ST,IO,DC). Default: all categories')
+                       help='Comma-separated list of rule categories to execute (ST,IO,DC,SC). Default: all categories')
 
     parser.add_argument('--include-paths',
                        help='Comma-separated list of paths to include (e.g., ./src,./modules)')
@@ -1144,7 +1153,7 @@ System Information:
         print(f"Ignoring rules: {', '.join(sorted(ignored_rules))}")
 
     # Parse rule categories
-    rule_categories = ["ST", "IO", "DC"]  # Default to all categories
+    rule_categories = ["ST", "IO", "DC", "SC"]  # Default to all categories
     if args.categories:
         rule_categories = [cat.strip().upper() for cat in args.categories.split(',')]
         print(f"Active categories: {', '.join(rule_categories)}")

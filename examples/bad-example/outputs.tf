@@ -1,42 +1,27 @@
-# Output definitions with IO.007 violations
+# Outputs definition
 
-# IO.007 Error: Output missing description field
-output "no_description_output" {
-  value = huaweicloud_vpc.myvpc.id
-}
-
-# IO.007 Error: Output with empty description
-output "empty_description_output" {
-  description = ""	
+# ST.010 Error: Output name without quotes
+output subnet_id {
+  # IO.007 Error: Output missing description field
   value       = huaweicloud_vpc_subnet.test.id
 }
+# ST.006 Error: Missing blank line between output blocks
+# ST.010 Error: Output name with single quotes
+output 'instance_id' {
+  description = ""    # IO.007 Error: Output with empty description
+  value       = huaweicloud_compute_instance.test.id
+}
 
-# Correct output for comparison
-output "correct_output" {
-  description = "This output has proper description"
-  value       = huaweicloud_security_group.test.id
+
+# ST.006 Error: Too many blank lines between output blocks
+# IO.005 Error: Output name starts with underscore
+output "_output_start_with_underscore" {
+  description = "Output name starts with underscore"
+  value       = "incorrect_output_naming"
 }
 
 # IO.005 Error: Output name contains uppercase letters
 output "BadOutputName" {
   description = "Output with uppercase letters in name"
-  value       = huaweicloud_vpc.myvpc.name
-}
-
-# IO.005 Error: Output name starts with underscore
-output "_underscore_output" {
-  description = "Output name starts with underscore"
-  value       = huaweicloud_vpc_subnet.test.name
-}
-
-# ST.010 Error: Output name without quotes
-output no_quotes_output {
-  description = "Output name without quotes"
-  value       = huaweicloud_vpc.myvpc.cidr 
-}
-
-# ST.010 Error: Output name with single quotes
-output 'single_quotes_output' {
-  description = "Output name with single quotes"
-  value       = huaweicloud_security_group.test.name
+  value       = "incorrect_output_naming"
 }

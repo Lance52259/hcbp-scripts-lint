@@ -3,11 +3,12 @@
 Unified Rules Package
 
 This package provides a comprehensive linting system for Terraform files
-with rules organized into three main categories:
+with rules organized into four main categories:
 
 - ST (Style/Format): Code style and formatting rules
 - IO (Input/Output): Variable and output definition rules  
 - DC (Documentation/Comments): Documentation and comment rules
+- SC (Security Code): Security code and safety rules
 
 The package offers both unified management through RulesManager and
 individual rule system access for specific use cases.
@@ -17,6 +18,7 @@ Main Components:
 - STRules: Style and format rules coordinator
 - IORules: Input/output rules coordinator
 - DCRules: Documentation and comment rules coordinator
+- SCRules: Security code rules coordinator
 
 Usage Examples:
     # Unified approach (recommended)
@@ -29,7 +31,7 @@ Usage Examples:
     summary = validate_terraform_file(file_path, content, log_func)
     
     # Individual system access
-    from rules import STRules, IORules, DCRules
+    from rules import STRules, IORules, DCRules, SCRules
     
     st_rules = STRules()
     st_rules.execute_all_rules(file_path, content, log_func)
@@ -53,6 +55,7 @@ from .rules_manager import (
 from .st_rules.reference import STRules
 from .io_rules.reference import IORules  
 from .dc_rules.reference import DCRules
+from .sc_rules.reference import SCRules
 
 # Import convenience functions from individual systems
 from .st_rules.reference import (
@@ -76,6 +79,13 @@ from .dc_rules.reference import (
     get_dc_rule_info
 )
 
+from .sc_rules.reference import (
+    get_available_sc_rules,
+    execute_sc_rule,
+    execute_all_sc_rules,
+    get_sc_rule_info
+)
+
 # Package metadata
 __version__ = "1.0.0"
 __author__ = "Lance"
@@ -96,6 +106,7 @@ __all__ = [
     "STRules",
     "IORules", 
     "DCRules",
+    "SCRules",
     
     # ST rules convenience functions
     "get_available_st_rules",
@@ -113,7 +124,13 @@ __all__ = [
     "get_available_dc_rules",
     "execute_dc_rule", 
     "execute_all_dc_rules",
-    "get_dc_rule_info"
+    "get_dc_rule_info",
+    
+    # SC rules convenience functions
+    "get_available_sc_rules",
+    "execute_sc_rule",
+    "execute_all_sc_rules",
+    "get_sc_rule_info"
 ]
 
 # Backward compatibility aliases
@@ -132,6 +149,7 @@ DEFAULT_CONFIG = {
     "enable_st_rules": True,
     "enable_io_rules": True, 
     "enable_dc_rules": True,
+    "enable_sc_rules": True,
     "enable_performance_monitoring": True,
     "max_violations_per_file": 1000,
     "timeout_per_file": 60.0
@@ -148,7 +166,7 @@ def get_package_info():
         "license": __license__,
         "total_rules": summary["total_rules"],
         "rules_by_system": summary["rules_by_system"],
-        "available_systems": ["ST", "IO", "DC"],
+        "available_systems": ["ST", "IO", "DC", "SC"],
         "default_config": DEFAULT_CONFIG,
         "unified_interface": True
     } 

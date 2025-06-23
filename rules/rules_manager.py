@@ -4,7 +4,7 @@ Unified Rules Manager
 
 This module provides a centralized interface for managing and executing all
 linting rules across different categories: ST (Style/Format), IO (Input/Output),
-and DC (Documentation/Comments).
+DC (Documentation/Comments), and SC (Security Code).
 
 The RulesManager class serves as the main coordinator that orchestrates
 individual rule systems and provides unified functionality for:
@@ -26,6 +26,7 @@ import os
 from .st_rules.reference import STRules
 from .io_rules.reference import IORules
 from .dc_rules.reference import DCRules
+from .sc_rules.reference import SCRules
 
 
 class RuleExecutionResult:
@@ -56,7 +57,7 @@ class BatchExecutionSummary:
 
 class RulesManager:
     """
-    Unified coordinator for all linting rules across ST, IO, and DC categories.
+    Unified coordinator for all linting rules across ST, IO, DC, and SC categories.
     
     This class provides a centralized interface for managing and executing
     all available linting rules. It maintains connections to individual rule
@@ -69,6 +70,7 @@ class RulesManager:
         self._st_rules = STRules()
         self._io_rules = IORules()
         self._dc_rules = DCRules()
+        self._sc_rules = SCRules()
         
         # Build unified rule registry
         self._unified_registry = self._build_unified_registry()
@@ -114,6 +116,14 @@ class RulesManager:
                 "system": "DC"
             }
         
+        # Add SC rules
+        for rule_id in self._sc_rules.get_available_rules():
+            registry[rule_id] = {
+                "category": "Security Code",
+                "coordinator": self._sc_rules,
+                "system": "SC"
+            }
+        
         return registry
     
     def get_all_available_rules(self) -> List[str]:
@@ -140,7 +150,7 @@ class RulesManager:
         Get rules filtered by category.
         
         Args:
-            category (str): Category to filter by (ST, IO, DC, or full category name)
+            category (str): Category to filter by (ST, IO, DC, SC, or full category name)
             
         Returns:
             List[str]: List of rule IDs in the specified category
@@ -149,9 +159,11 @@ class RulesManager:
             "ST": "Style/Format",
             "IO": "Input/Output", 
             "DC": "Documentation/Comments",
+            "SC": "Security Code",
             "Style/Format": "Style/Format",
             "Input/Output": "Input/Output",
-            "Documentation/Comments": "Documentation/Comments"
+            "Documentation/Comments": "Documentation/Comments",
+            "Security Code": "Security Code"
         }
         
         target_category = category_mapping.get(category, category)
@@ -166,7 +178,7 @@ class RulesManager:
         Get rules filtered by rule system.
         
         Args:
-            system (str): Rule system (ST, IO, DC)
+            system (str): Rule system (ST, IO, DC, SC)
             
         Returns:
             List[str]: List of rule IDs from the specified system
@@ -267,7 +279,7 @@ class RulesManager:
         Execute all rules in a specific category.
         
         Args:
-            category (str): Category to execute (ST, IO, DC)
+            category (str): Category to execute (ST, IO, DC, SC)
             file_path (str): Path to the file being checked
             content (str): File content to check
             log_error_func (Callable): Function to log errors
@@ -323,7 +335,7 @@ class RulesManager:
             rules_to_execute.append(rule_id)
         
         # Execute rules and collect results
-        results_by_category = {"ST": [], "IO": [], "DC": []}
+        results_by_category = {"ST": [], "IO": [], "DC": [], "SC": []}
         total_violations = 0
         successful_rules = 0
         failed_rules = 0
@@ -363,23 +375,27 @@ class RulesManager:
         st_summary = self._st_rules.get_rules_summary()
         io_summary = self._io_rules.get_rules_summary()
         dc_summary = self._dc_rules.get_rules_summary()
+        sc_summary = self._sc_rules.get_rules_summary()
         
         return {
             "total_rules": len(self._unified_registry),
             "rules_by_system": {
                 "ST": st_summary["total_rules"],
                 "IO": io_summary["total_rules"],
-                "DC": dc_summary["total_rules"]
+                "DC": dc_summary["total_rules"],
+                "SC": sc_summary["total_rules"]
             },
             "rules_by_category": {
                 "Style/Format": len(self.get_rules_by_category("ST")),
                 "Input/Output": len(self.get_rules_by_category("IO")),
-                "Documentation/Comments": len(self.get_rules_by_category("DC"))
+                "Documentation/Comments": len(self.get_rules_by_category("DC")),
+                "Security Code": len(self.get_rules_by_category("SC"))
             },
             "system_summaries": {
                 "ST": st_summary,
                 "IO": io_summary,
-                "DC": dc_summary
+                "DC": dc_summary,
+                "SC": sc_summary
             },
             "configuration": self._config,
             "all_rule_ids": self.get_all_available_rules()
@@ -403,7 +419,7 @@ class RulesManager:
         rule_filter = rule_filter or {}
         
         # Extract filter parameters
-        included_systems = rule_filter.get("systems", ["ST", "IO", "DC"])
+        included_systems = rule_filter.get("systems", ["ST", "IO", "DC", "SC"])
         excluded_rules = rule_filter.get("excluded_rules", [])
         included_severities = rule_filter.get("severities", ["error", "warning", "info"])
         
@@ -429,7 +445,7 @@ class RulesManager:
         
         # Execute filtered rules
         start_time = time.time()
-        results_by_category = {"ST": [], "IO": [], "DC": []}
+        results_by_category = {"ST": [], "IO": [], "DC": [], "SC": []}
         total_violations = 0
         successful_rules = 0
         failed_rules = 0
