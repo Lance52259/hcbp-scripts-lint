@@ -168,12 +168,14 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
     original_lines = content.split('\n')
 
     # Pattern to match output blocks with their full content
-    output_pattern = r'output\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    # Updated to handle double quotes, single quotes, and unquoted names
+    output_pattern = r'output\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
     
     # Find all output matches with their positions
     for match in re.finditer(output_pattern, clean_content, re.DOTALL):
-        output_name = match.group(1)
-        output_body = match.group(2)
+        # Extract output name from different quote patterns
+        output_name = match.group(1) or match.group(2) or match.group(3)
+        output_body = match.group(4)
         
         # Find the line number where this output starts
         # Count newlines before the match start to get line number
@@ -183,7 +185,10 @@ def _extract_outputs(content: str) -> List[Dict[str, Any]]:
         # Find the actual line number in original content by matching the output declaration
         actual_line_number = None
         for line_num, line in enumerate(original_lines, 1):
-            if f'output "{output_name}"' in line:
+            # Check for any quote pattern or unquoted
+            if (f'output "{output_name}"' in line or 
+                f"output '{output_name}'" in line or 
+                f'output {output_name}' in line):
                 actual_line_number = line_num
                 break
         

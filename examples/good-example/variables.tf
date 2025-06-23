@@ -1,55 +1,40 @@
 # Variable definitions
 
-variable "region" {
-  description = "The region where the resources are located"
-  type        = string
-  default     = "cn-north-1"
-  validation {
-    condition = contains([
-      "cn-north-1", "cn-north-4", "cn-east-2", "cn-east-3", 
-      "cn-south-1", "cn-southwest-2", "ap-southeast-1", 
-      "ap-southeast-2", "ap-southeast-3"
-    ], var.region)
-    error_message = "Region must be a valid Huawei Cloud region."
-  }
-}
-
 variable "vpc_name" {
   description = "The name of the VPC"
   type        = string
-  default     = "test-vpc"
+
+  validation {
+    condition = can(regex("^[a-zA-Z0-9_-]+$", var.vpc_name))
+    error_message = "VPC name must contain only alphanumeric characters, underscores, and hyphens."
+  }
 }
 
+# Optional variable and using supported default value
 variable "vpc_cidr" {
   description = "The CIDR block for the VPC"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "192.168.0.0/16"
 }
 
+# Optional variable and supports default value (do not use default value in production)
 variable "environment" {
   description = "The environment where the resources are located"
   type        = string
   default     = "dev"
-  validation {
-    condition     = contains(["dev", "test", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, test, staging, prod."
-  }
 }
 
 variable "subnet_name" {
   description = "The name of the subnet"
   type        = string
-  default     = "test-subnet"
 }
 
-variable "subnet_cidr" {
-  description = "The CIDR block for the subnet"
+variable "security_group_name" {
+  description = "The name of the security group"
   type        = string
-  default     = "10.0.1.0/24"
 }
 
-variable "gateway_ip" {
-  description = "The IP address of the gateway"
+variable "instance_name" {
+  description = "The name of the ECS instance"
   type        = string
-  default     = "10.0.1.1"
 }
