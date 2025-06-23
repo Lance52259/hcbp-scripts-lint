@@ -193,10 +193,11 @@ def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[
     
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
-        # Match variable definitions
-        var_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
+        # Match variable definitions - support quoted, single-quoted, and unquoted syntax
+        var_match = re.match(r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
         if var_match:
-            var_name = var_match.group(1)
+            # Extract variable name from quoted, single-quoted, or unquoted group
+            var_name = var_match.group(1) if var_match.group(1) else (var_match.group(2) if var_match.group(2) else var_match.group(3))
             definition_order.append((var_name, line_num))
     
     return definition_order
@@ -402,3 +403,68 @@ variable "performance_type" {
             "ignore_unused_variables": False
         }
     }
+
+def _extract_assignment_blocks(content: str) -> List[Dict]:
+    """
+    Extract assignment blocks and their parameter assignments.
+    """
+    blocks = []
+    lines = content.split('\n')
+    i = 0
+    
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        # Match different types of blocks - support quoted, single-quoted, and unquoted syntax
+        block_patterns = [
+            r'(resource|data)\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{',  # resource/data
+            r'(variable|output)\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{',  # variable/output
+            r'(provider|terraform|locals)\s*\{',  # provider/terraform/locals
+        ]
+        
+        matched = False
+        for pattern in block_patterns:
+            block_match = re.match(pattern, line)
+            if block_match:
+                matched = True
+                block_type = block_match.group(1)
+                
+                if block_type in ['resource', 'data']:
+                    # Extract resource/data type and name
+                    type_name = (block_match.group(2) if block_match.group(2) else 
+                                (block_match.group(3) if block_match.group(3) else block_match.group(4)))
+                    instance_name = (block_match.group(5) if block_match.group(5) else 
+                                   (block_match.group(6) if block_match.group(6) else block_match.group(7)))
+                    block_name = f'{block_type} "{type_name}" "{instance_name}"'
+                elif block_type in ['variable', 'output']:
+                    # Extract variable/output name
+                    name = (block_match.group(2) if block_match.group(2) else 
+                           (block_match.group(3) if block_match.group(3) else block_match.group(4)))
+                    block_name = f'{block_type} "{name}"'
+                else:
+                    block_name = block_type
+                
+                # Find all assignments within this block
+                assignments = _extract_assignments_from_block(lines, i)
+                
+                # Find the end of the block
+                brace_count = line.count('{') - line.count('}')
+                j = i + 1
+                while j < len(lines) and brace_count > 0:
+                    brace_count += lines[j].count('{') - lines[j].count('}')
+                    j += 1
+                
+                blocks.append({
+                    'name': block_name,
+                    'start_line': i + 1,
+                    'end_line': j,
+                    'assignments': assignments
+                })
+                
+                i = j
+                break
+        
+        if not matched:
+            i += 1
+    
+    return blocks

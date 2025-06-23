@@ -132,11 +132,15 @@ def _extract_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     lines = content.split('\n')
     
     for line_num, line in enumerate(lines, 1):
-        # Match variable definitions
-        var_pattern = r'variable\s+"([^"]+)"\s*\{'
+        # Match variable definitions - support quoted, single-quoted, and unquoted syntax
+        # Quoted: variable "name" { ... }
+        # Single-quoted: variable 'name' { ... }
+        # Unquoted: variable name { ... }
+        var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{'
         match = re.search(var_pattern, line)
         if match:
-            var_name = match.group(1)
+            # Get variable name from quoted, single-quoted, or unquoted group
+            var_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
             variables_with_lines.append((var_name, line_num))
     
     return variables_with_lines

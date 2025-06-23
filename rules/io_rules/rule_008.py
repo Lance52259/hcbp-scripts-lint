@@ -168,11 +168,19 @@ def _extract_variables(content: str) -> List[Dict[str, Any]]:
     variables = []
     clean_content = _remove_comments_for_parsing(content)
 
-    # Pattern to match variable blocks with their full content
-    variable_pattern = r'variable\s+"([^"]+)"\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    variable_matches = re.findall(variable_pattern, clean_content, re.DOTALL)
-
-    for variable_name, variable_body in variable_matches:
+    # Pattern to match variable blocks - support quoted, single-quoted, and unquoted syntax
+    variable_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    
+    # Find all variable matches with their positions
+    for match in re.finditer(variable_pattern, clean_content, re.DOTALL):
+        # Get variable name from quoted, single-quoted, or unquoted group
+        variable_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
+        variable_body = match.group(4)
+        
+        # Find line number by counting newlines before match
+        preceding_text = clean_content[:match.start()]
+        line_number = preceding_text.count('\n') + 1
+        
         # Check for type field
         has_type = bool(re.search(r'type\s*=', variable_body))
         
@@ -187,7 +195,7 @@ def _extract_variables(content: str) -> List[Dict[str, Any]]:
             'has_description': bool(re.search(r'description\s*=', variable_body)),
             'has_default': bool(re.search(r'default\s*=', variable_body)),
             'body': variable_body.strip(),
-            'line_number': variable_matches.index((variable_name, variable_body)) + 1
+            'line_number': line_number
         }
         variables.append(variable_info)
 

@@ -116,7 +116,7 @@ def _remove_comments_for_parsing(content: str) -> str:
 
 def _extract_outputs_with_lines(content: str) -> List[tuple]:
     """
-    Extract output names from the content along with their line numbers.
+    Extract output names from the content with their line numbers.
 
     Args:
         content (str): The cleaned Terraform content
@@ -124,14 +124,20 @@ def _extract_outputs_with_lines(content: str) -> List[tuple]:
     Returns:
         List[tuple]: List of tuples containing (output_name, line_number)
     """
-    output_pattern = r'output\s+"([^"]+)"\s*\{'
+    # Support quoted, single-quoted, and unquoted syntax
+    # Quoted: output "name" { ... }
+    # Single-quoted: output 'name' { ... }
+    # Unquoted: output name { ... }
+    output_pattern = r'output\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{'
     outputs_with_lines = []
     
     lines = content.split('\n')
     for line_num, line in enumerate(lines, 1):
-        matches = re.findall(output_pattern, line)
+        matches = re.finditer(output_pattern, line)
         for match in matches:
-            outputs_with_lines.append((match, line_num))
+            # Get output name from quoted, single-quoted, or unquoted group
+            output_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
+            outputs_with_lines.append((output_name, line_num))
     
     return outputs_with_lines
 

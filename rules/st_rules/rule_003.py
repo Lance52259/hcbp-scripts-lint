@@ -144,14 +144,25 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
     i = 0
     while i < len(lines):
         line = lines[i].strip()
-        data_match = re.match(r'data\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
-        resource_match = re.match(r'resource\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
+        # Support quoted, single-quoted, and unquoted syntax
+        # Quoted: data "type" "name" { ... } or resource "type" "name" { ... }
+        # Single-quoted: data 'type' 'name' { ... } or resource 'type' 'name' { ... }
+        # Unquoted: data type name { ... } or resource type name { ... }
+        data_match = re.match(r'data\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
+        resource_match = re.match(r'resource\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
 
         if data_match or resource_match:
-            block_type = (
-                f"data.{data_match.group(1)}.{data_match.group(2)}" if data_match
-                else f"resource.{resource_match.group(1)}.{resource_match.group(2)}"
-            )
+            if data_match:
+                # Get data type and name from quoted, single-quoted, or unquoted groups
+                data_type = data_match.group(1) if data_match.group(1) else (data_match.group(2) if data_match.group(2) else data_match.group(3))
+                data_name = data_match.group(4) if data_match.group(4) else (data_match.group(5) if data_match.group(5) else data_match.group(6))
+                block_type = f"data.{data_type}.{data_name}"
+            else:
+                # Get resource type and name from quoted, single-quoted, or unquoted groups
+                resource_type = resource_match.group(1) if resource_match.group(1) else (resource_match.group(2) if resource_match.group(2) else resource_match.group(3))
+                resource_name = resource_match.group(4) if resource_match.group(4) else (resource_match.group(5) if resource_match.group(5) else resource_match.group(6))
+                block_type = f"resource.{resource_type}.{resource_name}"
+                
             start_line = i + 1
             block_lines = []
             brace_count = 1

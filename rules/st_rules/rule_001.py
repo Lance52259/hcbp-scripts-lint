@@ -92,16 +92,22 @@ def check_st001_naming_convention(file_path: str, content: str, log_error_func: 
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
         
-        # Check resource and data source names with multiple patterns to handle quotes and no quotes
-        # Pattern 1: Standard format with quotes: resource "type" "name" {
-        # Pattern 2: Type without quotes: resource type "name" {
-        # Pattern 3: Name without quotes: resource "type" name {
-        # Pattern 4: Both without quotes: resource type name {
+        # Check resource and data source names with multiple patterns to handle quotes, single quotes, and no quotes
+        # Pattern 1: Standard format with double quotes: resource "type" "name" {
+        # Pattern 2: Standard format with single quotes: resource 'type' 'name' {
+        # Pattern 3: Type without quotes: resource type "name" {
+        # Pattern 4: Type without quotes: resource type 'name' {
+        # Pattern 5: Name without quotes: resource "type" name {
+        # Pattern 6: Name without quotes: resource 'type' name {
+        # Pattern 7: Both without quotes: resource type name {
         
         patterns = [
-            r'(resource|data)\s+"([^"]+)"\s+"([^"]+)"\s*\{',  # Standard: both quoted
-            r'(resource|data)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+"([^"]+)"\s*\{',  # Type unquoted, name quoted
-            r'(resource|data)\s+"([^"]+)"\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Type quoted, name unquoted
+            r'(resource|data)\s+"([^"]+)"\s+"([^"]+)"\s*\{',  # Both double quoted
+            r'(resource|data)\s+\'([^\']+)\'\s+\'([^\']+)\'\s*\{',  # Both single quoted
+            r'(resource|data)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+"([^"]+)"\s*\{',  # Type unquoted, name double quoted
+            r'(resource|data)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+\'([^\']+)\'\s*\{',  # Type unquoted, name single quoted
+            r'(resource|data)\s+"([^"]+)"\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Type double quoted, name unquoted
+            r'(resource|data)\s+\'([^\']+)\'\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Type single quoted, name unquoted
             r'(resource|data)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Both unquoted
         ]
         
@@ -111,10 +117,7 @@ def check_st001_naming_convention(file_path: str, content: str, log_error_func: 
                 block_type = resource_match.group(1)
                 if len(resource_match.groups()) == 3:
                     # Standard format or type unquoted
-                    if pattern == patterns[0] or pattern == patterns[1]:
-                        name = resource_match.group(3)  # Name is in group 3
-                    else:
-                        name = resource_match.group(3)  # Name is in group 3
+                    name = resource_match.group(3)  # Name is always in group 3 for these patterns
                 
                 # Check if the instance name is "test" (ST.001 requirement)
                 if name != "test":
@@ -126,17 +129,25 @@ def check_st001_naming_convention(file_path: str, content: str, log_error_func: 
                     log_error_func(file_path, "ST.001", error_msg, line_num)
                 break  # Found a match, no need to check other patterns
         
-        # Check variable names
-        variable_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
-        if variable_match:
-            name = variable_match.group(1)
-            
-            if not _is_valid_name(name):
-                error_msg = (
-                    f"Variable name '{name}' contains invalid characters. "
-                    f"Use snake_case (lowercase letters, numbers, and underscores only)"
-                )
-                log_error_func(file_path, "ST.001", error_msg, line_num)
+        # Check variable names - support quoted, single-quoted, and unquoted syntax
+        variable_patterns = [
+            r'variable\s+"([^"]+)"\s*\{',  # Double quoted
+            r'variable\s+\'([^\']+)\'\s*\{',  # Single quoted
+            r'variable\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Unquoted
+        ]
+        
+        for var_pattern in variable_patterns:
+            variable_match = re.match(var_pattern, line)
+            if variable_match:
+                name = variable_match.group(1)
+                
+                if not _is_valid_name(name):
+                    error_msg = (
+                        f"Variable name '{name}' contains invalid characters. "
+                        f"Use snake_case (lowercase letters, numbers, and underscores only)"
+                    )
+                    log_error_func(file_path, "ST.001", error_msg, line_num)
+                break  # Found a match, no need to check other patterns
 
 
 def _is_valid_name(name: str) -> bool:
