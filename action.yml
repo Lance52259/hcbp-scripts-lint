@@ -218,12 +218,19 @@ runs:
           echo "RULES_EXECUTED=$RULES_EXECUTED" >> $GITHUB_ENV
           
           # Extract performance metrics for JSON output
-          FILES_PER_SECOND=$(grep "Files per Second:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' || echo "0.0")
-          LINES_PER_SECOND=$(grep "Lines per Second:" terraform-lint-report.txt | grep -o '[0-9,]*' | tr -d ',' || echo "0")
-          RULES_PER_SECOND=$(grep "Rules per Second:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+          FILES_PER_SECOND=$(grep "Files per Second:" terraform-lint-report.txt | \
+            grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+          LINES_PER_SECOND=$(grep "Lines per Second:" terraform-lint-report.txt | \
+            grep -o '[0-9,]*' | tr -d ',' || echo "0")
+          RULES_PER_SECOND=$(grep "Rules per Second:" terraform-lint-report.txt | \
+            grep -o '[0-9]*\.[0-9]*' || echo "0.0")
           
           # Create performance metrics JSON
-          PERFORMANCE_JSON="{\"files_per_second\":$FILES_PER_SECOND,\"lines_per_second\":$LINES_PER_SECOND,\"rules_per_second\":$RULES_PER_SECOND,\"execution_time\":$EXECUTION_TIME,\"files_processed\":$FILES_PROCESSED,\"rules_executed\":$RULES_EXECUTED}"
+          PERFORMANCE_JSON="{\"files_per_second\":$FILES_PER_SECOND,\"lines_per_second\":$LINES_PER_SECOND"
+          PERFORMANCE_JSON="${PERFORMANCE_JSON},\"rules_per_second\":$RULES_PER_SECOND"
+          PERFORMANCE_JSON="${PERFORMANCE_JSON},\"execution_time\":$EXECUTION_TIME"
+          PERFORMANCE_JSON="${PERFORMANCE_JSON},\"files_processed\":$FILES_PROCESSED"
+          PERFORMANCE_JSON="${PERFORMANCE_JSON},\"rules_executed\":$RULES_EXECUTED}"
           echo "PERFORMANCE_METRICS=$PERFORMANCE_JSON" >> $GITHUB_ENV
           
           echo "📊 Enhanced Metrics Extracted:"
@@ -250,36 +257,57 @@ runs:
       shell: bash
       run: |
         # Generate a unique artifact name using timestamp, run details and job info
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N)  # Add milliseconds for better uniqueness
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
         JOB_ID="${{ github.job }}"
-        MATRIX_KEY="${{ strategy.job-index }}"  # For matrix jobs
+        RUN_ID="${{ github.run_id }}"
+        RUN_ATTEMPT="${{ github.run_attempt }}"
         
-        # Create base name
+        # Sanitize JOB_ID (remove spaces and special characters)
+        JOB_ID_CLEAN=$(echo "$JOB_ID" | tr ' ' '-' | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]')
+        
+        # Create base name with fallback
         BASE_NAME="terraform-lint-report-unified"
         
-        # Add run and job identifiers
-        UNIQUE_SUFFIX="${{ github.run_id }}-${{ github.run_attempt }}-${JOB_ID}"
+        # Add run and job identifiers with fallbacks
+        UNIQUE_SUFFIX="${RUN_ID:-unknown}-${RUN_ATTEMPT:-1}-${JOB_ID_CLEAN:-default}"
         
         # Add matrix suffix if this is a matrix job
-        if [ -n "$MATRIX_KEY" ] && [ "$MATRIX_KEY" != "null" ]; then
+        MATRIX_KEY="${{ strategy.job-index }}"
+        if [ -n "$MATRIX_KEY" ] && [ "$MATRIX_KEY" != "null" ] && [ "$MATRIX_KEY" != "" ]; then
           UNIQUE_SUFFIX="${UNIQUE_SUFFIX}-matrix-${MATRIX_KEY}"
         fi
         
         # Add timestamp for final uniqueness
         ARTIFACT_NAME="${BASE_NAME}-${UNIQUE_SUFFIX}-${TIMESTAMP}"
         
+        # Ensure artifact name is not empty and is valid
+        if [ -z "$ARTIFACT_NAME" ] || [ "$ARTIFACT_NAME" = "-" ]; then
+          ARTIFACT_NAME="terraform-lint-report-fallback-$(date +%s)"
+        fi
+        
         echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
         echo "Generated unique artifact name: $ARTIFACT_NAME"
         
         # Also create a shorter name for reference
-        SHORT_NAME="${BASE_NAME}-${{ github.run_id }}-${TIMESTAMP}"
+        SHORT_NAME="${BASE_NAME}-${RUN_ID:-unknown}-${TIMESTAMP}"
         echo "SHORT_ARTIFACT_NAME=$SHORT_NAME" >> $GITHUB_ENV
+        
+        # Debug output
+        echo "Debug artifact name generation:"
+        echo "  BASE_NAME: $BASE_NAME"
+        echo "  RUN_ID: $RUN_ID"
+        echo "  RUN_ATTEMPT: $RUN_ATTEMPT"
+        echo "  JOB_ID: $JOB_ID"
+        echo "  JOB_ID_CLEAN: $JOB_ID_CLEAN"
+        echo "  MATRIX_KEY: $MATRIX_KEY"
+        echo "  TIMESTAMP: $TIMESTAMP"
+        echo "  FINAL ARTIFACT_NAME: $ARTIFACT_NAME"
 
     - name: Upload Enhanced Lint Report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: ${{ env.ARTIFACT_NAME }}
+        name: ${{ env.ARTIFACT_NAME || 'terraform-lint-report-default' }}
         path: |
           terraform-lint-report.txt
           terraform-lint-report.json
@@ -291,9 +319,9 @@ runs:
 
     - name: Upload Report with Fallback Name
       uses: actions/upload-artifact@v4
-      if: always() && steps.upload-primary.outcome == 'failure'
+      if: always() && (steps.upload-primary.outcome == 'failure' || env.ARTIFACT_NAME == '')
       with:
-        name: ${{ env.SHORT_ARTIFACT_NAME }}-fallback-${{ github.run_number }}
+        name: terraform-lint-report-fallback-${{ github.run_number }}-${{ github.run_attempt }}
         path: |
           terraform-lint-report.txt
           terraform-lint-report.json
@@ -323,8 +351,10 @@ runs:
         # Add performance metrics if available
         if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
           echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "- **Processing Speed**: $(echo $PERFORMANCE_METRICS | grep -o '"files_per_second":[0-9.]*' | cut -d: -f2) files/second" >> $GITHUB_STEP_SUMMARY
-          echo "- **Rule Execution**: $(echo $PERFORMANCE_METRICS | grep -o '"rules_per_second":[0-9.]*' | cut -d: -f2) rules/second" >> $GITHUB_STEP_SUMMARY
+          FILES_PER_SEC=$(echo $PERFORMANCE_METRICS | grep -o '"files_per_second":[0-9.]*' | cut -d: -f2)
+          RULES_PER_SEC=$(echo $PERFORMANCE_METRICS | grep -o '"rules_per_second":[0-9.]*' | cut -d: -f2)
+          echo "- **Processing Speed**: ${FILES_PER_SEC} files/second" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rule Execution**: ${RULES_PER_SEC} rules/second" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
         fi
         
