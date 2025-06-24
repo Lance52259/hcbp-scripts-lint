@@ -3,62 +3,66 @@
 ST.008 - Different Named Parameter Block Spacing Check
 
 This module implements the ST.008 rule which validates that there is exactly
-one blank line between different-named parameter blocks within the same resource
+one blank line between different types of parameters within the same resource
 or data source block.
 
 Rule Specification:
 - Exactly one blank line between different-named nested parameter blocks
+- Exactly one blank line between basic parameter definitions and parameter blocks
 - Different-named parameter blocks are nested structures with different names (e.g., data_disks vs network)
+- Basic parameters are simple key-value assignments (e.g., name = "value")
+- Parameter blocks are nested structures with braces (e.g., data_disks { ... })
 - This applies within the same resource (e.g., huaweicloud_compute_instance)
-- Ensures consistent visual separation between different types of nested configuration
+- Ensures consistent visual separation between different types of configuration
 
 Examples:
     Valid spacing (exactly 1 blank line):
         resource "huaweicloud_compute_instance" "test" {
-          name      = "tf_test_instance"
-          flavor_id = "c6.2xlarge.4"
-          image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
+          name              = var.instance_name
+          flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+          system_disk_type  = "SAS"
+          system_disk_size  = 40
 
           data_disks {
+            size = 40
             type = "SAS"
-            size = 100
           }
 
-          network {
-            uuid = "12345678-1234-1234-1234-123456789012"
+          tags = {
+            "key" = "value"
           }
         }
 
     Invalid spacing:
-        # 0 blank lines between different-named parameter blocks
+        # Missing blank line between basic parameters and parameter block
         resource "huaweicloud_compute_instance" "test" {
-          name      = "tf_test_instance"
-          flavor_id = "c6.2xlarge.4"
-          image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
-
+          name              = var.instance_name
+          flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+          system_disk_type  = "SAS"
+          system_disk_size  = 40
           data_disks {
+            size = 40
             type = "SAS"
-            size = 100
           }
-          network {
-            uuid = "12345678-1234-1234-1234-123456789012"
+
+          tags = {
+            "key" = "value"
           }
         }
 
-        # 2 blank lines (>1) between different-named parameter blocks
+        # Missing blank line between parameter block and basic parameters
         resource "huaweicloud_compute_instance" "test" {
-          name      = "tf_test_instance"
-          flavor_id = "c6.2xlarge.4"
-          image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
+          name              = var.instance_name
+          flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+          system_disk_type  = "SAS"
+          system_disk_size  = 40
 
           data_disks {
+            size = 40
             type = "SAS"
-            size = 100
           }
-
-
-          network {
-            uuid = "12345678-1234-1234-1234-123456789012"
+          tags = {
+            "key" = "value"
           }
         }
 
@@ -75,13 +79,13 @@ def check_st008_different_named_parameter_spacing(file_path: str, content: str, 
     Validate different-named parameter block spacing according to ST.008 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    that there is exactly one blank line between different-named nested parameter
-    blocks within the same resource or data source.
+    that there is exactly one blank line between different types of parameters
+    within the same resource or data source.
 
     The validation process:
     1. Parse content to identify all resource and data source blocks
-    2. Within each block, identify nested parameter blocks with different names
-    3. Check spacing between consecutive different-named parameter blocks
+    2. Within each block, identify both basic parameters and parameter blocks
+    3. Check spacing between consecutive different types of parameters
     4. Report violations through the error logging function
 
     Args:
@@ -103,30 +107,30 @@ def check_st008_different_named_parameter_spacing(file_path: str, content: str, 
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
     """
-    resource_blocks = _extract_resource_blocks_with_nested_params(content)
+    resource_blocks = _extract_resource_blocks_with_parameters(content)
     
     for resource_info in resource_blocks:
         resource_name = resource_info['name']
-        nested_blocks = resource_info['nested_blocks']
+        parameters = resource_info['parameters']
         
-        # Check spacing between consecutive different-named blocks
-        spacing_errors = _check_different_named_block_spacing(
-            nested_blocks, resource_name, content
+        # Check spacing between consecutive different types of parameters
+        spacing_errors = _check_parameter_spacing(
+            parameters, resource_name, content
         )
         
         for error_msg, line_num in spacing_errors:
             log_error_func(file_path, "ST.008", error_msg, line_num)
 
 
-def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
+def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     """
-    Extract all resource and data source blocks with their nested parameter blocks.
+    Extract all resource and data source blocks with their parameters (both basic and blocks).
 
     Args:
         content (str): The Terraform file content
 
     Returns:
-        List[Dict]: List of resource information with nested blocks
+        List[Dict]: List of resource information with parameters
     """
     lines = content.split('\n')
     resources = []
@@ -161,8 +165,8 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
                 if brace_count > 0:
                     resource_end = i
             
-            # Extract nested parameter blocks within this resource
-            nested_blocks = _extract_nested_blocks_from_resource(
+            # Extract parameters within this resource
+            parameters = _extract_parameters_from_resource(
                 lines[resource_start-1:resource_end], resource_start
             )
             
@@ -170,7 +174,7 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
                 'name': full_name,
                 'start_line': resource_start,
                 'end_line': resource_end,
-                'nested_blocks': nested_blocks
+                'parameters': parameters
             })
         else:
             i += 1
@@ -178,18 +182,18 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
     return resources
 
 
-def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_start_line: int) -> List[Dict]:
+def _extract_parameters_from_resource(resource_lines: List[str], resource_start_line: int) -> List[Dict]:
     """
-    Extract nested parameter blocks from within a resource.
+    Extract both basic parameters and parameter blocks from within a resource.
 
     Args:
         resource_lines (List[str]): Lines of the resource block
         resource_start_line (int): Starting line number of the resource
 
     Returns:
-        List[Dict]: List of nested block information
+        List[Dict]: List of parameter information (both basic and blocks)
     """
-    nested_blocks = []
+    parameters = []
     i = 1  # Skip the resource declaration line
     nesting_level = 0
     
@@ -200,14 +204,14 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
             i += 1
             continue
         
-        # Look for nested parameter blocks (parameter_name {)
-        nested_match = re.match(r'(\w+)\s*\{', line)
+        # Look for parameter blocks (parameter_name { ... })
+        block_match = re.match(r'(\w+)\s*\{', line)
         
-        if nested_match and nesting_level == 0:
-            param_name = nested_match.group(1)
+        if block_match and nesting_level == 0:
+            param_name = block_match.group(1)
             block_start = resource_start_line + i
             
-            # Find the end of this nested block
+            # Find the end of this parameter block
             brace_count = 1
             j = i + 1
             
@@ -222,15 +226,38 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
             
             block_end = resource_start_line + j - 1
             
-            nested_blocks.append({
-                'param_name': param_name,
+            parameters.append({
+                'type': 'block',
+                'name': param_name,
                 'start_line': block_start,
                 'end_line': block_end
             })
             
             i = j
+        elif nesting_level == 0:
+            # Look for basic parameter assignments (parameter_name = value)
+            param_match = re.match(r'(\w+)\s*=', line)
+            
+            if param_match:
+                param_name = param_match.group(1)
+                param_line = resource_start_line + i
+                
+                parameters.append({
+                    'type': 'basic',
+                    'name': param_name,
+                    'start_line': param_line,
+                    'end_line': param_line
+                })
+            
+            # Track nesting level for other constructs
+            for char in line:
+                if char == '{':
+                    nesting_level += 1
+                elif char == '}':
+                    nesting_level -= 1
+            i += 1
         else:
-            # Track nesting level for other blocks
+            # Track nesting level for nested constructs
             for char in line:
                 if char == '{':
                     nesting_level += 1
@@ -238,16 +265,16 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
                     nesting_level -= 1
             i += 1
     
-    return nested_blocks
+    return parameters
 
 
-def _check_different_named_block_spacing(nested_blocks: List[Dict], resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
+def _check_parameter_spacing(parameters: List[Dict], resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
     """
-    Check spacing between consecutive different-named nested parameter blocks.
+    Check spacing between consecutive parameters of different types.
 
     Args:
-        nested_blocks (List[Dict]): List of nested blocks in order
-        resource_name (str): The resource containing these blocks
+        parameters (List[Dict]): List of parameters in order
+        resource_name (str): The resource containing these parameters
         content (str): The full file content
 
     Returns:
@@ -256,50 +283,102 @@ def _check_different_named_block_spacing(nested_blocks: List[Dict], resource_nam
     errors = []
     lines = content.split('\n')
     
-    # Sort blocks by their start line to check consecutive blocks
-    sorted_blocks = sorted(nested_blocks, key=lambda x: x['start_line'])
+    # Sort parameters by their start line to check consecutive parameters
+    sorted_params = sorted(parameters, key=lambda x: x['start_line'])
     
-    for i in range(len(sorted_blocks) - 1):
-        current_block = sorted_blocks[i]
-        next_block = sorted_blocks[i + 1]
+    for i in range(len(sorted_params) - 1):
+        current_param = sorted_params[i]
+        next_param = sorted_params[i + 1]
         
-        # Only check if blocks have different names
-        if current_block['param_name'] != next_block['param_name']:
-            # Calculate blank lines between blocks
-            current_end = current_block['end_line'] - 1  # Convert to 0-based indexing
-            next_start = next_block['start_line'] - 1    # Convert to 0-based indexing
+        # Check spacing between different types of parameters
+        if _should_check_spacing_between_params(current_param, next_param):
+            # Calculate blank lines between parameters
+            current_end = current_param['end_line'] - 1  # Convert to 0-based indexing
+            next_start = next_param['start_line'] - 1    # Convert to 0-based indexing
             
-            # Count blank lines between the blocks
+            # Count blank lines between the parameters (excluding comment lines)
             blank_lines = 0
-            for line_idx in range(current_end, next_start):
-                if line_idx < len(lines) and lines[line_idx].strip() == '':
-                    blank_lines += 1
+            for line_idx in range(current_end + 1, next_start):
+                if line_idx < len(lines):
+                    line_content = lines[line_idx].strip()
+                    if line_content == '':
+                        blank_lines += 1
+                    elif line_content.startswith('#'):
+                        # Comment lines don't count as blank lines but also don't reset the count
+                        continue
+                    else:
+                        # If there's any non-comment, non-blank content, reset blank line count
+                        blank_lines = 0
             
             # Check if blank lines are not exactly 1
             if blank_lines != 1:
+                error_description = _get_parameter_type_description(current_param, next_param)
+                
                 if blank_lines == 0:
                     errors.append((
-                        f"Line {next_block['start_line']}: Missing blank line between "
-                        f"different-named parameter blocks '{current_block['param_name']}' "
-                        f"and '{next_block['param_name']}' in {resource_name}. "
-                        f"Add exactly one blank line between different parameter blocks",
-                        next_block['start_line']
+                        f"Missing blank line between {error_description} "
+                        f"'{current_param['name']}' and '{next_param['name']}' "
+                        f"in {resource_name} (1 blank line is expected)",
+                        next_param['start_line']
                     ))
                 else:
                     errors.append((
-                        f"Lines {current_block['end_line']}-{next_block['start_line']}: "
-                        f"Found {blank_lines} blank lines between different-named parameter blocks "
-                        f"'{current_block['param_name']}' and '{next_block['param_name']}' "
-                        f"in {resource_name}. Use exactly one blank line between different parameter blocks",
-                        next_block['start_line']
+                        f"Found {blank_lines} blank lines between {error_description} "
+                        f"'{current_param['name']}' and '{next_param['name']}' "
+                        f"in {resource_name}. Use exactly one blank line between different parameter types",
+                        next_param['start_line']
                     ))
     
     return errors
 
 
+def _should_check_spacing_between_params(param1: Dict, param2: Dict) -> bool:
+    """
+    Determine if spacing should be checked between two parameters.
+
+    Args:
+        param1 (Dict): First parameter
+        param2 (Dict): Second parameter
+
+    Returns:
+        bool: True if spacing should be checked
+    """
+    # Check spacing if:
+    # 1. Different types (basic vs block)
+    # 2. Same type but different names (for blocks)
+    if param1['type'] != param2['type']:
+        return True
+    elif param1['type'] == 'block' and param1['name'] != param2['name']:
+        return True
+    else:
+        return False
+
+
+def _get_parameter_type_description(param1: Dict, param2: Dict) -> str:
+    """
+    Get a description of the parameter types for error messages.
+
+    Args:
+        param1 (Dict): First parameter
+        param2 (Dict): Second parameter
+
+    Returns:
+        str: Description of parameter types
+    """
+    if param1['type'] != param2['type']:
+        if param1['type'] == 'basic' and param2['type'] == 'block':
+            return "basic parameter and parameter block"
+        elif param1['type'] == 'block' and param2['type'] == 'basic':
+            return "parameter block and basic parameter"
+    elif param1['type'] == 'block' and param1['name'] != param2['name']:
+        return "different-named parameter blocks"
+    
+    return "parameters"
+
+
 def _analyze_different_named_block_spacing_patterns(content: str) -> dict:
     """
-    Analyze spacing patterns between different-named nested blocks throughout the file.
+    Analyze spacing patterns between different types of parameters throughout the file.
 
     Args:
         content (str): The file content to analyze
@@ -307,55 +386,65 @@ def _analyze_different_named_block_spacing_patterns(content: str) -> dict:
     Returns:
         dict: Analysis results including spacing statistics
     """
-    resource_blocks = _extract_resource_blocks_with_nested_params(content)
+    resource_blocks = _extract_resource_blocks_with_parameters(content)
     
-    total_different_block_pairs = 0
+    total_different_param_pairs = 0
     pairs_with_correct_spacing = 0
     spacing_violations = []
     
     for resource_info in resource_blocks:
         resource_name = resource_info['name']
-        nested_blocks = resource_info['nested_blocks']
+        parameters = resource_info['parameters']
         
-        # Sort blocks by their start line
-        sorted_blocks = sorted(nested_blocks, key=lambda x: x['start_line'])
+        # Sort parameters by their start line
+        sorted_params = sorted(parameters, key=lambda x: x['start_line'])
         
-        for i in range(len(sorted_blocks) - 1):
-            current_block = sorted_blocks[i]
-            next_block = sorted_blocks[i + 1]
+        for i in range(len(sorted_params) - 1):
+            current_param = sorted_params[i]
+            next_param = sorted_params[i + 1]
             
-            # Only analyze different-named blocks
-            if current_block['param_name'] != next_block['param_name']:
-                total_different_block_pairs += 1
+            # Only analyze parameters that should have spacing checked
+            if _should_check_spacing_between_params(current_param, next_param):
+                total_different_param_pairs += 1
                 
                 # Calculate spacing
                 lines = content.split('\n')
-                current_end = current_block['end_line'] - 1
-                next_start = next_block['start_line'] - 1
+                current_end = current_param['end_line'] - 1
+                next_start = next_param['start_line'] - 1
                 
                 blank_lines = 0
-                for line_idx in range(current_end, next_start):
-                    if line_idx < len(lines) and lines[line_idx].strip() == '':
-                        blank_lines += 1
+                for line_idx in range(current_end + 1, next_start):
+                    if line_idx < len(lines):
+                        line_content = lines[line_idx].strip()
+                        if line_content == '':
+                            blank_lines += 1
+                        elif line_content.startswith('#'):
+                            # Comment lines don't count as blank lines but also don't reset the count
+                            continue
+                        else:
+                            # If there's any non-comment, non-blank content, reset blank line count
+                            blank_lines = 0
                 
                 if blank_lines == 1:
                     pairs_with_correct_spacing += 1
                 else:
                     spacing_violations.append({
                         'resource_name': resource_name,
-                        'from_param': current_block['param_name'],
-                        'to_param': next_block['param_name'],
+                        'from_param': current_param['name'],
+                        'from_type': current_param['type'],
+                        'to_param': next_param['name'],
+                        'to_type': next_param['type'],
                         'blank_lines': blank_lines,
-                        'line_range': f"{current_block['end_line']}-{next_block['start_line']}"
+                        'line_range': f"{current_param['end_line']}-{next_param['start_line']}"
                     })
     
     compliance_percentage = (
-        (pairs_with_correct_spacing / total_different_block_pairs * 100)
-        if total_different_block_pairs > 0 else 100
+        (pairs_with_correct_spacing / total_different_param_pairs * 100)
+        if total_different_param_pairs > 0 else 100
     )
     
     return {
-        'total_different_block_pairs': total_different_block_pairs,
+        'total_different_param_pairs': total_different_param_pairs,
         'pairs_with_correct_spacing': pairs_with_correct_spacing,
         'compliance_percentage': compliance_percentage,
         'spacing_violations': spacing_violations,
@@ -377,46 +466,51 @@ def get_rule_description() -> dict:
             - name: Human-readable rule name
             - description: Detailed explanation of what the rule validates
             - category: The rule category (Style/Format)
-            - severity: The severity level of violations
-            - examples: Dictionary with valid and invalid examples
-
-    Example:
-        >>> info = get_rule_description()
-        >>> print(info['name'])
-        Different named parameter block spacing check
+            - severity: Error level indicator
+            - rationale: Explanation of why this rule is important
+            - examples: Code examples showing valid and invalid patterns
+            - auto_fixable: Whether violations can be automatically corrected
+            - performance_impact: Expected impact on linting performance
+            - related_rules: List of other rules that complement this one
+            - configuration: Available configuration options
     """
+    
     return {
         "id": "ST.008",
-        "name": "Different named parameter block spacing check",
+        "name": "Different parameter type spacing check",
         "description": (
-            "Validates that there is exactly one blank line between different-named "
-            "nested parameter blocks within the same resource or data source "
-            "(e.g., between 'data_disks' and 'network' blocks in huaweicloud_compute_instance). "
-            "This ensures consistent visual separation between different types of nested configuration."
+            "Validates that there is exactly one blank line between different types "
+            "of parameters within the same resource or data source. This includes "
+            "spacing between basic parameter definitions and parameter blocks, as well as "
+            "between different-named parameter blocks (e.g., between 'system_disk_size' "
+            "basic parameter and 'data_disks' block, or between 'data_disks' and 'network' blocks). "
+            "This ensures consistent visual separation between different types of configuration."
         ),
         "category": "Style/Format",
         "severity": "error",
         "rationale": (
-            "Requiring exactly one blank line between different-named parameter blocks "
-            "creates clear visual separation between different types of nested configuration "
-            "within the same resource. This improves readability by making it easy to "
-            "distinguish between different structural components while maintaining consistency."
+            "Requiring exactly one blank line between different types of parameters "
+            "creates clear visual separation between basic parameter definitions and "
+            "parameter blocks, as well as between different-named parameter blocks. "
+            "This improves readability by making it easy to distinguish between "
+            "different structural components while maintaining consistency."
         ),
         "examples": {
             "valid": [
                 '''
 resource "huaweicloud_compute_instance" "test" {
-  name      = "tf_test_instance"
-  flavor_id = "c6.2xlarge.4"
-  image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
+  name              = var.instance_name
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+  system_disk_type  = "SAS"
+  system_disk_size  = 40
 
   data_disks {
+    size = 40
     type = "SAS"
-    size = 100
   }
 
-  network {
-    uuid = "12345678-1234-1234-1234-123456789012"
+  tags = {
+    "key" = "value"
   }
 }
 '''
@@ -424,33 +518,33 @@ resource "huaweicloud_compute_instance" "test" {
             "invalid": [
                 '''
 resource "huaweicloud_compute_instance" "test" {
-  name      = "tf_test_instance"
-  flavor_id = "c6.2xlarge.4"
-  image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
-
-  data_disks {
+  name              = var.instance_name
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+  system_disk_type  = "SAS"
+  system_disk_size  = 40
+  data_disks {        # Missing blank line between basic parameter and parameter block
+    size = 40
     type = "SAS"
-    size = 100
   }
-  network {
-    uuid = "12345678-1234-1234-1234-123456789012"
+
+  tags = {
+    "key" = "value"
   }
 }
 ''',
                 '''
 resource "huaweicloud_compute_instance" "test" {
-  name      = "tf_test_instance"
-  flavor_id = "c6.2xlarge.4"
-  image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
+  name              = var.instance_name
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+  system_disk_type  = "SAS"
+  system_disk_size  = 40
 
   data_disks {
+    size = 40
     type = "SAS"
-    size = 100
   }
-
-
-  network {
-    uuid = "12345678-1234-1234-1234-123456789012"
+  tags = {            # Missing blank line between parameter block and basic parameter
+    "key" = "value"
   }
 }
 '''
@@ -460,7 +554,7 @@ resource "huaweicloud_compute_instance" "test" {
         "performance_impact": "minimal",
         "related_rules": ["ST.006", "ST.007"],
         "configuration": {
-            "required_blank_lines_between_different_named_blocks": 1,
-            "strict_different_named_block_separation": True
+            "required_blank_lines_between_different_parameter_types": 1,
+            "strict_parameter_type_separation": True
         }
     }

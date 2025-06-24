@@ -44,7 +44,7 @@ Code formatting and style consistency rules, managed by the `STRules` coordinato
 - **ST.005**: Proper indentation level enforcement
 - **ST.006**: Resource and data source spacing standards
 - **ST.007**: Same parameter block spacing consistency
-- **ST.008**: Different parameter block spacing rules
+- **ST.008**: Different parameter type spacing rules (exactly 1 empty line between basic parameters and parameter blocks)
 - **ST.009**: Variable order validation
 - **ST.010**: Resource, data source, variable, and output quote standards
 - **ST.011**: Trailing whitespace check

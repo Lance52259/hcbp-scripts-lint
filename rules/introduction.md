@@ -378,26 +378,45 @@ resource "huaweicloud_compute_instance" "test" {
 
 ---
 
-### ST.008 - Different Parameter Block Spacing Convention
+### ST.008 - Different Parameter Type Spacing Convention
 
-**Rule Description:** There must be exactly one empty line between different-name parameter blocks.
+**Rule Description:** There must be exactly one empty line between different types of parameters within the same resource or data source block.
 
 **Purpose:**
 - Provides clear visual separation between different parameter types
 - Improves code structure and readability
 - Maintains consistent parameter organization
+- Ensures proper spacing between basic parameters and parameter blocks
+- Ensures proper spacing between different-named parameter blocks
+
+**Parameter Types:**
+- **Basic Parameters**: Simple key-value assignments (e.g., `name = "value"`, `flavor_id = "c6.large.2"`)
+- **Parameter Blocks**: Nested structures with braces (e.g., `data_disks { ... }`, `tags { ... }`)
+
+**Spacing Requirements:**
+1. Exactly one empty line between basic parameters and parameter blocks
+2. Exactly one empty line between parameter blocks and basic parameters
+3. Exactly one empty line between different-named parameter blocks
+4. Comment lines do not count as empty lines
 
 **Good Example:**
 ```hcl
 resource "huaweicloud_compute_instance" "test" {
-  name     = "test-instance"
-  image_id = "image-123"
+  name              = "test-instance"
+  flavor_id         = "c6.large.2"
+  image_id          = "image-123"
+  system_disk_size  = 40
+
+  data_disks {
+    size = 40
+    type = "SAS"
+  }
 
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
 
-  tags {
+  tags = {
     Environment = "test"
   }
 }
@@ -406,22 +425,83 @@ resource "huaweicloud_compute_instance" "test" {
 **Bad Example:**
 ```hcl
 resource "huaweicloud_compute_instance" "test" {
-  name     = "test-instance"
-  image_id = "image-123"
+  name              = "test-instance"
+  flavor_id         = "c6.large.2"
+  image_id          = "image-123"
+  system_disk_size  = 40
+  data_disks {      # Missing blank line between basic parameter and parameter block
+    size = 40
+    type = "SAS"
+  }
 
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
-  tags {  # Missing empty line between different parameter blocks
+  tags = {          # Missing blank line between parameter block and basic parameter
     Environment = "test"
+  }
+}
+```
+
+**Additional Examples:**
+
+*Missing blank line between basic parameters and parameter blocks:*
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name              = var.instance_name
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+  system_disk_type  = "SAS"
+  system_disk_size  = 40
+  data_disks {        # ❌ Error: Missing blank line between basic parameter and parameter block
+    size = 40
+    type = "SAS"
+  }
+
+  tags = {
+    "key" = "value"
+  }
+}
+```
+
+*Missing blank line between parameter blocks and basic parameters:*
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name              = var.instance_name
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+  system_disk_type  = "SAS"
+  system_disk_size  = 40
+
+  data_disks {
+    size = 40
+    type = "SAS"
+  }
+  tags = {            # ❌ Error: Missing blank line between parameter block and basic parameter
+    "key" = "value"
+  }
+}
+```
+
+*Comment lines handling:*
+```hcl
+resource "huaweicloud_compute_instance" "test" {
+  name              = var.instance_name
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, null)
+  system_disk_type  = "SAS"
+  system_disk_size  = 40
+  # This is a comment line - does not count as blank line
+  data_disks {        # ❌ Error: Missing blank line (comment lines don't count as blank lines)
+    size = 40
+    type = "SAS"
   }
 }
 ```
 
 **Best Practices:**
 - Always separate different parameter types with exactly one empty line
-- Group related parameters together
+- Group related basic parameters together before parameter blocks
 - Use consistent spacing throughout the resource definition
+- Remember that comment lines do not count as blank lines for spacing purposes
+- Consider the logical flow when organizing parameters: basic configuration first, then complex nested structures
 
 ---
 
