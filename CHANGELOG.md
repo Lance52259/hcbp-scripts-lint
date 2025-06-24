@@ -5,14 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2025-06-24
+
+### 🔧 Report Format Enhancement
+
+#### 🛠️ Action.yml Report Format Parameter Fix
+- **Enhanced Report Format Support**: Added support for 'both' option in `--report-format` parameter
+  - **Issue Resolved**: `--report-format both` was not recognized as a valid option
+  - **New Functionality**: Now supports generating both text and json reports simultaneously
+  - **Valid Options**: 'text', 'json', or 'both' (previously only 'text' and 'json')
+
+- **Implementation Details**:
+  - **Dual Execution**: When 'both' is selected, linter runs twice (once for each format)
+  - **Exit Code Handling**: Returns the more severe exit code from both executions
+  - **Report Generation**: Creates both `terraform-lint-report.txt` and `terraform-lint-report.json`
+  - **Backward Compatibility**: Existing 'text' and 'json' options continue to work unchanged
+
+#### 🏷️ Technical Implementation
+- **Command Execution Logic**:
+  ```bash
+  if [ "$REPORT_FORMAT" = "both" ]; then
+    # Generate both text and json reports
+    CMD_TEXT="$BASE_CMD --report-format text"
+    CMD_JSON="$BASE_CMD --report-format json"
+    # Execute both and handle exit codes
+  fi
+  ```
+
+- **Parameter Description Update**:
+  - **Before**: 'Output report format (text or json)'
+  - **After**: 'Output report format (text, json, or both)'
+
+#### 🔄 Compatibility & Migration
+- **No Breaking Changes**: All existing workflows continue to work unchanged
+- **Enhanced Flexibility**: Users can now generate both report formats in a single run
+- **Automatic Handling**: Invalid format options default to 'text' with warning message
+- **Performance**: Minimal impact when using single format options
+
+### 📊 Summary
+
+This patch release adds support for the **'both' option** in the `report-format` parameter, 
+allowing users to generate both text and json reports simultaneously. The enhancement resolves 
+the "argument --report-format: invalid choice: 'both'" error and provides greater flexibility 
+in report generation.
+
+**Key Enhancement**: Added 'both' option support in `action.yml` with proper command execution 
+logic and exit code handling for dual report generation.
+
+**Recommended for**: Users who need both text and json report formats or encountered the 
+invalid choice error when using 'both' option.
+
 ## [2.2.1] - 2025-06-24
 
 ### 🔧 GitHub Actions Artifact Enhancement
 
 #### 🛠️ Action.yml Artifact Management Improvements
 - **Enhanced Artifact Name Generation**: Fixed artifact name generation issues in GitHub Actions workflows
-  - **Issue Resolved**: `${{ env.ARTIFACT_NAME }}` variable was not being set correctly, causing 
-    "empty artifact name" errors
+  - **Issue Resolved**: `${{ env.ARTIFACT_NAME }}` variable was not being set correctly, causing "empty artifact name" errors
   - **Solution**: Implemented robust artifact name generation with timestamp and job details
   - **Unique Naming Strategy**: Added fallback naming mechanisms to prevent upload failures
   
