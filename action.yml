@@ -44,7 +44,7 @@ inputs:
     required: false
     default: 'true'
   report-format:
-    description: 'Output report format (text or json)'
+    description: 'Output report format (text, json, or both)'
     required: false
     default: 'text'
 
@@ -145,54 +145,88 @@ runs:
         # Ensure we're in the user's workspace for git operations
         cd "$USER_WORKSPACE"
         
-        # Build command with enhanced parameters
-        CMD="python3 '$ACTION_PATH/.github/scripts/terraform_lint.py' --directory '${{ inputs.directory }}'"
+        # Build base command with enhanced parameters
+        BASE_CMD="python3 '$ACTION_PATH/.github/scripts/terraform_lint.py' --directory '${{ inputs.directory }}'"
         
         # Add rule filtering options
         if [ -n "${{ inputs.ignore-rules }}" ]; then
-          CMD="$CMD --ignore-rules '${{ inputs.ignore-rules }}'"
+          BASE_CMD="$BASE_CMD --ignore-rules '${{ inputs.ignore-rules }}'"
         fi
         
         if [ -n "${{ inputs.rule-categories }}" ]; then
-          CMD="$CMD --categories '${{ inputs.rule-categories }}'"
+          BASE_CMD="$BASE_CMD --categories '${{ inputs.rule-categories }}'"
         fi
         
         # Add path filtering options
         if [ -n "${{ inputs.include-paths }}" ]; then
-          CMD="$CMD --include-paths '${{ inputs.include-paths }}'"
+          BASE_CMD="$BASE_CMD --include-paths '${{ inputs.include-paths }}'"
         fi
         
         if [ -n "${{ inputs.exclude-paths }}" ]; then
-          CMD="$CMD --exclude-paths '${{ inputs.exclude-paths }}'"
+          BASE_CMD="$BASE_CMD --exclude-paths '${{ inputs.exclude-paths }}'"
         fi
         
         # Add git diff options
         if [ "${{ inputs.changed-files-only }}" = "true" ]; then
-          CMD="$CMD --changed-files-only"
+          BASE_CMD="$BASE_CMD --changed-files-only"
           
           if [ -n "${{ inputs.base-ref }}" ]; then
-            CMD="$CMD --base-ref '${{ inputs.base-ref }}'"
+            BASE_CMD="$BASE_CMD --base-ref '${{ inputs.base-ref }}'"
           fi
         fi
         
         # Add performance monitoring
         if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
-          CMD="$CMD --performance-monitoring"
+          BASE_CMD="$BASE_CMD --performance-monitoring"
         fi
         
-        # Add report format
-        if [ -n "${{ inputs.report-format }}" ]; then
-          CMD="$CMD --report-format '${{ inputs.report-format }}'"
+        # Handle report format - support 'both' option
+        REPORT_FORMAT="${{ inputs.report-format }}"
+        echo "Requested report format: $REPORT_FORMAT"
+        
+        if [ "$REPORT_FORMAT" = "both" ]; then
+          # Generate both text and json reports
+          echo "Generating both text and json reports..."
+          
+          # Run for text format first
+          CMD_TEXT="$BASE_CMD --report-format text"
+          echo "Executing linter for text format: $CMD_TEXT"
+          echo "Working directory: $(pwd)"
+          eval $CMD_TEXT
+          TEXT_EXIT_CODE=$?
+          
+          # Run for json format
+          CMD_JSON="$BASE_CMD --report-format json"
+          echo "Executing linter for json format: $CMD_JSON"
+          eval $CMD_JSON
+          JSON_EXIT_CODE=$?
+          
+          # Use the higher exit code (more severe error)
+          if [ $TEXT_EXIT_CODE -gt $JSON_EXIT_CODE ]; then
+            FINAL_EXIT_CODE=$TEXT_EXIT_CODE
+          else
+            FINAL_EXIT_CODE=$JSON_EXIT_CODE
+          fi
+          
+        else
+          # Single format execution
+          if [ "$REPORT_FORMAT" = "text" ] || [ "$REPORT_FORMAT" = "json" ]; then
+            CMD="$BASE_CMD --report-format '$REPORT_FORMAT'"
+          else
+            # Default to text for invalid formats
+            echo "Warning: Invalid report format '$REPORT_FORMAT', defaulting to 'text'"
+            CMD="$BASE_CMD --report-format text"
+          fi
+          
+          echo "Executing enhanced linter: $CMD"
+          echo "Working directory: $(pwd)"
+          eval $CMD
+          FINAL_EXIT_CODE=$?
         fi
-        
-        echo "Executing enhanced linter: $CMD"
-        echo "Working directory: $(pwd)"
-        
-        # Execute the enhanced linter
-        eval $CMD
         
         # Store exit code for later use
-        echo "LINT_EXIT_CODE=$?" >> $GITHUB_ENV
+        echo "LINT_EXIT_CODE=$FINAL_EXIT_CODE" >> $GITHUB_ENV
+        echo "Final lint exit code: $FINAL_EXIT_CODE"
 
     - name: Parse Enhanced Report
       shell: bash
