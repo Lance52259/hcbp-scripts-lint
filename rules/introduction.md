@@ -1419,4 +1419,3 @@ These rules aim to improve the quality, consistency, and maintainability of Terr
 
 It is recommended to continuously use this checking tool during project development and adjust rule configurations
 according to team needs.
-

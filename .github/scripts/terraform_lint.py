@@ -478,12 +478,16 @@ class TerraformLinter:
             tf_files = self.get_changed_files(directory)
             if not tf_files:
                 print("No changed Terraform files found")
+                # Important: Set end_time even when no files are found
+                self.end_time = time.time()
                 return True
             print(f"Checking only changed files: {len(tf_files)} files")
         else:
             tf_files = self.find_tf_files(directory)
             if not tf_files:
                 print("No .tf files found to check")
+                # Important: Set end_time even when no files are found
+                self.end_time = time.time()
                 return True
             print(f"Found {len(tf_files)} .tf files to check")
 
@@ -722,6 +726,10 @@ class TerraformLinter:
             except Exception as e:
                 print(f"Error writing JSON report to {output_file}: {e}")
 
+            # For JSON format, we don't need report_content for file writing,
+            # but we still need it for the console output logic below
+            report_content = ""
+
         else:
             # Generate text report (existing logic)
             report_lines = [
@@ -912,15 +920,15 @@ class TerraformLinter:
                 ""
             ])
 
-        report_content = '\n'.join(report_lines)
+            report_content = '\n'.join(report_lines)
 
-        # Write to file
-        try:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(report_content)
-            print(f"Text report saved to: {output_file}")
-        except Exception as e:
-            print(f"Error writing text report to {output_file}: {e}")
+            # Write to file
+            try:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(report_content)
+                print(f"Text report saved to: {output_file}")
+            except Exception as e:
+                print(f"Error writing text report to {output_file}: {e}")
 
         # Also print summary to console
         print("\n" + "=" * 60)
@@ -986,6 +994,7 @@ class TerraformLinter:
             
             print(f"Looking for changed files in directory: {directory}")
             print(f"Current working directory: {original_cwd}")
+            print(f"Target directory (relative): {os.path.relpath(directory, original_cwd)}")
             
             # Check if we're in a git repository
             try:
@@ -999,13 +1008,16 @@ class TerraformLinter:
             # Get changed files from git
             git_commands = []
             
-            # Try different git diff strategies
+            # Try different git diff strategies with better fallback
             if self.base_ref:
                 base_ref = self.base_ref
                 git_commands.extend([
                     f"git diff --name-only {base_ref}...HEAD",
                     f"git diff --name-only {base_ref} HEAD",
-                    f"git diff --name-only {base_ref}"
+                    f"git diff --name-only {base_ref}",
+                    f"git diff --name-only origin/main...HEAD",
+                    f"git diff --name-only main...HEAD",
+                    f"git diff --name-only origin/master...HEAD"
                 ])
             else:
                 git_commands.extend([
@@ -1014,39 +1026,85 @@ class TerraformLinter:
                     "git ls-files --others --exclude-standard"
                 ])
             
+            all_changed_files = []
             # Try each git command until one succeeds
             for cmd in git_commands:
                 try:
                     print(f"Trying git command: {cmd}")
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
+                    # Use stdout=subprocess.PIPE, stderr=subprocess.PIPE for Python 3.6 compatibility
+                    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, check=True)
                     
                     if result.stdout.strip():
                         files = result.stdout.strip().split('\n')
-                        print(f"Found {len(files)} changed files")
+                        print(f"Git command found {len(files)} changed files")
+                        all_changed_files = files
+                        break
                         
-                        # Filter for Terraform files and apply path filtering
-                        for file in files:
-                            file = file.strip()
-                            if file.endswith(('.tf', '.tfvars')):
-                                # Convert to absolute path
-                                abs_file_path = os.path.abspath(file)
-                                
-                                # Check if file exists and is within target directory
-                                if (os.path.exists(abs_file_path) and 
-                                    abs_file_path.startswith(directory) and
-                                    not self.should_exclude_path(os.path.relpath(abs_file_path, directory))):
-                                    changed_files.append(abs_file_path)
-                        
-                        if changed_files:
-                            break
-                            
                 except subprocess.CalledProcessError as e:
                     print(f"Git command failed: {cmd}")
                     print(f"Error: {e.stderr}")
                     continue
             
+            if not all_changed_files:
+                print("No changed files found by any git command")
+                return []
+            
+            print(f"All changed files from git: {all_changed_files}")
+            
+            # Process each changed file
+            for file in all_changed_files:
+                file = file.strip()
+                if not file:
+                    continue
+                    
+                print(f"Processing file: {file}")
+                
+                # Only process Terraform files
+                if not file.endswith(('.tf', '.tfvars')):
+                    print(f"  Skipping non-Terraform file: {file}")
+                    continue
+                
+                # Convert to absolute path from git root
+                abs_file_path = os.path.abspath(file)
+                print(f"  Absolute path: {abs_file_path}")
+                
+                # Check if file exists
+                if not os.path.exists(abs_file_path):
+                    print(f"  File does not exist: {abs_file_path}")
+                    continue
+                
+                # Check if file is within or under target directory
+                target_rel_path = os.path.relpath(directory, original_cwd)
+                file_rel_path = os.path.relpath(abs_file_path, original_cwd)
+                
+                print(f"  Target directory (relative): {target_rel_path}")
+                print(f"  File path (relative): {file_rel_path}")
+                
+                # Check if file is in target directory or subdirectory
+                is_in_target = (
+                    file_rel_path.startswith(target_rel_path + '/') or  # File is in subdirectory
+                    file_rel_path == target_rel_path or                # File is the target (unlikely for .tf)
+                    (target_rel_path == '.' and not '/' in file_rel_path) or  # Root directory, file in root
+                    abs_file_path.startswith(directory + '/')          # Absolute path check
+                )
+                
+                print(f"  Is in target directory: {is_in_target}")
+                
+                if is_in_target:
+                    # Apply exclude path filtering
+                    relative_path_for_filtering = os.path.relpath(abs_file_path, directory)
+                    if not self.should_exclude_path(relative_path_for_filtering):
+                        print(f"  ✅ Adding file: {abs_file_path}")
+                        changed_files.append(abs_file_path)
+                    else:
+                        print(f"  ❌ Excluded by path filter: {relative_path_for_filtering}")
+                else:
+                    print(f"  ❌ Not in target directory")
+            
+            print(f"Final changed files list: {changed_files}")
+            
             if not changed_files:
-                print("No changed Terraform files found or git commands failed")
+                print("No changed Terraform files found in target directory")
                 
         except Exception as e:
             print(f"Error getting changed files: {e}")
@@ -1204,9 +1262,24 @@ System Information:
     
     lint_report = linter.generate_report(output_file=output_file, format=args.report_format)
 
-    # Exit with appropriate code
-    exit_code = 0 if lint_report.total_errors == 0 else 1
-    print(f"Enhanced lint check completed with exit code: {exit_code}")
+    # Enhanced exit code logic to distinguish different scenarios
+    if lint_report.total_errors > 0:
+        # Errors found - fail with exit code 1
+        exit_code = 1
+        print(f"Enhanced lint check completed with exit code: {exit_code} (errors found)")
+    elif lint_report.files_processed == 0 and args.changed_files_only:
+        # Changed-files-only mode with no files to process - exit code 2
+        exit_code = 2
+        print(f"Enhanced lint check completed with exit code: {exit_code} (no files to check in changed-files-only mode)")
+    elif lint_report.files_processed == 0:
+        # No files found in general - exit code 2
+        exit_code = 2
+        print(f"Enhanced lint check completed with exit code: {exit_code} (no files found)")
+    else:
+        # Success - files processed without errors
+        exit_code = 0
+        print(f"Enhanced lint check completed with exit code: {exit_code} (success)")
+    
     sys.exit(exit_code)
 
 

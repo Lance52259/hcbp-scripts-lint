@@ -1,6 +1,7 @@
 # Quick Start Guide - Terraform Scripts Lint
 
-Welcome to the **Terraform Scripts Lint** unified rules management system! This guide will help you get started quickly with linting your Terraform configurations.
+Welcome to the **Terraform Scripts Lint** unified rules management system! This guide will help you get started
+quickly with linting your Terraform configurations.
 
 ## 🚀 5-Minute Setup
 
@@ -14,20 +15,20 @@ Welcome to the **Terraform Scripts Lint** unified rules management system! This 
 2. **Add the workflow** (`.github/workflows/terraform-lint.yml`):
    ```yaml
    name: Terraform Lint
-   
+
    on:
      push:
        branches: [ main, develop ]
      pull_request:
        branches: [ main ]
-   
+
    jobs:
      terraform-lint:
        runs-on: ubuntu-latest
        steps:
          - name: Checkout code
            uses: actions/checkout@v4
-   
+
          - name: Terraform Scripts Lint
            uses: Lance52259/hcbp-scripts-lint@v2.0.0
            with:
@@ -162,6 +163,44 @@ python3 .github/scripts/terraform_lint.py \
   --categories "ST,IO"
 ```
 
+### 6. Customizing Summary Output
+
+**Detailed Summary (Default):**
+```yaml
+- name: Detailed Summary Report
+  uses: Lance52259/hcbp-scripts-lint@v2.0.0
+  with:
+    directory: './terraform'
+    detailed-summary: 'true'    # Shows detailed error analysis
+    report-format: 'both'       # Generate both text and JSON reports
+```
+
+**Basic Summary (Minimal):**
+```yaml
+- name: Basic Summary Report
+  uses: Lance52259/hcbp-scripts-lint@v2.0.0
+  with:
+    directory: './terraform'
+    detailed-summary: 'false'   # Shows only basic metrics
+    report-format: 'text'       # Generate text report only
+```
+
+**Matrix Strategy with Different Summary Levels:**
+```yaml
+strategy:
+  matrix:
+    config:
+      - { env: "dev", detailed: "true" }
+      - { env: "prod", detailed: "false" }
+
+steps:
+  - name: Lint ${{ matrix.config.env }}
+    uses: Lance52259/hcbp-scripts-lint@v2.0.0
+    with:
+      directory: './environments/${{ matrix.config.env }}'
+      detailed-summary: ${{ matrix.config.detailed }}
+```
+
 ## 🔧 Configuration Reference
 
 ### GitHub Actions Inputs
@@ -176,7 +215,8 @@ python3 .github/scripts/terraform_lint.py \
 | `changed-files-only` | Check only changed files | `'true'` |
 | `base-ref` | Git base reference | `'origin/main'` |
 | `performance-monitoring` | Enable performance tracking | `'true'` |
-| `report-format` | Output format | `'text'` or `'json'` |
+| `report-format` | Output format | `'text'`, `'json'`, or `'both'` |
+| `detailed-summary` | Show detailed error info in summary | `'true'` |
 | `fail-on-error` | Fail on errors | `'true'` |
 
 ### Command Line Options
@@ -199,43 +239,56 @@ Options:
 
 ## 📊 Understanding Output
 
-### Success Output
+### GitHub Actions Summary (Enhanced)
+
+When using GitHub Actions, you'll see a detailed summary with visual indicators:
+
+#### ✅ Success Summary
+```markdown
+# 🎉 Terraform Lint Analysis - PASSED
+
+✅ **Result**: SUCCESS  
+📁 **Files Processed**: 15  
+⏱️ **Execution Time**: 1.2s  
+
+## 📋 Summary
+All Terraform files passed the linting checks successfully!
 ```
-============================================================
-TERRAFORM SCRIPTS LINT REPORT (UNIFIED SYSTEM)
-============================================================
-Generated: 2024-01-15 10:30:45
 
-=== SUMMARY ===
-Total Errors: 0
-Total Warnings: 0
-Total Violations: 0
-Files Processed: 15
-Execution Time: 1.23 seconds
+#### ❌ Detailed Error Summary (with `detailed-summary: true`)
+```markdown
+# ❌ Terraform Lint Analysis - FAILED
 
-✅ All checks passed!
+❌ **Result**: FAILED  
+🚨 **Errors**: 2  
+⚠️ **Warnings**: 1  
+📁 **Files Processed**: 15  
+
+## 🔍 Detailed Error Analysis
+
+### 🚨 Errors Found (2)
+| File | Line | Rule | Description |
+|------|------|------|-------------|
+| main.tf | 5 | ST.001 | Resource name should use underscores |
+| variables.tf | 12 | IO.006 | Variable missing description |
+
+## 🔧 Quick Fix Suggestions
+- **ST.001**: Use snake_case for resource names
+- **IO.006**: Add descriptions to all variables
 ```
 
-### Error Output
+#### Basic Summary (with `detailed-summary: false`)
+```markdown
+# Terraform Lint Analysis
+
+❌ **Result**: FAILED  
+🚨 **Errors**: 2  
+⚠️ **Warnings**: 1  
+
+Download detailed reports from action artifacts.
 ```
-============================================================
-TERRAFORM SCRIPTS LINT REPORT (UNIFIED SYSTEM)
-============================================================
 
-=== VIOLATIONS FOUND ===
-
-📁 terraform/main.tf
-❌ ST.001 (line 5): Resource name 'my-resource' should use snake_case
-❌ IO.006 (line 12): Variable 'environment' missing description
-
-📁 terraform/variables.tf
-⚠️  DC.001 (line 3): Comment should have space after '#'
-
-=== SUMMARY ===
-Total Errors: 2
-Total Warnings: 1
-Files Processed: 15
-```
+### Terminal Output
 
 ## 🚨 Common Issues & Solutions
 

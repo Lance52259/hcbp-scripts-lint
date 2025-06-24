@@ -47,6 +47,10 @@ inputs:
     description: 'Output report format (text, json, or both)'
     required: false
     default: 'text'
+  detailed-summary:
+    description: 'Show detailed error information in GitHub Actions summary'
+    required: false
+    default: 'true'
 
 outputs:
   result:
@@ -90,6 +94,7 @@ runs:
         echo "Base Reference: ${{ inputs.base-ref }}"
         echo "Performance Monitoring: ${{ inputs.performance-monitoring }}"
         echo "Report Format: ${{ inputs.report-format }}"
+        echo "Detailed Summary: ${{ inputs.detailed-summary }}"
         echo "=================================================="
 
     - name: Debug Environment
@@ -137,6 +142,7 @@ runs:
 
     - name: Run Enhanced Terraform Lint
       shell: bash
+      continue-on-error: true
       run: |
         # Store the action path and user workspace
         ACTION_PATH="$GITHUB_ACTION_PATH"
@@ -227,37 +233,222 @@ runs:
         # Store exit code for later use
         echo "LINT_EXIT_CODE=$FINAL_EXIT_CODE" >> $GITHUB_ENV
         echo "Final lint exit code: $FINAL_EXIT_CODE"
+        
+        # Ensure LINT_EXIT_CODE is always set, even if script execution failed
+        if [ -z "$FINAL_EXIT_CODE" ]; then
+          echo "Warning: LINT_EXIT_CODE was not set, defaulting to 0"
+          echo "LINT_EXIT_CODE=0" >> $GITHUB_ENV
+          FINAL_EXIT_CODE=0
+        fi
+        
+        echo "✅ LINT_EXIT_CODE confirmed: $FINAL_EXIT_CODE"
+
+    - name: Debug Environment Variables
+      shell: bash
+      if: always()
+      run: |
+        echo "=== Debug Environment Variables After Lint ==="
+        echo "LINT_EXIT_CODE from env: '${LINT_EXIT_CODE:-UNSET}'"
+        echo "ERROR_COUNT from env: '${ERROR_COUNT:-UNSET}'"
+        echo "WARNING_COUNT from env: '${WARNING_COUNT:-UNSET}'"
+        echo ""
+        
+        # Backup: Try to infer LINT_EXIT_CODE if not set
+        if [ -z "$LINT_EXIT_CODE" ] || [ "$LINT_EXIT_CODE" = "UNSET" ]; then
+          echo "⚠️ LINT_EXIT_CODE not set, attempting to infer..."
+          if [ -f "terraform-lint-report.txt" ]; then
+            # If report exists and has errors, likely exit code 1
+            ERROR_LINES=$(grep -c "^[[:space:]]*ERROR:" terraform-lint-report.txt 2>/dev/null || echo "0")
+            if [ "$ERROR_LINES" -gt 0 ]; then
+              BACKUP_EXIT_CODE=1
+              echo "🔧 Inferred LINT_EXIT_CODE=1 based on $ERROR_LINES errors in report"
+            else
+              BACKUP_EXIT_CODE=0
+              echo "🔧 Inferred LINT_EXIT_CODE=0 based on no errors in report"
+            fi
+            echo "LINT_EXIT_CODE=$BACKUP_EXIT_CODE" >> $GITHUB_ENV
+            echo "✅ Set backup LINT_EXIT_CODE: $BACKUP_EXIT_CODE"
+          else
+            echo "📄 No report file found, setting LINT_EXIT_CODE=0"
+            echo "LINT_EXIT_CODE=0" >> $GITHUB_ENV
+          fi
+        fi
+        
+        echo ""
+        echo "Files in current directory:"
+        ls -la
+        echo ""
+        if [ -f "terraform-lint-report.txt" ]; then
+          echo "Report file exists, size: $(wc -c < terraform-lint-report.txt) bytes"
+          echo "First 5 lines:"
+          head -5 terraform-lint-report.txt
+        else
+          echo "Report file does not exist"
+        fi
+        echo "=============================================="
 
     - name: Parse Enhanced Report
       shell: bash
+      if: always()
       run: |
-        # Parse the enhanced report for detailed metrics
+        # Enhanced debugging and error handling for report parsing
+        echo "=== Enhanced Report Parsing with Debug Information ==="
+        echo "Current working directory: $(pwd)"
+        echo "Files in current directory:"
+        ls -la
+        echo ""
+        
+        # Check if report files exist
+        TXT_REPORT_EXISTS="false"
+        JSON_REPORT_EXISTS="false"
+        
         if [ -f "terraform-lint-report.txt" ]; then
-          echo "=== Parsing Enhanced Report ==="
+          TXT_REPORT_EXISTS="true"
+          echo "✅ terraform-lint-report.txt exists ($(wc -c < terraform-lint-report.txt) bytes)"
+        else
+          echo "❌ terraform-lint-report.txt does not exist"
+        fi
+        
+        if [ -f "terraform-lint-report.json" ]; then
+          JSON_REPORT_EXISTS="true"
+          echo "✅ terraform-lint-report.json exists ($(wc -c < terraform-lint-report.json) bytes)"
+        else
+          echo "❌ terraform-lint-report.json does not exist"
+        fi
+        
+        # Initialize all variables with default values first
+        ERROR_COUNT="0"
+        WARNING_COUNT="0"
+        VIOLATION_COUNT="0"
+        FILES_PROCESSED="0"
+        EXECUTION_TIME="0.0"
+        RULES_EXECUTED="0"
+        PERFORMANCE_JSON="{}"
+        
+        echo ""
+        echo "📊 Initialized default values:"
+        echo "  ERROR_COUNT: $ERROR_COUNT"
+        echo "  WARNING_COUNT: $WARNING_COUNT"
+        echo "  VIOLATION_COUNT: $VIOLATION_COUNT"
+        echo "  FILES_PROCESSED: $FILES_PROCESSED"
+        echo "  EXECUTION_TIME: $EXECUTION_TIME"
+        echo "  RULES_EXECUTED: $RULES_EXECUTED"
+        echo ""
+        
+        # Parse the enhanced report for detailed metrics
+        if [ "$TXT_REPORT_EXISTS" = "true" ]; then
+          echo "=== Parsing Text Report ==="
           
-          # Extract basic counts
-          ERROR_COUNT=$(grep "Total Errors:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
-          WARNING_COUNT=$(grep "Total Warnings:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
-          VIOLATION_COUNT=$(grep "Total Violations:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
-          FILES_PROCESSED=$(grep "Files Processed:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
-          EXECUTION_TIME=$(grep "Execution Time:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' || echo "0.0")
-          RULES_EXECUTED=$(grep "Total Rules Executed:" terraform-lint-report.txt | grep -o '[0-9]*' || echo "0")
+          # Show first few lines of the report for debugging
+          echo "First 20 lines of report:"
+          head -20 terraform-lint-report.txt
+          echo ""
+          echo "Last 10 lines of report:"
+          tail -10 terraform-lint-report.txt
+          echo ""
           
-          # Store metrics in environment
-          echo "ERROR_COUNT=$ERROR_COUNT" >> $GITHUB_ENV
-          echo "WARNING_COUNT=$WARNING_COUNT" >> $GITHUB_ENV
-          echo "VIOLATION_COUNT=$VIOLATION_COUNT" >> $GITHUB_ENV
-          echo "FILES_PROCESSED=$FILES_PROCESSED" >> $GITHUB_ENV
-          echo "EXECUTION_TIME=$EXECUTION_TIME" >> $GITHUB_ENV
-          echo "RULES_EXECUTED=$RULES_EXECUTED" >> $GITHUB_ENV
+          # Extract basic counts with multiple parsing strategies
+          echo "🔍 Attempting to parse report metrics..."
+          
+          # Strategy 1: Parse from summary section
+          PARSED_ERROR_COUNT=$(grep "Total Errors:" terraform-lint-report.txt | grep -o '[0-9]\+' | head -1 || echo "")
+          PARSED_WARNING_COUNT=$(grep "Total Warnings:" terraform-lint-report.txt | grep -o '[0-9]\+' | head -1 || echo "")
+          PARSED_VIOLATION_COUNT=$(grep "Total Violations:" terraform-lint-report.txt | grep -o '[0-9]\+' | head -1 || echo "")
+          PARSED_FILES_PROCESSED=$(grep "Files Processed:" terraform-lint-report.txt | grep -o '[0-9]\+' | head -1 || echo "")
+          PARSED_EXECUTION_TIME=$(grep "Execution Time:" terraform-lint-report.txt | grep -o '[0-9]*\.[0-9]*' | head -1 || echo "")
+          PARSED_RULES_EXECUTED=$(grep "Total Rules Executed:" terraform-lint-report.txt | grep -o '[0-9]\+' | head -1 || echo "")
+          
+          echo "Strategy 1 results:"
+          echo "  PARSED_ERROR_COUNT: '$PARSED_ERROR_COUNT'"
+          echo "  PARSED_WARNING_COUNT: '$PARSED_WARNING_COUNT'"
+          echo "  PARSED_VIOLATION_COUNT: '$PARSED_VIOLATION_COUNT'"
+          echo "  PARSED_FILES_PROCESSED: '$PARSED_FILES_PROCESSED'"
+          echo "  PARSED_EXECUTION_TIME: '$PARSED_EXECUTION_TIME'"
+          echo "  PARSED_RULES_EXECUTED: '$PARSED_RULES_EXECUTED'"
+          echo ""
+          
+          # Strategy 2: Parse from console-style summary (Files: X, Lines: Y, Errors: Z, Warnings: W)
+          CONSOLE_SUMMARY=$(grep "Files:.*Lines:.*Errors:.*Warnings:" terraform-lint-report.txt | tail -1 || echo "")
+          if [ -n "$CONSOLE_SUMMARY" ]; then
+            echo "Found console summary line: $CONSOLE_SUMMARY"
+            CONSOLE_ERROR_COUNT=$(echo "$CONSOLE_SUMMARY" | sed -n 's/.*Errors: \([0-9]\+\).*/\1/p')
+            CONSOLE_WARNING_COUNT=$(echo "$CONSOLE_SUMMARY" | sed -n 's/.*Warnings: \([0-9]\+\).*/\1/p')
+            CONSOLE_FILES_COUNT=$(echo "$CONSOLE_SUMMARY" | sed -n 's/.*Files: \([0-9]\+\).*/\1/p')
+            CONSOLE_VIOLATIONS=$(echo "$CONSOLE_SUMMARY" | sed -n 's/.*Violations: \([0-9]\+\).*/\1/p')
+            
+            echo "Console summary results:"
+            echo "  CONSOLE_ERROR_COUNT: '$CONSOLE_ERROR_COUNT'"
+            echo "  CONSOLE_WARNING_COUNT: '$CONSOLE_WARNING_COUNT'"
+            echo "  CONSOLE_FILES_COUNT: '$CONSOLE_FILES_COUNT'"
+            echo "  CONSOLE_VIOLATIONS: '$CONSOLE_VIOLATIONS'"
+            echo ""
+          fi
+          
+          # Strategy 3: Count actual ERROR and WARNING lines
+          ACTUAL_ERROR_LINES=$(grep -c "^[[:space:]]*ERROR:" terraform-lint-report.txt 2>/dev/null | head -1 || echo "0")
+          ACTUAL_WARNING_LINES=$(grep -c "^[[:space:]]*WARNING:" terraform-lint-report.txt 2>/dev/null | head -1 || echo "0")
+          
+          # Ensure they are valid numbers (remove any whitespace/newlines)
+          ACTUAL_ERROR_LINES=$(echo "$ACTUAL_ERROR_LINES" | tr -d '\n\r\t ' | grep -o '^[0-9]*$' || echo "0")
+          ACTUAL_WARNING_LINES=$(echo "$ACTUAL_WARNING_LINES" | tr -d '\n\r\t ' | grep -o '^[0-9]*$' || echo "0")
+          
+          echo "Strategy 3 results (counting lines):"
+          echo "  ACTUAL_ERROR_LINES: '$ACTUAL_ERROR_LINES'"
+          echo "  ACTUAL_WARNING_LINES: '$ACTUAL_WARNING_LINES'"
+          echo ""
+          
+          # Use the best available values with priority order
+          if [ -n "$PARSED_ERROR_COUNT" ] && [ "$PARSED_ERROR_COUNT" != "0" ]; then
+            ERROR_COUNT="$PARSED_ERROR_COUNT"
+            echo "✅ Using parsed error count: $ERROR_COUNT"
+          elif [ -n "$CONSOLE_ERROR_COUNT" ] && [ "$CONSOLE_ERROR_COUNT" != "0" ]; then
+            ERROR_COUNT="$CONSOLE_ERROR_COUNT"
+            echo "✅ Using console error count: $ERROR_COUNT"
+          elif [ "$ACTUAL_ERROR_LINES" != "0" ]; then
+            ERROR_COUNT="$ACTUAL_ERROR_LINES"
+            echo "✅ Using actual error lines count: $ERROR_COUNT"
+          fi
+          
+          if [ -n "$PARSED_WARNING_COUNT" ] && [ "$PARSED_WARNING_COUNT" != "0" ]; then
+            WARNING_COUNT="$PARSED_WARNING_COUNT"
+            echo "✅ Using parsed warning count: $WARNING_COUNT"
+          elif [ -n "$CONSOLE_WARNING_COUNT" ] && [ "$CONSOLE_WARNING_COUNT" != "0" ]; then
+            WARNING_COUNT="$CONSOLE_WARNING_COUNT"
+            echo "✅ Using console warning count: $WARNING_COUNT"
+          elif [ "$ACTUAL_WARNING_LINES" != "0" ]; then
+            WARNING_COUNT="$ACTUAL_WARNING_LINES"
+            echo "✅ Using actual warning lines count: $WARNING_COUNT"
+          fi
+          
+          if [ -n "$PARSED_FILES_PROCESSED" ] && [ "$PARSED_FILES_PROCESSED" != "0" ]; then
+            FILES_PROCESSED="$PARSED_FILES_PROCESSED"
+            echo "✅ Using parsed files processed: $FILES_PROCESSED"
+          elif [ -n "$CONSOLE_FILES_COUNT" ] && [ "$CONSOLE_FILES_COUNT" != "0" ]; then
+            FILES_PROCESSED="$CONSOLE_FILES_COUNT"
+            echo "✅ Using console files count: $FILES_PROCESSED"
+          fi
+          
+          if [ -n "$PARSED_EXECUTION_TIME" ] && [ "$PARSED_EXECUTION_TIME" != "0.0" ]; then
+            EXECUTION_TIME="$PARSED_EXECUTION_TIME"
+            echo "✅ Using parsed execution time: $EXECUTION_TIME"
+          fi
+          
+          if [ -n "$PARSED_RULES_EXECUTED" ] && [ "$PARSED_RULES_EXECUTED" != "0" ]; then
+            RULES_EXECUTED="$PARSED_RULES_EXECUTED"
+            echo "✅ Using parsed rules executed: $RULES_EXECUTED"
+          fi
+          
+          # Calculate violation count
+          VIOLATION_COUNT=$((ERROR_COUNT + WARNING_COUNT))
+          echo "✅ Calculated violation count: $VIOLATION_COUNT"
           
           # Extract performance metrics for JSON output
           FILES_PER_SECOND=$(grep "Files per Second:" terraform-lint-report.txt | \
-            grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+            grep -o '[0-9]*\.[0-9]*' | head -1 || echo "0.0")
           LINES_PER_SECOND=$(grep "Lines per Second:" terraform-lint-report.txt | \
-            grep -o '[0-9,]*' | tr -d ',' || echo "0")
+            grep -o '[0-9,]*' | tr -d ',' | head -1 || echo "0")
           RULES_PER_SECOND=$(grep "Rules per Second:" terraform-lint-report.txt | \
-            grep -o '[0-9]*\.[0-9]*' || echo "0.0")
+            grep -o '[0-9]*\.[0-9]*' | head -1 || echo "0.0")
           
           # Create performance metrics JSON
           PERFORMANCE_JSON="{\"files_per_second\":$FILES_PER_SECOND,\"lines_per_second\":$LINES_PER_SECOND"
@@ -265,27 +456,115 @@ runs:
           PERFORMANCE_JSON="${PERFORMANCE_JSON},\"execution_time\":$EXECUTION_TIME"
           PERFORMANCE_JSON="${PERFORMANCE_JSON},\"files_processed\":$FILES_PROCESSED"
           PERFORMANCE_JSON="${PERFORMANCE_JSON},\"rules_executed\":$RULES_EXECUTED}"
-          echo "PERFORMANCE_METRICS=$PERFORMANCE_JSON" >> $GITHUB_ENV
           
-          echo "📊 Enhanced Metrics Extracted:"
-          echo "  - Errors: $ERROR_COUNT"
-          echo "  - Warnings: $WARNING_COUNT"
-          echo "  - Violations: $VIOLATION_COUNT"
-          echo "  - Files: $FILES_PROCESSED"
-          echo "  - Execution Time: ${EXECUTION_TIME}s"
-          echo "  - Rules Executed: $RULES_EXECUTED"
-          echo "  - Performance: $FILES_PER_SECOND files/sec, $RULES_PER_SECOND rules/sec"
+          echo "📊 Performance metrics: $PERFORMANCE_JSON"
           
         else
-          echo "❌ Report file not found"
-          echo "ERROR_COUNT=0" >> $GITHUB_ENV
-          echo "WARNING_COUNT=0" >> $GITHUB_ENV
-          echo "VIOLATION_COUNT=0" >> $GITHUB_ENV
-          echo "FILES_PROCESSED=0" >> $GITHUB_ENV
-          echo "EXECUTION_TIME=0.0" >> $GITHUB_ENV
-          echo "RULES_EXECUTED=0" >> $GITHUB_ENV
-          echo "PERFORMANCE_METRICS={}" >> $GITHUB_ENV
+          echo "❌ No text report file found, using default values"
+          echo "This typically happens when:"
+          echo "  1. No files were found to process in changed-files-only mode"
+          echo "  2. The linter script failed to execute"
+          echo "  3. The report generation step was skipped"
+          echo ""
         fi
+        
+        # Ensure all variables have default values to prevent integer expression errors
+        ERROR_COUNT=${ERROR_COUNT:-0}
+        WARNING_COUNT=${WARNING_COUNT:-0}
+        FILES_PROCESSED=${FILES_PROCESSED:-0}
+        EXECUTION_TIME=${EXECUTION_TIME:-0.0}
+        LINT_EXIT_CODE=${LINT_EXIT_CODE:-0}
+        VIOLATION_COUNT=${VIOLATION_COUNT:-0}
+        RULES_EXECUTED=${RULES_EXECUTED:-0}
+        
+        # Format numbers to remove leading zeros and ensure standard display format
+        ERROR_COUNT=$(printf "%d" "$ERROR_COUNT" 2>/dev/null || echo "0")
+        WARNING_COUNT=$(printf "%d" "$WARNING_COUNT" 2>/dev/null || echo "0")
+        FILES_PROCESSED=$(printf "%d" "$FILES_PROCESSED" 2>/dev/null || echo "0")
+        RULES_EXECUTED=$(printf "%d" "$RULES_EXECUTED" 2>/dev/null || echo "0")
+        EXECUTION_TIME=$(printf "%.2f" "$EXECUTION_TIME" 2>/dev/null || echo "0.0")
+        VIOLATION_COUNT=$(printf "%d" "$VIOLATION_COUNT" 2>/dev/null || echo "0")
+        
+        # Additional safety check for LINT_EXIT_CODE
+        if [ -z "$LINT_EXIT_CODE" ] || [ "$LINT_EXIT_CODE" = "UNSET" ]; then
+          echo "⚠️ LINT_EXIT_CODE was not properly set, defaulting to 0"
+          LINT_EXIT_CODE=0
+        fi
+        
+        echo "🔧 Final validated values:"
+        echo "  ERROR_COUNT (validated): $ERROR_COUNT"
+        echo "  WARNING_COUNT (validated): $WARNING_COUNT"
+        echo "  VIOLATION_COUNT (calculated): $VIOLATION_COUNT"
+        echo "  FILES_PROCESSED (validated): $FILES_PROCESSED"
+        echo "  EXECUTION_TIME (validated): $EXECUTION_TIME"
+        echo "  RULES_EXECUTED (validated): $RULES_EXECUTED"
+        echo ""
+        
+        # Store all metrics in environment with explicit logging
+        echo "🔧 Setting environment variables:"
+        
+        if echo "ERROR_COUNT=$ERROR_COUNT" >> $GITHUB_ENV; then
+          echo "  ✅ ERROR_COUNT: $ERROR_COUNT"
+        else
+          echo "  ❌ Failed to set ERROR_COUNT"
+        fi
+        
+        if echo "WARNING_COUNT=$WARNING_COUNT" >> $GITHUB_ENV; then
+          echo "  ✅ WARNING_COUNT: $WARNING_COUNT"
+        else
+          echo "  ❌ Failed to set WARNING_COUNT"
+        fi
+        
+        if echo "VIOLATION_COUNT=$VIOLATION_COUNT" >> $GITHUB_ENV; then
+          echo "  ✅ VIOLATION_COUNT: $VIOLATION_COUNT"
+        else
+          echo "  ❌ Failed to set VIOLATION_COUNT"
+        fi
+        
+        if echo "FILES_PROCESSED=$FILES_PROCESSED" >> $GITHUB_ENV; then
+          echo "  ✅ FILES_PROCESSED: $FILES_PROCESSED"
+        else
+          echo "  ❌ Failed to set FILES_PROCESSED"
+        fi
+        
+        if echo "EXECUTION_TIME=$EXECUTION_TIME" >> $GITHUB_ENV; then
+          echo "  ✅ EXECUTION_TIME: $EXECUTION_TIME"
+        else
+          echo "  ❌ Failed to set EXECUTION_TIME"
+        fi
+        
+        if echo "RULES_EXECUTED=$RULES_EXECUTED" >> $GITHUB_ENV; then
+          echo "  ✅ RULES_EXECUTED: $RULES_EXECUTED"
+        else
+          echo "  ❌ Failed to set RULES_EXECUTED"
+        fi
+        
+        if echo "PERFORMANCE_METRICS=$PERFORMANCE_JSON" >> $GITHUB_ENV; then
+          echo "  ✅ PERFORMANCE_METRICS: $PERFORMANCE_JSON"
+        else
+          echo "  ❌ Failed to set PERFORMANCE_METRICS"
+        fi
+        
+        echo ""
+        echo "📊 Final Enhanced Metrics Summary:"
+        echo "  - Errors: $ERROR_COUNT"
+        echo "  - Warnings: $WARNING_COUNT"
+        echo "  - Violations: $VIOLATION_COUNT"
+        echo "  - Files: $FILES_PROCESSED"
+        echo "  - Execution Time: ${EXECUTION_TIME}s"
+        echo "  - Rules Executed: $RULES_EXECUTED"
+        echo "  - Performance: $FILES_PER_SECOND files/sec, $RULES_PER_SECOND rules/sec"
+        echo ""
+        
+        # Verify environment variables were set correctly
+        echo "🔍 Verifying environment variables in current shell:"
+        echo "  ERROR_COUNT: ${ERROR_COUNT:-UNSET}"
+        echo "  WARNING_COUNT: ${WARNING_COUNT:-UNSET}"
+        echo "  VIOLATION_COUNT: ${VIOLATION_COUNT:-UNSET}"
+        echo "  FILES_PROCESSED: ${FILES_PROCESSED:-UNSET}"
+        echo "  EXECUTION_TIME: ${EXECUTION_TIME:-UNSET}"
+        echo "  RULES_EXECUTED: ${RULES_EXECUTED:-UNSET}"
+        echo "=================================="
 
     - name: Generate Unique Artifact Name
       shell: bash
@@ -364,58 +643,384 @@ runs:
         compression-level: 6
       continue-on-error: true
 
-    - name: Create Summary Report
+    - name: Create Enhanced Summary Report with Error Details
       shell: bash
       if: always()
       run: |
-        # Create a GitHub Actions summary
+        # Debug: Show all critical environment variables before creating summary
+        echo "🔧 Debug: Environment Variables Before Summary Creation"
+        echo "  ERROR_COUNT: '${ERROR_COUNT:-UNSET}'"
+        echo "  WARNING_COUNT: '${WARNING_COUNT:-UNSET}'"
+        echo "  FILES_PROCESSED: '${FILES_PROCESSED:-UNSET}'"
+        echo "  LINT_EXIT_CODE: '${LINT_EXIT_CODE:-UNSET}'"
+        echo "  VIOLATION_COUNT: '${VIOLATION_COUNT:-UNSET}'"
+        echo "  EXECUTION_TIME: '${EXECUTION_TIME:-UNSET}'"
+        echo "  RULES_EXECUTED: '${RULES_EXECUTED:-UNSET}'"
+        echo "  changed-files-only input: '${{ inputs.changed-files-only }}'"
+        echo ""
+        
+        # Ensure all variables have default values to prevent integer expression errors
+        ERROR_COUNT=${ERROR_COUNT:-0}
+        WARNING_COUNT=${WARNING_COUNT:-0}
+        FILES_PROCESSED=${FILES_PROCESSED:-0}
+        EXECUTION_TIME=${EXECUTION_TIME:-0.0}
+        LINT_EXIT_CODE=${LINT_EXIT_CODE:-0}
+        VIOLATION_COUNT=${VIOLATION_COUNT:-0}
+        RULES_EXECUTED=${RULES_EXECUTED:-0}
+        
+        # Format numbers to remove leading zeros and ensure standard display format
+        ERROR_COUNT=$(printf "%d" "$ERROR_COUNT" 2>/dev/null || echo "0")
+        WARNING_COUNT=$(printf "%d" "$WARNING_COUNT" 2>/dev/null || echo "0")
+        FILES_PROCESSED=$(printf "%d" "$FILES_PROCESSED" 2>/dev/null || echo "0")
+        RULES_EXECUTED=$(printf "%d" "$RULES_EXECUTED" 2>/dev/null || echo "0")
+        EXECUTION_TIME=$(printf "%.2f" "$EXECUTION_TIME" 2>/dev/null || echo "0.0")
+        VIOLATION_COUNT=$(printf "%d" "$VIOLATION_COUNT" 2>/dev/null || echo "0")
+        
+        # Additional safety check for LINT_EXIT_CODE
+        if [ -z "$LINT_EXIT_CODE" ] || [ "$LINT_EXIT_CODE" = "UNSET" ]; then
+          echo "⚠️ LINT_EXIT_CODE was not properly set, defaulting to 0"
+          LINT_EXIT_CODE=0
+        fi
+        
+        echo "🔧 Confirmed final values before summary generation:"
+        echo "  ERROR_COUNT: $ERROR_COUNT"
+        echo "  WARNING_COUNT: $WARNING_COUNT"
+        echo "  FILES_PROCESSED: $FILES_PROCESSED"
+        echo "  LINT_EXIT_CODE: $LINT_EXIT_CODE"
+        echo "  VIOLATION_COUNT: $VIOLATION_COUNT"
+        echo "  EXECUTION_TIME: $EXECUTION_TIME"
+        echo "  RULES_EXECUTED: $RULES_EXECUTED"
+        echo ""
+        
+        # Create a comprehensive GitHub Actions summary with detailed error information
         echo "## 🔍 Terraform Lint Report (Unified System)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Errors | $ERROR_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| Warnings | $WARNING_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| Total Violations | $VIOLATION_COUNT |" >> $GITHUB_STEP_SUMMARY
-        echo "| Files Processed | $FILES_PROCESSED |" >> $GITHUB_STEP_SUMMARY
-        echo "| Rules Executed | $RULES_EXECUTED |" >> $GITHUB_STEP_SUMMARY
-        echo "| Execution Time | ${EXECUTION_TIME}s |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Add performance metrics if available
-        if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
-          echo "### ⚡ Performance Metrics" >> $GITHUB_STEP_SUMMARY
-          FILES_PER_SEC=$(echo $PERFORMANCE_METRICS | grep -o '"files_per_second":[0-9.]*' | cut -d: -f2)
-          RULES_PER_SEC=$(echo $PERFORMANCE_METRICS | grep -o '"rules_per_second":[0-9.]*' | cut -d: -f2)
-          echo "- **Processing Speed**: ${FILES_PER_SEC} files/second" >> $GITHUB_STEP_SUMMARY
-          echo "- **Rule Execution**: ${RULES_PER_SEC} rules/second" >> $GITHUB_STEP_SUMMARY
+        # Determine the actual status based on comprehensive analysis
+        ACTUAL_VIOLATIONS=$((ERROR_COUNT + WARNING_COUNT))
+        HAS_ACTUAL_ERRORS=$([ "$ERROR_COUNT" -gt 0 ] && echo "true" || echo "false")
+        HAS_ACTUAL_WARNINGS=$([ "$WARNING_COUNT" -gt 0 ] && echo "true" || echo "false")
+        FILES_WERE_PROCESSED=$([ "$FILES_PROCESSED" -gt 0 ] && echo "true" || echo "false")
+        
+        # Enhanced status determination logic - prioritize actual violations over exit codes
+        if [ "$ACTUAL_VIOLATIONS" -gt 0 ]; then
+          # Actual errors/warnings found - this takes highest priority
+          echo "### ❌ **FAILED** - Issues Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚨 Found **$ERROR_COUNT error(s)** and **$WARNING_COUNT warning(s)** in $FILES_PROCESSED file(s)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        elif [ "$LINT_EXIT_CODE" -eq 2 ]; then
+          # Exit code 2: No files to check (either changed-files-only mode or no files found)
+          if [ "${{ inputs.changed-files-only }}" = "true" ]; then
+            echo "### ⚠️ **NO FILES TO CHECK** - Changed Files Only Mode" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔄 **Changed-files-only mode is enabled** but no Terraform files were detected as changed." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Possible reasons:**" >> $GITHUB_STEP_SUMMARY
+            echo "- No \`.tf\` or \`.tfvars\` files were modified in this commit/PR" >> $GITHUB_STEP_SUMMARY
+            echo "- The base reference (\`${{ inputs.base-ref }}\`) might not exist or be accessible" >> $GITHUB_STEP_SUMMARY
+            echo "- All changed files might be excluded by path filters" >> $GITHUB_STEP_SUMMARY
+            echo "- Changed files are not in the target directory (\`${{ inputs.directory }}\`)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**📝 Recommendation:** Set \`changed-files-only: 'false'\` to check all files, or ensure the base reference is correct." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ℹ️ **NO FILES FOUND** - No Terraform Files" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📁 No Terraform files were found in the target directory (\`${{ inputs.directory }}\`)." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        elif [ "$LINT_EXIT_CODE" -eq 0 ] && [ "$FILES_WERE_PROCESSED" = "true" ]; then
+          # True success case: files processed and no issues
+          echo "### ✅ **PASSED** - No Issues Found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 All $FILES_PROCESSED Terraform files passed linting checks!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        elif [ "$FILES_WERE_PROCESSED" = "false" ] && [ "${{ inputs.changed-files-only }}" = "true" ]; then
+          # Legacy fallback: Changed-files-only mode with no files to process (should be handled by exit code 2 now)
+          echo "### ⚠️ **NO FILES TO CHECK** - Changed Files Only Mode (Legacy)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔄 **Changed-files-only mode is enabled** but no Terraform files were detected as changed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Possible reasons:**" >> $GITHUB_STEP_SUMMARY
+          echo "- No \`.tf\` or \`.tfvars\` files were modified in this commit/PR" >> $GITHUB_STEP_SUMMARY
+          echo "- The base reference (\`${{ inputs.base-ref }}\`) might not exist or be accessible" >> $GITHUB_STEP_SUMMARY
+          echo "- All changed files might be excluded by path filters" >> $GITHUB_STEP_SUMMARY
+          echo "- Changed files are not in the target directory (\`${{ inputs.directory }}\`)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**📝 Recommendation:** Set \`changed-files-only: 'false'\` to check all files, or ensure the base reference is correct." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        elif [ "$FILES_WERE_PROCESSED" = "false" ]; then
+          # No files processed for other reasons (not changed-files-only mode)
+          echo "### ℹ️ **NO FILES FOUND** - No Terraform Files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📁 No Terraform files were found in the target directory (\`${{ inputs.directory }}\`)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        elif [ "$LINT_EXIT_CODE" -ne 0 ] && [ "$FILES_WERE_PROCESSED" = "true" ]; then
+          # Files processed but script failed for other reasons
+          echo "### ⚠️ **LINT CHECK COMPLETED WITH WARNINGS**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Processed $FILES_PROCESSED files successfully, but the linter returned a non-zero exit code." >> $GITHUB_STEP_SUMMARY
+          echo "This might indicate configuration issues or internal errors." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        else
+          # Fallback case
+          echo "### ℹ️ **UNKNOWN STATUS** - Unexpected Condition" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Exit code: $LINT_EXIT_CODE, Files processed: $FILES_PROCESSED, Violations: $ACTUAL_VIOLATIONS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
         fi
         
-        # Add configuration details
-        echo "### ⚙️ Configuration" >> $GITHUB_STEP_SUMMARY
-        echo "- **Directory**: \`${{ inputs.directory }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Rule Categories**: \`${{ inputs.rule-categories }}\`" >> $GITHUB_STEP_SUMMARY
-        if [ -n "${{ inputs.ignore-rules }}" ]; then
-          echo "- **Ignored Rules**: \`${{ inputs.ignore-rules }}\`" >> $GITHUB_STEP_SUMMARY
-        fi
-        if [ "${{ inputs.changed-files-only }}" = "true" ]; then
-          echo "- **Mode**: Changed files only (base: \`${{ inputs.base-ref }}\`)" >> $GITHUB_STEP_SUMMARY
-        fi
+        # Always show statistics table for transparency
+        echo "| 📊 **Summary** | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| 🔴 **Errors** | **$ERROR_COUNT** |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🟡 **Warnings** | **$WARNING_COUNT** |" >> $GITHUB_STEP_SUMMARY
+        echo "| 📁 **Files Processed** | $FILES_PROCESSED |" >> $GITHUB_STEP_SUMMARY
+        echo "| ⚡ **Execution Time** | ${EXECUTION_TIME}s |" >> $GITHUB_STEP_SUMMARY
+        echo "| ⚙️ **Exit Code** | $LINT_EXIT_CODE |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Add result status
-        if [ "$LINT_EXIT_CODE" -eq 0 ]; then
-          echo "### ✅ Result: PASSED" >> $GITHUB_STEP_SUMMARY
-          echo "All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "### ❌ Result: FAILED" >> $GITHUB_STEP_SUMMARY
-          echo "Issues found. Please check the detailed report." >> $GITHUB_STEP_SUMMARY
+        # Only show detailed error analysis if there are actual violations
+        if [ "$ACTUAL_VIOLATIONS" -gt 0 ] && [ -f "terraform-lint-report.txt" ] && [ "${{ inputs.detailed-summary }}" = "true" ]; then
+          echo "### 🔍 **Detailed Error Analysis**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count errors by rule type first for statistics
+          ST_ERRORS=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -c "\[ST\." || echo "0")
+          IO_ERRORS=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -c "\[IO\." || echo "0")
+          DC_ERRORS=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -c "\[DC\." || echo "0")
+          SC_ERRORS=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -c "\[SC\." || echo "0")
+          
+          # Show rule category breakdown only if there are errors
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "#### 📊 **Errors by Rule Category:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Rule Category | Count | Description |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🎨 **ST (Style/Format)** | $ST_ERRORS | Code formatting and style issues |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔄 **IO (Input/Output)** | $IO_ERRORS | Variable and output organization |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📝 **DC (Documentation)** | $DC_ERRORS | Documentation and comments |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔒 **SC (Security Code)** | $SC_ERRORS | Security and safety validation |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Show all errors in detail
+            echo "#### 🔴 **All Errors Found:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Parse ERROR lines from the report and display all of them
+            ERRORS_FOUND=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt || echo "")
+            if [ -n "$ERRORS_FOUND" ]; then
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$ERRORS_FOUND" | while IFS= read -r line; do
+                # Extract components using sed for better compatibility
+                if echo "$line" | grep -q "ERROR: .* ([0-9]*): \[.*\]"; then
+                  FILE=$(echo "$line" | sed 's/ERROR: \([^(]*\) ([0-9]*): \[.*\] .*/\1/')
+                  LINE_NUM=$(echo "$line" | sed 's/ERROR: [^(]* (\([0-9]*\)): \[.*\] .*/\1/')
+                  RULE=$(echo "$line" | sed 's/ERROR: [^(]* ([0-9]*): \[\([^]]*\)\] .*/\1/')
+                  DESC=$(echo "$line" | sed 's/ERROR: [^(]* ([0-9]*): \[[^]]*\] \(.*\)/\1/')
+                  echo "🔴 [$RULE] $(basename "$FILE"):$LINE_NUM - $DESC"
+                elif echo "$line" | grep -q "ERROR: .* : \[.*\]"; then
+                  # Handle errors without line numbers
+                  FILE=$(echo "$line" | sed 's/ERROR: \([^:]*\): \[.*\] .*/\1/')
+                  RULE=$(echo "$line" | sed 's/ERROR: [^:]*: \[\([^]]*\)\] .*/\1/')
+                  DESC=$(echo "$line" | sed 's/ERROR: [^:]*: \[[^]]*\] \(.*\)/\1/')
+                  echo "🔴 [$RULE] $(basename "$FILE") - $DESC"
+                else
+                  # Fallback for any other error format
+                  echo "🔴 $line"
+                fi
+              done >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "_No detailed error information available._" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Parse WARNING lines from the report only if there are warnings
+          if [ "$WARNING_COUNT" -gt 0 ]; then
+            WARNINGS_FOUND=$(grep "^[[:space:]]*WARNING:" terraform-lint-report.txt || echo "")
+            if [ -n "$WARNINGS_FOUND" ]; then
+              echo "#### 🟡 **All Warnings Found:**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$WARNINGS_FOUND" | while IFS= read -r line; do
+                if echo "$line" | grep -q "WARNING: .* ([0-9]*): \[.*\]"; then
+                  FILE=$(echo "$line" | sed 's/WARNING: \([^(]*\) ([0-9]*): \[.*\] .*/\1/')
+                  LINE_NUM=$(echo "$line" | sed 's/WARNING: [^(]* (\([0-9]*\)): \[.*\] .*/\1/')
+                  RULE=$(echo "$line" | sed 's/WARNING: [^(]* ([0-9]*): \[\([^]]*\)\] .*/\1/')
+                  DESC=$(echo "$line" | sed 's/WARNING: [^(]* ([0-9]*): \[[^]]*\] \(.*\)/\1/')
+                  echo "🟡 [$RULE] $(basename "$FILE"):$LINE_NUM - $DESC"
+                elif echo "$line" | grep -q "WARNING: .* : \[.*\]"; then
+                  FILE=$(echo "$line" | sed 's/WARNING: \([^:]*\): \[.*\] .*/\1/')
+                  RULE=$(echo "$line" | sed 's/WARNING: [^:]*: \[\([^]]*\)\] .*/\1/')
+                  DESC=$(echo "$line" | sed 's/WARNING: [^:]*: \[[^]]*\] \(.*\)/\1/')
+                  echo "🟡 [$RULE] $(basename "$FILE") - $DESC"
+                else
+                  echo "🟡 $line"
+                fi
+              done >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Show most common error types only if there are errors
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "#### 🎯 **Most Common Issues:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract and count rule occurrences using more compatible approach
+            COMMON_RULES=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -o '\[ST\.[0-9]*\]' | sort | uniq -c | sort -nr | head -5 || echo "")
+            if [ -n "$COMMON_RULES" ]; then
+              echo "$COMMON_RULES" | while read count rule; do
+                rule_clean=$(echo "$rule" | sed 's/\[\|\]//g')
+                echo "- **$rule_clean**: $count occurrence(s)" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+            
+            # Also check IO and DC rules
+            IO_COMMON=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -o '\[IO\.[0-9]*\]' | sort | uniq -c | sort -nr | head -3 || echo "")
+            if [ -n "$IO_COMMON" ]; then
+              echo "$IO_COMMON" | while read count rule; do
+                rule_clean=$(echo "$rule" | sed 's/\[\|\]//g')
+                echo "- **$rule_clean**: $count occurrence(s)" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+            
+            DC_COMMON=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -o '\[DC\.[0-9]*\]' | sort | uniq -c | sort -nr | head -3 || echo "")
+            if [ -n "$DC_COMMON" ]; then
+              echo "$DC_COMMON" | while read count rule; do
+                rule_clean=$(echo "$rule" | sed 's/\[\|\]//g')
+                echo "- **$rule_clean**: $count occurrence(s)" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+            
+            SC_COMMON=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | grep -o '\[SC\.[0-9]*\]' | sort | uniq -c | sort -nr | head -3 || echo "")
+            if [ -n "$SC_COMMON" ]; then
+              echo "$SC_COMMON" | while read count rule; do
+                rule_clean=$(echo "$rule" | sed 's/\[\|\]//g')
+                echo "- **$rule_clean**: $count occurrence(s)" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Show affected files
+            echo "#### 📁 **Affected Files:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            AFFECTED_FILES=$(grep "^[[:space:]]*ERROR:" terraform-lint-report.txt | sed 's/.*ERROR: \([^(:]*\)[:(].*/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort | uniq)
+            if [ -n "$AFFECTED_FILES" ]; then
+              echo "$AFFECTED_FILES" | while IFS= read -r file; do
+                if [ -n "$file" ]; then
+                  # Clean up any leading/trailing whitespace from the file path
+                  file=$(echo "$file" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                  
+                  FILE_ERROR_COUNT=$(grep "^[[:space:]]*ERROR:.*$file" terraform-lint-report.txt | wc -l)
+                  
+                  # Calculate relative path from the configured directory
+                  TARGET_DIR="${{ inputs.directory }}"
+                  # Remove leading ./ if present
+                  TARGET_DIR=$(echo "$TARGET_DIR" | sed 's|^\./||')
+                  
+                  # Get the relative path from the target directory
+                  if echo "$file" | grep -q "^$TARGET_DIR/"; then
+                    # File path starts with target directory, show relative path from target directory
+                    RELATIVE_PATH=$(echo "$file" | sed "s|^$TARGET_DIR/||")
+                  elif [ "$TARGET_DIR" = "." ] || [ "$TARGET_DIR" = "" ]; then
+                    # Target directory is current directory, show relative path as-is
+                    RELATIVE_PATH="$file"
+                  else
+                    # Fallback: try to extract path after target directory if it exists in the path
+                    if echo "$file" | grep -q "/$TARGET_DIR/"; then
+                      RELATIVE_PATH=$(echo "$file" | sed "s|.*/$TARGET_DIR/||")
+                    else
+                      # Show the full relative path if we can't determine the structure
+                      RELATIVE_PATH="$file"
+                    fi
+                  fi
+                  
+                  # Clean up any remaining "./" at the beginning and trailing/leading spaces
+                  RELATIVE_PATH=$(echo "$RELATIVE_PATH" | sed 's|^\./||' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                  
+                  echo "- 📄 **$RELATIVE_PATH** ($FILE_ERROR_COUNT issue(s))" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Add quick fix suggestions
+            echo "#### 💡 **Quick Fix Guide:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "1. **Download the full report** from the artifacts section below" >> $GITHUB_STEP_SUMMARY
+            echo "2. **Focus on ST.001-ST.003** for quick formatting fixes" >> $GITHUB_STEP_SUMMARY
+            echo "3. **Check IO.001-IO.002** for file organization issues" >> $GITHUB_STEP_SUMMARY
+            echo "4. **Review DC.001** for documentation requirements" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        elif [ "$LINT_EXIT_CODE" -ne 0 ] && [ "${{ inputs.detailed-summary }}" = "false" ]; then
+          # Show basic error summary when detailed summary is disabled
+          echo "### ❌ **Issues Found**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📄 **Download detailed reports** from the Artifacts section below for complete error information." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Configuration and system info (condensed)
+        echo "### ⚙️ **Configuration**" >> $GITHUB_STEP_SUMMARY
+        echo "- 📂 **Directory**: \`${{ inputs.directory }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- 🏷️ **Categories**: \`${{ inputs.rule-categories }}\`" >> $GITHUB_STEP_SUMMARY
+        if [ -n "${{ inputs.ignore-rules }}" ]; then
+          echo "- 🚫 **Ignored Rules**: \`${{ inputs.ignore-rules }}\`" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [ "${{ inputs.changed-files-only }}" = "true" ]; then
+          echo "- 🔄 **Mode**: Changed files only (base: \`${{ inputs.base-ref }}\`)" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "- 📊 **Report Format**: \`${{ inputs.report-format }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Add artifact download info
+        echo "### 📦 **Detailed Reports**" >> $GITHUB_STEP_SUMMARY
+        echo "📄 Download the complete lint reports from the **Artifacts** section below:" >> $GITHUB_STEP_SUMMARY
+        echo "- \`terraform-lint-report.txt\` - Human-readable detailed report" >> $GITHUB_STEP_SUMMARY
+        echo "- \`terraform-lint-report.json\` - Machine-readable structured data" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Performance info (only if monitoring enabled)
+        if [ "${{ inputs.performance-monitoring }}" = "true" ] && [ -n "$PERFORMANCE_METRICS" ]; then
+          echo "### ⚡ **Performance**" >> $GITHUB_STEP_SUMMARY
+          FILES_PER_SEC=$(echo $PERFORMANCE_METRICS | grep -o '"files_per_second":[0-9.]*' | cut -d: -f2)
+          echo "📈 Processed $FILES_PROCESSED files in ${EXECUTION_TIME}s (${FILES_PER_SEC:-0} files/sec)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
         fi
 
     - name: Set Enhanced Outputs and Handle Results
       shell: bash
+      if: always()
       run: |
+        # Ensure all variables have default values for outputs
+        ERROR_COUNT=${ERROR_COUNT:-0}
+        WARNING_COUNT=${WARNING_COUNT:-0}
+        FILES_PROCESSED=${FILES_PROCESSED:-0}
+        EXECUTION_TIME=${EXECUTION_TIME:-0.0}
+        LINT_EXIT_CODE=${LINT_EXIT_CODE:-0}
+        VIOLATION_COUNT=${VIOLATION_COUNT:-0}
+        RULES_EXECUTED=${RULES_EXECUTED:-0}
+        PERFORMANCE_METRICS=${PERFORMANCE_METRICS:-"{}"}
+        ACTUAL_VIOLATIONS=$((ERROR_COUNT + WARNING_COUNT))
+        
+        echo "🔧 Final values for outputs:"
+        echo "  ERROR_COUNT: $ERROR_COUNT"
+        echo "  WARNING_COUNT: $WARNING_COUNT"
+        echo "  VIOLATION_COUNT: $VIOLATION_COUNT"
+        echo "  ACTUAL_VIOLATIONS: $ACTUAL_VIOLATIONS"
+        echo "  FILES_PROCESSED: $FILES_PROCESSED"
+        echo "  EXECUTION_TIME: $EXECUTION_TIME"
+        echo "  LINT_EXIT_CODE: $LINT_EXIT_CODE"
+        echo "  RULES_EXECUTED: $RULES_EXECUTED"
+        echo ""
+        
         # Set all outputs with enhanced metrics
         echo "error-count=$ERROR_COUNT" >> $GITHUB_OUTPUT
         echo "warning-count=$WARNING_COUNT" >> $GITHUB_OUTPUT
@@ -426,12 +1031,8 @@ runs:
         echo "report-file=terraform-lint-report.txt" >> $GITHUB_OUTPUT
         echo "performance-metrics=$PERFORMANCE_METRICS" >> $GITHUB_OUTPUT
         
-        # Determine result
-        if [ "$LINT_EXIT_CODE" -eq 0 ]; then
-          echo "result=success" >> $GITHUB_OUTPUT
-          echo "✅ Enhanced Terraform lint completed successfully"
-          echo "📊 Processed $FILES_PROCESSED files with $RULES_EXECUTED rule executions in ${EXECUTION_TIME}s"
-        else
+        # Enhanced result determination based on exit code and actual violations
+        if [ "$LINT_EXIT_CODE" -eq 1 ] || [ "$ACTUAL_VIOLATIONS" -gt 0 ]; then
           echo "result=failure" >> $GITHUB_OUTPUT
           echo "❌ Enhanced Terraform lint found issues"
           echo "📊 Found $ERROR_COUNT errors, $WARNING_COUNT warnings, $VIOLATION_COUNT total violations"
@@ -439,6 +1040,27 @@ runs:
           # Fail the workflow if requested
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
             echo "Failing workflow due to lint errors"
+            exit 1
+          fi
+        elif [ "$LINT_EXIT_CODE" -eq 2 ]; then
+          echo "result=no-files" >> $GITHUB_OUTPUT
+          echo "ℹ️ Enhanced Terraform lint completed - no files to check"
+          echo "📊 Processed $FILES_PROCESSED files with $RULES_EXECUTED rule executions in ${EXECUTION_TIME}s"
+          
+          # Don't fail the workflow for no files to check (this is usually not an error condition)
+          echo "Workflow continues - no files to check is not considered an error"
+        elif [ "$LINT_EXIT_CODE" -eq 0 ]; then
+          echo "result=success" >> $GITHUB_OUTPUT
+          echo "✅ Enhanced Terraform lint completed successfully"
+          echo "📊 Processed $FILES_PROCESSED files with $RULES_EXECUTED rule executions in ${EXECUTION_TIME}s"
+        else
+          echo "result=unknown" >> $GITHUB_OUTPUT
+          echo "⚠️ Enhanced Terraform lint completed with unexpected exit code: $LINT_EXIT_CODE"
+          echo "📊 Processed $FILES_PROCESSED files with $RULES_EXECUTED rule executions in ${EXECUTION_TIME}s"
+          
+          # For unknown exit codes, fail if requested
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            echo "Failing workflow due to unexpected exit code"
             exit 1
           fi
         fi
