@@ -99,7 +99,7 @@ git push origin v1
 - ST.005: Indentation level check (2 spaces per level)
 - ST.006: Resource and data source spacing check (exactly 1 empty line between blocks)
 - ST.007: Same parameter block spacing check (≤1 empty line between same-name blocks)
-- ST.008: Different parameter block spacing check (exactly 1 empty line between different-name blocks)
+- ST.008: Different parameter type spacing check (exactly 1 empty line between basic parameters and parameter blocks)
 - ST.009: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
 - ST.010: Resource, data source, variable, and output quote check (double quotes around names)
 - ST.011: Trailing whitespace check (no trailing spaces or tabs at line ends)

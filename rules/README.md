@@ -79,7 +79,7 @@ Each rule package follows a consistent design pattern:
 | ST.005 | Indentation Level | Follow 2-space indentation rule | ✅ Modular |
 | ST.006 | Resource Spacing | One empty line between resource blocks | ✅ Modular |
 | ST.007 | Same Parameter Spacing | ≤1 empty line between same parameter blocks | ✅ Modular |
-| ST.008 | Different Parameter Spacing | Exactly 1 empty line between different parameter blocks | ✅ Modular |
+| ST.008 | Different Parameter Type Spacing | Exactly 1 empty line between basic parameters and parameter blocks | ✅ Modular |
 | ST.009 | Variable Order | Variable definition order matches usage order | ✅ Modular |
 | ST.010 | Quote Usage | Double quotes around resource, data source, variable, and output names | ✅ Modular |
 | ST.011 | Trailing Whitespace | No trailing spaces or tabs at line ends | ✅ Modular |
@@ -193,90 +193,3 @@ def get_rule_description() -> dict:
         # ... other metadata
     }
 ```
-
-### 2. Update Reference Coordinator
-
-Add the rule to the coordinator class in `reference.py`:
-
-```python
-# Import the new rule
-from .rule_XXX import check_{rule_function}
-
-# Add to rules registry in __init__
-self.rules["{RULE_ID}"] = {
-    "name": "{Rule Name}",
-    "description": "Rule description",
-    "category": "{Category}",
-    "enabled": True
-}
-
-# Add to run_all_checks method
-if self.rules["{RULE_ID}"]["enabled"]:
-    check_{rule_function}(file_path, content, log_error_func)
-```
-
-### 3. Update Documentation
-
-- Update the rules table in this README
-- Add rule documentation to package-specific README files
-- Update rule count in package `__init__.py` files
-
-## Migration Status
-
-The modular architecture migration is **complete**:
-
-- ✅ **DC Rules**: Fully migrated to modular structure (1/1 rules)
-- ✅ **IO Rules**: Fully migrated to modular structure (8/8 rules)
-- ✅ **ST Rules**: Fully migrated to modular structure (10/10 rules)
-
-All rules have been successfully migrated to individual module files with consistent patterns and interfaces.
-
-## Benefits of Modular Architecture
-
-### 1. **Maintainability**
-- Each rule is isolated in its own module
-- Changes to one rule don't affect others
-- Clear separation of concerns
-
-### 2. **Extensibility**
-- Easy to add new rules without modifying existing code
-- Consistent patterns for rule implementation
-- Plugin-like architecture
-
-### 3. **Testability**
-- Individual rules can be tested in isolation
-- Mock dependencies easily
-- Better test coverage
-
-### 4. **Documentation**
-- Each rule has comprehensive documentation
-- Examples and usage patterns included
-- Metadata for automated documentation generation
-
-### 5. **Backward Compatibility**
-- Existing code continues to work unchanged
-- Gradual migration path
-- No breaking changes
-
-## Performance Considerations
-
-The modular architecture maintains performance through:
-
-- **Lazy Loading**: Rules are only loaded when needed
-- **Efficient Imports**: Minimal import overhead
-- **Shared Utilities**: Common functions shared across rules
-- **Memory Optimization**: Rule instances created once and reused
-
-## Contributing
-
-When contributing new rules or modifications:
-
-1. Follow the established modular design pattern
-2. Include comprehensive documentation and examples
-3. Add appropriate tests for new functionality
-4. Update this README with new rule information
-5. Maintain backward compatibility
-
-## License
-
-Apache 2.0 - See project LICENSE file for details.
