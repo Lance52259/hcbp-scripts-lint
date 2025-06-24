@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2025-06-24
+
+### 🔧 GitHub Actions Artifact Enhancement
+
+#### 🛠️ Action.yml Artifact Management Improvements
+- **Enhanced Artifact Name Generation**: Fixed artifact name generation issues in GitHub Actions workflows
+  - **Issue Resolved**: `${{ env.ARTIFACT_NAME }}` variable was not being set correctly, causing 
+    "empty artifact name" errors
+  - **Solution**: Implemented robust artifact name generation with timestamp and job details
+  - **Unique Naming Strategy**: Added fallback naming mechanisms to prevent upload failures
+  
+- **Artifact Upload Reliability**:
+  - **Primary Upload**: Uses generated unique artifact name with timestamp, run ID, and job ID
+  - **Fallback Mechanism**: Secondary upload strategy when primary upload fails
+  - **Debug Output**: Added artifact name generation debugging for troubleshooting
+  - **Matrix Job Support**: Enhanced support for matrix job artifacts with unique naming
+
+#### 🏷️ Technical Implementation
+- **Artifact Name Generation**:
+  ```bash
+  # Generate unique artifact name with timestamp and job details
+  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+  JOB_ID_CLEAN=$(echo "${{ github.job }}" | sed 's/[^a-zA-Z0-9]/-/g')
+  UNIQUE_SUFFIX="${{ github.run_id }}-${{ github.run_attempt }}-${JOB_ID_CLEAN}"
+  ARTIFACT_NAME="terraform-lint-report-unified-${UNIQUE_SUFFIX}-${TIMESTAMP}"
+  ```
+
+- **Upload Steps Enhancement**:
+  - **Validation**: Check artifact name is not empty before upload
+  - **Primary Upload**: Use generated unique name
+  - **Fallback Upload**: Use simplified name if primary fails
+  - **Error Handling**: Graceful degradation with meaningful error messages
+
+#### 🔄 Compatibility & Migration
+- **No Breaking Changes**: All existing workflows continue to work unchanged
+- **Automatic Enhancement**: Artifact naming issues resolved automatically
+- **Error Prevention**: Eliminates "empty artifact name" errors in matrix jobs
+- **Backward Compatible**: No configuration changes required for existing users
+
+### 📊 Summary
+
+This patch release resolves **artifact upload failures** in GitHub Actions workflows by implementing 
+robust artifact name generation and fallback mechanisms. The enhancement specifically addresses the 
+"Provided artifact name input during validation is empty" error encountered in complex CI/CD scenarios.
+
+**Key Fix**: Enhanced artifact name generation in `action.yml` with proper environment variable 
+handling and fallback strategies for reliable artifact uploads.
+
+**Recommended for**: Users experiencing artifact upload failures or "empty artifact name" errors 
+in their GitHub Actions workflows.
+
 ## [2.2.0] - 2025-06-24
 
 ### 🎯 ST.008 Rule Comprehensive Enhancement - Parameter Type Spacing Validation
