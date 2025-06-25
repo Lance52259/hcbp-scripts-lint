@@ -1123,4 +1123,3 @@ No breaking changes. All existing configurations remain compatible.
 - 💡 **Feature Requests**: [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
 - 📖 **Documentation**: [Project README](README.md)
 - 🚀 **Quick Start**: [QUICKSTART.md](QUICKSTART.md)
-

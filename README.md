@@ -121,7 +121,8 @@ Add the following step to your GitHub Actions workflow:
 | `changed-files-only` | Check only changed files | `false` | No |
 | `base-ref` | Base reference for git diff | `origin/main` | No |
 | `performance-monitoring` | Enable performance analytics | `true` | No |
-| `report-format` | Output format (text/json) | `text` | No |
+| `report-format` | Output format (text, json, or both) | `text` | No |
+| `detailed-summary` | Show detailed error information in GitHub Actions summary | `true` | No |
 | `fail-on-error` | Fail workflow on errors | `true` | No |
 
 ### Command Line Options
@@ -140,6 +141,111 @@ Options:
   --performance-monitoring      Enable performance monitoring
   --report-format [text|json]   Output report format
   --help                        Show help message
+```
+
+## 📊 Enhanced Summary Reports
+
+### GitHub Actions Summary with Detailed Error Analysis
+
+When `detailed-summary` is enabled (default), the action provides a comprehensive summary in the GitHub Actions interface:
+
+#### ✅ Success Summary
+```markdown
+# 🎉 Terraform Lint Analysis - PASSED
+
+✅ **Result**: SUCCESS  
+📁 **Files Processed**: 15  
+⏱️ **Execution Time**: 2.1s  
+
+## 📋 Summary
+All Terraform files passed the linting checks successfully!
+
+## 📈 Performance Metrics
+- **Processing Speed**: 7.1 files/second
+- **Lines Analyzed**: 850 lines (404 lines/second)
+
+## 🔧 Configuration
+- **Report Format**: both
+- **Rule Categories**: ST, IO, DC
+- **Performance Monitoring**: enabled
+```
+
+#### ❌ Detailed Error Summary
+```markdown
+# ❌ Terraform Lint Analysis - FAILED
+
+❌ **Result**: FAILED  
+🚨 **Errors**: 5  
+⚠️ **Warnings**: 3  
+📁 **Files Processed**: 12  
+⏱️ **Execution Time**: 1.8s  
+
+## 🔍 Detailed Error Analysis
+
+### 🚨 Errors Found (5)
+| File | Line | Rule | Description |
+|------|------|------|-------------|
+| main.tf | 15 | ST.001 | Resource name 'aws_instance.web-server' should use underscores |
+| variables.tf | 8 | IO.006 | Variable 'instance_type' missing description |
+| outputs.tf | 12 | IO.007 | Output 'instance_ip' missing description |
+
+### ⚠️ Warnings Found (3)
+| File | Line | Rule | Description |
+|------|------|------|-------------|
+| main.tf | 25 | ST.008 | Missing blank line between parameter types |
+| variables.tf | 15 | ST.010 | Variable value should use double quotes |
+
+## 📊 Error Categories
+- **ST (Style/Format)**: 3 errors, 2 warnings
+- **IO (Input/Output)**: 2 errors, 1 warning
+- **DC (Documentation)**: 0 errors, 0 warnings
+
+### 🔧 Quick Fix Suggestions
+- **ST.001**: Use underscores in resource names: `aws_instance.web_server`
+- **IO.006/IO.007**: Add descriptions to variables and outputs
+- **ST.008**: Add blank lines between different parameter types
+- **ST.010**: Use double quotes for string values
+
+## 🎯 Most Common Issues
+1. **ST.001** (Resource Naming): 2 occurrences
+2. **IO.006** (Variable Descriptions): 1 occurrence
+3. **ST.008** (Parameter Spacing): 1 occurrence
+
+## 📂 Affected Files
+- `main.tf` (3 issues)
+- `variables.tf` (2 issues) 
+- `outputs.tf` (1 issue)
+
+## 📈 Performance Metrics
+- **Processing Speed**: 6.7 files/second
+- **Lines Analyzed**: 720 lines (400 lines/second)
+
+## 🔧 Configuration  
+- **Report Format**: both
+- **Rule Categories**: ST, IO, DC
+- **Performance Monitoring**: enabled
+
+## 📎 Artifacts
+- **Text Report**: terraform-lint-report-unified-{timestamp}.txt
+- **JSON Report**: terraform-lint-report-unified-{timestamp}.json
+
+> 💡 **Tip**: Download the detailed reports from the action artifacts for complete analysis.
+```
+
+### Basic Summary Mode
+
+When `detailed-summary` is set to `false`, a simplified summary is displayed:
+
+```markdown
+# Terraform Lint Analysis
+
+❌ **Result**: FAILED  
+🚨 **Errors**: 5  
+⚠️ **Warnings**: 3  
+📁 **Files Processed**: 12  
+⏱️ **Execution Time**: 1.8s  
+
+Download the detailed reports from action artifacts for complete analysis.
 ```
 
 ## 📊 Enhanced Outputs
