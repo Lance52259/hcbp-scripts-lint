@@ -20,9 +20,9 @@ inputs:
     required: false
     default: ''
   rule-categories:
-    description: 'Comma-separated list of rule categories to execute (ST,IO,DC). Default: all categories'
+    description: 'Comma-separated list of rule categories to execute (ST,IO,DC,SC). Default: all categories'
     required: false
-    default: 'ST,IO,DC'
+    default: 'ST,IO,DC,SC'
   include-paths:
     description: 'Comma-separated list of path patterns to include (e.g., modules/*,environments/*)'
     required: false
