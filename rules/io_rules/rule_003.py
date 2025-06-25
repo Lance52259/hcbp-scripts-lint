@@ -11,26 +11,42 @@ Rule Specification:
 - Required variables are those without default values
 - All required variables must be declared in terraform.tfvars
 - Variables with default values are optional and don't need to be in terraform.tfvars
+- Provider-related variables are excluded from this check:
+  * Variables starting with 'region' (e.g., region_name, region_id)
+  * access_key variable
+  * secret_key variable  
+  * domain_name variable
 - Report each missing variable declaration individually with precise line numbers
 - Helps ensure all necessary input values are provided for deployment
 
 Examples:
     Valid definition:
         # variables.tf (required variables declared in terraform.tfvars)
-        variable "instance_name" {        # Line 2: Required variable
+        variable "region_name" {          # Excluded from IO.003 check
+          description = "The region where resources are located"
+          type        = string
+        }
+
+        variable "access_key" {           # Excluded from IO.003 check
+          description = "The access key of the IAM user"
+          type        = string
+        }
+
+        variable "instance_name" {        # Line 12: Required variable
           description = "Name of the ECS instance"
           type        = string
           # No default value - this is required
         }
 
-        variable "flavor_id" {            # Line 8: Optional variable
+        variable "flavor_id" {            # Line 18: Optional variable
           description = "The flavor ID of the ECS instance"
           type        = string
-          default     = "c6.2xlarge.4"   # Has default - optional
+          default     = "c6.2xlarge.4"    # Has default - optional
         }
 
         # terraform.tfvars must contain:
         instance_name = "my-instance"     # Required variable declared
+        # region_name and access_key are excluded from check
         # flavor_id is optional because it has default value
 
     Invalid definition:
@@ -47,15 +63,22 @@ Examples:
           # No default - required but missing from terraform.tfvars
         }
 
-        variable "flavor_id" {            # Line 14: Optional variable
+        variable "region_name" {          # Line 14: Excluded from check
+          description = "The region name"
+          type        = string
+          # No default but excluded from IO.003 validation
+        }
+
+        variable "flavor_id" {            # Line 20: Optional variable
           description = "The flavor ID"
           type        = string
-          default     = "c6.2xlarge.4"   # Has default - optional
+          default     = "c6.2xlarge.4"    # Has default - optional
         }
 
         # terraform.tfvars
         # Missing declarations for required variables cpu_cores and memory_size
-        flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
+        # region_name is excluded from validation
+        flavor_id = "c6.4xlarge.8"        # Optional variable declared (not required)
 
 Author: Lance
 License: Apache 2.0
@@ -151,6 +174,12 @@ def check_io003_required_variables(file_path: str, content: str,
 def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     """
     Extract required variables (variables without defaults) with their line numbers.
+    
+    Excludes provider-related variables that should not be checked:
+    - Variables starting with 'region' (e.g., region_name, region_id)
+    - access_key variable
+    - secret_key variable
+    - domain_name variable
 
     Args:
         content (str): The Terraform file content
@@ -163,6 +192,15 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
     
     # Pattern to match variable definitions - support quoted, single-quoted, and unquoted syntax
     var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{'
+    
+    # Define provider-related variables to exclude from IO.003 validation
+    def _should_exclude_variable(var_name: str) -> bool:
+        """Check if a variable should be excluded from IO.003 validation."""
+        if var_name.startswith('region'):
+            return True
+        if var_name in ['access_key', 'secret_key', 'domain_name']:
+            return True
+        return False
     
     i = 0
     while i < len(lines):
@@ -183,8 +221,8 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
                 brace_count += lines[j].count('{') - lines[j].count('}')
                 j += 1
             
-            # Check if variable has a default value
-            if not re.search(r'default\s*=', var_content):
+            # Check if variable has a default value and should not be excluded
+            if not re.search(r'default\s*=', var_content) and not _should_exclude_variable(var_name):
                 required_vars.append((var_name, line_number))
             
             i = j
@@ -269,7 +307,9 @@ def get_rule_description() -> dict:
         "description": (
             "Validates that all required variables (variables without default "
             "values) are declared in the terraform.tfvars file. Each missing "
-            "variable declaration is reported individually with precise line numbers."
+            "variable declaration is reported individually with precise line numbers. "
+            "Provider-related variables (region*, access_key, secret_key, domain_name) "
+            "are excluded from this validation."
         ),
         "category": "Input/Output",
         "severity": "error",
@@ -277,27 +317,40 @@ def get_rule_description() -> dict:
             "Required variables must have values provided through terraform.tfvars "
             "to ensure successful deployment. Missing required variables will cause "
             "Terraform to fail during execution. Each violation is reported "
-            "separately for precise error identification."
+            "separately for precise error identification. Provider-related variables "
+            "are excluded as they are typically managed through environment variables "
+            "or provider configuration files for security reasons."
         ),
         "examples": {
             "valid": [
                 '''
 # variables.tf
-variable "instance_name" {
-  description = "Name of the ECS instance"
+variable "region_name" {          # Excluded from IO.003 check
+  description = "The region where resources are located"
   type        = string
-  # No default - required
 }
 
-variable "flavor_id" {
+variable "access_key" {           # Excluded from IO.003 check
+  description = "The access key of the IAM user"
+  type        = string
+}
+
+variable "instance_name" {        # Line 12: Required variable
+  description = "Name of the ECS instance"
+  type        = string
+  # No default value - this is required
+}
+
+variable "flavor_id" {            # Line 18: Optional variable
   description = "The flavor ID of the ECS instance"
   type        = string
-  default     = "c6.2xlarge.4"  # Has default - optional
+  default     = "c6.2xlarge.4"   # Has default - optional
 }
 
 # terraform.tfvars
 instance_name = "my-instance"  # Required variable declared
-# flavor_id is optional, no need to declare
+# region_name and access_key are excluded from check
+# flavor_id is optional because it has default value
 '''
             ],
             "invalid": [
@@ -306,16 +359,22 @@ instance_name = "my-instance"  # Required variable declared
 variable "cpu_cores" {            # Line 2: Missing from terraform.tfvars
   description = "Number of CPU cores"
   type        = number
-  # No default - required
+  # No default - required but missing from terraform.tfvars
 }
 
 variable "memory_size" {          # Line 8: Missing from terraform.tfvars
   description = "Memory size in GB"
   type        = number
-  # No default - required
+  # No default - required but missing from terraform.tfvars
 }
 
-variable "flavor_id" {            # Line 14: Optional
+variable "region_name" {          # Line 14: Excluded from check
+  description = "The region name"
+  type        = string
+  # No default but excluded from IO.003 validation
+}
+
+variable "flavor_id" {            # Line 20: Optional variable
   description = "The flavor ID"
   type        = string
   default     = "c6.2xlarge.4"   # Has default - optional
@@ -323,7 +382,8 @@ variable "flavor_id" {            # Line 14: Optional
 
 # terraform.tfvars
 # Missing declarations for required variables cpu_cores and memory_size
-flavor_id = "c6.4xlarge.8"       # Optional variable (not required)
+# region_name is excluded from validation
+flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
 
 # Expected errors:
 # ERROR: main.tf (2): [IO.003] Required variable 'cpu_cores' used and must be declared in terraform.tfvars
@@ -337,6 +397,12 @@ flavor_id = "c6.4xlarge.8"       # Optional variable (not required)
         "configuration": {
             "check_all_required_variables": True,
             "require_tfvars_file": True,
-            "report_individual_violations": True
+            "report_individual_violations": True,
+            "excluded_provider_variables": [
+                "Variables starting with 'region'",
+                "access_key",
+                "secret_key", 
+                "domain_name"
+            ]
         }
     }
