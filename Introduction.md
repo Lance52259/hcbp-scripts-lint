@@ -27,6 +27,7 @@ class TerraformLinter:
         self.st_rules = STRules()  # Style/Format rules
         self.dc_rules = DCRules()  # Documentation/Comments rules
         self.io_rules = IORules()  # Input/Output rules
+        self.sc_rules = SCRules()  # Security Code rules
 ```
 
 **Key Features**:
@@ -37,7 +38,7 @@ class TerraformLinter:
 
 ### 2. Rule System Architecture
 
-The tool implements a modular rule system organized into three distinct categories:
+The tool implements a modular rule system organized into four distinct categories:
 
 #### ST Rules (`rules/st_rules.py`) - Style/Format
 **Purpose**: Enforce code formatting and style consistency.
@@ -100,6 +101,40 @@ class STRules:
 - Terraform.tfvars validation
 - Variable reference tracking
 - File organization enforcement
+
+#### SC Rules (`rules/sc_rules.py`) - Security Code
+**Purpose**: Enforce security best practices and prevent common security vulnerabilities in Terraform code.
+
+**Core Rules**:
+- **SC.001**: Array index access safety check (prevents index out of bounds errors)
+
+**Implementation Features**:
+- **Data Source Safety**: Validates safe array index access in data source list attribute references
+- **Variable Safety**: Checks optional list parameter element references for safe access patterns
+- **Expression Safety**: Validates for expressions in local variables and resource parameter expressions
+- **try() Function Enforcement**: Ensures proper use of try() function to prevent runtime errors
+
+**Security Scenarios Covered**:
+- Data source returns empty list when no matching resources found
+- Optional input variables might be empty lists
+- For expressions generating dynamic lists that could be empty
+
+**Implementation Pattern**:
+
+```python
+class SCRules:
+    def check_sc001_array_index_safety(self, file_path, content, log_error_func):
+        # Extract list variables from directory
+        # Identify unsafe array index access patterns
+        # Validate try() function usage
+        # Report security violations
+```
+
+**Technical Features**:
+- Cross-file list variable analysis
+- Pattern matching for unsafe array access
+- try() function detection and validation
+- Security-focused error reporting with suggestions
 
 ### 3. GitHub Actions Integration (`action.yml`)
 

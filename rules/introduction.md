@@ -15,6 +15,9 @@ These rules check comment formatting and quality to ensure code has good documen
 ### IO (Input/Output) - Input and Output Definition Rules
 These rules check variable and output definition and usage standards to ensure module interface clarity and consistency.
 
+### SC (Security Code) - Security Best Practices Rules
+These rules enforce security best practices and prevent common security vulnerabilities in Terraform code. They focus on preventing runtime errors and ensuring safe handling of potentially empty arrays, lists, and other data structures.
+
 ---
 
 ## ST (Style/Format) Rule Details
@@ -1368,6 +1371,120 @@ variable "subnet_count" {
 - Use appropriate Terraform type constraints
 - Consider using complex types (list, map, object) when appropriate
 - Validate input types to prevent runtime errors
+
+---
+
+## SC (Security Code) Rule Details
+
+### SC.001 - Array Index Access Safety Check
+
+**Rule Description:** Validates that array index access operations use try() function to prevent index out of bounds errors in specific scenarios.
+
+**Purpose:**
+- Prevent runtime errors from array index out of bounds
+- Ensure safe handling of data source query results
+- Promote defensive programming practices for list variable access
+- Validate safe usage of HCL for expressions with array indexing
+- Improve Terraform configuration reliability
+
+**Scenarios Covered:**
+1. **Data Source List Attribute References**: Data source returns empty list when no matching resources found
+2. **Optional List Parameter Element References**: Optional input variables might be empty lists
+3. **For Expressions in Local Variables**: For expressions generating dynamic lists that could be empty
+
+**Error Example:**
+
+```hcl
+# ❌ Error: Unsafe array index access
+# variables.tf
+variable "subnet_ids" {
+  description = "List of subnet IDs"
+  type        = list(string)
+  default     = []  # Could be empty
+}
+
+# main.tf
+data "huaweicloud_compute_flavors" "test" {
+  vcpus = 2
+}
+
+locals {
+  queried_availability_zones = [for az in data.huaweicloud_availability_zones.test.names : az if az != "cn-north-1c"]
+}
+
+resource "huaweicloud_compute_instance" "test" {
+  name              = "test-instance"
+  flavor_id         = data.huaweicloud_compute_flavors.test.flavors[0].id          # Unsafe: might be empty
+  subnet_id         = var.subnet_ids[0]                                            # Unsafe: variable might be empty
+  availability_zone = local.queried_availability_zones[0]                          # Unsafe: for expression might be empty
+}
+```
+
+**Correct Example:**
+
+```hcl
+# ✅ Correct: Safe array index access with try() function
+# variables.tf
+variable "subnet_ids" {
+  description = "List of subnet IDs"
+  type        = list(string)
+  default     = []  # Could be empty
+}
+
+variable "default_subnet_id" {
+  description = "Default subnet ID when subnet_ids is empty"
+  type        = string
+  default     = "default-subnet-123"
+}
+
+# main.tf
+data "huaweicloud_compute_flavors" "test" {
+  vcpus = 2
+}
+
+locals {
+  queried_availability_zones = [for az in data.huaweicloud_availability_zones.test.names : az if az != "cn-north-1c"]
+}
+
+resource "huaweicloud_compute_instance" "test" {
+  name              = "test-instance"
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.large.2")          # Safe with fallback
+  subnet_id         = try(var.subnet_ids[0], var.default_subnet_id)                                   # Safe with fallback
+  availability_zone = try(local.queried_availability_zones[0], "cn-north-1a")                         # Safe with fallback
+}
+```
+
+**Best Practices:**
+- Always use try() function when accessing array elements that might not exist
+- Provide meaningful fallback values for try() functions
+- Consider using length() function to check array size before accessing elements
+- Design data structures to avoid empty array scenarios when possible
+- Use conditional expressions combined with try() for complex scenarios
+
+**Alternative Safe Patterns:**
+
+```hcl
+# Pattern 1: Length check before access
+resource "huaweicloud_compute_instance" "test" {
+  flavor_id = length(data.huaweicloud_compute_flavors.test.flavors) > 0 ? 
+              data.huaweicloud_compute_flavors.test.flavors[0].id : 
+              "c6.large.2"
+}
+
+# Pattern 2: Using coalescelist for array handling
+resource "huaweicloud_compute_instance" "test" {
+  subnet_id = coalescelist(var.subnet_ids, [var.default_subnet_id])[0]
+}
+
+# Pattern 3: Using try() with multiple fallbacks
+resource "huaweicloud_compute_instance" "test" {
+  availability_zone = try(
+    local.queried_availability_zones[0],
+    data.huaweicloud_availability_zones.test.names[0],
+    "cn-north-1a"
+  )
+}
+```
 
 ---
 

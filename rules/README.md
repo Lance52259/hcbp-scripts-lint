@@ -9,6 +9,7 @@ The rules are organized into three main categories, each implemented as a separa
 - **ST Rules** (`st_rules/`): Style and Format rules
 - **DC Rules** (`dc_rules/`): Documentation and Comments rules
 - **IO Rules** (`io_rules/`): Input/Output definition rules
+- **SC Rules** (`sc_rules/`): Security Code rules
 
 Each package follows the same modular design pattern for consistency and ease of maintenance.
 
@@ -23,19 +24,27 @@ rules/
 │   ├── __init__.py             # Package initialization
 │   ├── reference.py            # Main STRules coordinator class
 │   ├── rule_001.py             # ST.001 - Naming convention check
-│   ├── rule_010.py             # ST.010 - Quote usage check
+|   ├── ...
 │   ├── rule_011.py             # ST.011 - Trailing whitespace check
 │   └── [future rule modules]   # Additional ST rules as separate modules
 ├── dc_rules/                   # DC rules modular package
 │   ├── __init__.py             # Package initialization
 │   ├── reference.py            # Main DCRules coordinator class
 │   ├── rule_001.py             # DC.001 - Comment format check
-│   ├── README.md               # Detailed DC rules documentation
-│   └── [future rule modules]   # Additional DC rules as separate modules
-└── io_rules/                   # IO rules modular package
+│   ├── [future rule modules]   # Additional DC rules as separate modules
+│   └── README.md               # Detailed DC rules documentation
+├── io_rules/                   # IO rules modular package
+│   ├── __init__.py             # Package initialization
+│   ├── reference.py            # Main IORules coordinator class
+│   ├── rule_001.py             # IO.001 - Variable File Location
+|   ├── ...
+│   ├── rule_008.py             # IO.008 - Variable Type Check
+│   └── [future rule modules]   # Additional IO rules as separate modules
+└── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
-    ├── reference.py            # Main IORules coordinator class
-    └── [future rule modules]   # Additional IO rules as separate modules
+    ├── reference.py            # Main SCRules coordinator class
+    ├── rule_001.py             # SC.001 - Array index access safety check
+    └── [future rule modules]   # Additional SC rules as separate modules
 ```
 
 ## Package Design Pattern
@@ -48,7 +57,7 @@ Each rule package follows a consistent design pattern:
 - Lists all available rules in the package
 
 ### 2. Reference Coordinator (`reference.py`)
-- Main coordinator class (e.g., `STRules`, `DCRules`, `IORules`)
+- Main coordinator class (e.g., `STRules`, `DCRules`, `IORules`, `SCRules`)
 - Rule registry with metadata
 - Centralized rule execution coordination
 - Common utility methods
@@ -103,6 +112,12 @@ Each rule package follows a consistent design pattern:
 | IO.007 | Output Description Check | All outputs must have non-empty descriptions | ✅ Modular |
 | IO.008 | Variable Type Check | All variables must have type field defined | ✅ Modular |
 
+### SC (Security Code) Rules
+
+| Rule ID | Name | Description | Status |
+|---------|------|-------------|--------|
+| SC.001 | Array Index Access Safety Check | Validates that array index access uses try() function for safety | ✅ Modular |
+
 ## Usage Examples
 
 ### Unified Management (Recommended)
@@ -123,11 +138,12 @@ summary = validate_terraform_file(file_path, content, log_func)
 
 ```python
 # Import directly from the rule system packages
-from rules import STRules, DCRules, IORules
+from rules import STRules, DCRules, IORules, SCRules
 
 st_rules = STRules()
 dc_rules = DCRules()
 io_rules = IORules()
+sc_rules = SCRules()
 ```
 
 ### Rule Execution
@@ -143,6 +159,7 @@ content = "# Example Terraform content"
 st_rules.run_all_checks(file_path, content, log_error)
 dc_rules.run_all_checks(file_path, content, log_error)
 io_rules.run_all_checks(file_path, content, log_error)
+sc_rules.run_all_checks(file_path, content, log_error)
 ```
 
 ### Rule Management
