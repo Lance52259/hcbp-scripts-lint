@@ -5,6 +5,116 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.3] - 2025-06-25
+
+### 🔧 SUMMARY Printing & SC Rules Enhancement
+
+#### 🛠️ SUMMARY Information Optimization
+- **Enhanced SUMMARY Printing**: Improved SUMMARY section display formatting and information completeness
+  - **Issue Resolved**: SUMMARY section was missing critical execution statistics and performance metrics
+  - **Enhanced Display**: Added comprehensive execution time, files processed, and rules executed information
+  - **Detailed Statistics**: Complete breakdown of errors, warnings, violations with precise categorization
+  - **Performance Metrics**: Added files per second and lines per second processing rate display
+
+- **Implementation Details**:
+  - **Complete Statistics Display**: SUMMARY now shows total files processed, lines analyzed, and execution time
+  - **Performance Analytics**: Real-time processing speed metrics (files/sec, lines/sec, rules/sec)
+  - **Error Categorization**: Detailed breakdown of violations by rule category (ST, IO, DC)
+  - **Enhanced Formatting**: Improved SUMMARY section readability with consistent spacing and alignment
+
+#### 🏷️ SC Rules Recognition Fix
+- **SC Category Default Integration**: Fixed SC rules not being included in default rule categories
+  - **Issue Resolved**: SC.001 rule was not executed by default due to missing category in default configuration
+  - **Default Value Update**: Changed `rule-categories` default from 'ST,IO,DC' to 'ST,IO,DC,SC'
+  - **Complete Coverage**: All rule categories now included in default execution without explicit configuration
+  - **Backward Compatibility**: Existing explicit category configurations continue to work unchanged
+
+- **SC.001 Rule Validation**:
+  ```bash
+  # Now correctly detects unsafe array index access
+  ERROR: main.tf (95): [SC.001] Unsafe array index access detected in data source list attribute
+  ERROR: main.tf (97): [SC.001] Unsafe array index access detected in for expression result
+  ```
+
+- **Active Categories Display**:
+  - **Before**: Active categories: ST, IO, DC (SC missing)
+  - **After**: Active categories: ST, IO, DC, SC (complete coverage)
+  - **Rule Count**: Updated to show correct SC rules count (1) in category breakdown
+
+#### 🔄 GitHub Actions Integration
+- **Enhanced Default Behavior**: GitHub Actions workflows now include SC rules by default
+  - **No Configuration Required**: SC rules automatically included without explicit `rule-categories` parameter
+  - **Workflow Compatibility**: All existing workflows benefit from SC rule inclusion automatically
+  - **Parameter Documentation**: Updated `action.yml` description to reflect all included categories
+
+- **Parameter Description Update**:
+  - **Before**: 'Comma-separated list of rule categories to execute (ST,IO,DC). Default: all categories'
+  - **After**: 'Comma-separated list of rule categories to execute (ST,IO,DC,SC). Default: all categories'
+
+#### 📊 Enhanced Error Reporting
+- **Complete SUMMARY Statistics**: Enhanced SUMMARY section with comprehensive metrics
+  - **Execution Details**: Processing time, files count, lines analyzed, rules executed
+  - **Performance Metrics**: Real-time speed calculations for files and lines per second
+  - **Rule Statistics**: Active categories count and total available rules breakdown
+  - **Violation Summary**: Detailed error, warning, and violation counts with categorization
+
+- **SUMMARY Display Example**:
+  ```
+  ================================================================================
+  SUMMARY
+  ================================================================================
+  Total files processed: 15
+  Total lines analyzed: 1,247
+  Execution time: 2.34 seconds
+  Processing speed: 6.41 files/sec, 532.48 lines/sec
+  
+  Active categories: ST, IO, DC, SC
+  Rules executed: 21 (11 ST, 8 IO, 1 DC, 1 SC)
+  
+  Errors: 12
+  Warnings: 3
+  Total violations: 15
+  
+  Exit code: 1 (errors found)
+  ================================================================================
+  ```
+
+#### 🏗️ Technical Implementation
+- **Default Configuration Enhancement**:
+  ```yaml
+  rule-categories:
+    description: 'Comma-separated list of rule categories to execute (ST,IO,DC,SC). Default: all categories'
+    required: false
+    default: 'ST,IO,DC,SC'  # SC category now included
+  ```
+
+- **SUMMARY Section Enhancement**:
+  - **Complete Metrics**: All execution statistics included in SUMMARY display
+  - **Performance Analytics**: Real-time processing speed calculations
+  - **Rule Breakdown**: Detailed rule count by category with active status
+  - **Enhanced Formatting**: Improved visual presentation with consistent alignment
+
+#### 🔄 Compatibility & Migration
+- **No Breaking Changes**: All existing workflows continue to work unchanged
+- **Automatic Enhancement**: SC rules now included automatically without configuration
+- **Enhanced Default Behavior**: Better out-of-box experience with complete rule coverage
+- **Configuration Flexibility**: Users can still explicitly specify rule categories if needed
+
+### 📊 Summary
+
+This patch release enhances the **SUMMARY section display** with comprehensive execution statistics 
+and performance metrics, while fixing the **SC rules recognition** issue by including the SC category 
+in the default rule categories configuration.
+
+**Key Enhancements**:
+- **Complete SUMMARY Display**: Enhanced SUMMARY section with detailed execution statistics and performance metrics
+- **SC Rules Integration**: Fixed SC.001 rule not being executed by default due to missing category configuration
+- **Enhanced Default Behavior**: All rule categories (ST, IO, DC, SC) now included in default execution
+- **Improved Documentation**: Updated parameter descriptions to reflect complete rule category coverage
+
+**Recommended for**: Users seeking comprehensive execution statistics display and complete rule coverage 
+including SC rules without explicit configuration requirements.
+
 ## [2.2.2] - 2025-06-24
 
 ### 🔧 Report Format Enhancement
