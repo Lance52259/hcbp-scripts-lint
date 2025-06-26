@@ -73,14 +73,14 @@ jobs:
     strategy:
       matrix:
         format: ['text', 'json']
-        category: ['ST', 'IO', 'DC']
+        category: ['ST', 'IO', 'DC', 'SC']
         include:
           # Add special combinations
           - format: 'json'
             category: 'ST,IO'
             name: 'style-and-io-combined'
           - format: 'text'
-            category: 'ST,IO,DC'
+            category: 'ST,IO,DC,SC'
             name: 'all-categories'
 
     steps:
@@ -121,7 +121,7 @@ jobs:
         include-paths: './environments/${{ matrix.environment }}'
         exclude-paths: '*.backup,*.tmp'
         fail-on-error: 'true'
-        rule-categories: 'ST,IO,DC'
+        rule-categories: 'ST,IO,DC,SC'
         performance-monitoring: 'true'
         report-format: ${{ matrix.format }}
 
@@ -232,7 +232,7 @@ jobs:
 #       with:
 #         directory: './production'
 #         fail-on-error: 'false'
-#         rule-categories: 'ST,IO,DC'
+#         rule-categories: 'ST,IO,DC,SC'
 #         report-format: 'text'
 #
 #     # Generate JSON report for automated processing
@@ -241,7 +241,7 @@ jobs:
 #       with:
 #         directory: './production'
 #         fail-on-error: 'true'
-#         rule-categories: 'ST,IO,DC'
+#         rule-categories: 'ST,IO,DC,SC'
 #         report-format: 'json'
 
 # 2. CUSTOM ARTIFACT PROCESSING

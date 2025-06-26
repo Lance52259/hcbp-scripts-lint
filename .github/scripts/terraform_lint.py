@@ -1189,7 +1189,7 @@ System Information:
     parser.add_argument('--base-ref',
                        help='Base reference for git diff (e.g., origin/main, HEAD~1)')
 
-    parser.add_argument('--report-format', choices=['text', 'json'], default='text',
+    parser.add_argument('--report-format', choices=['text', 'json', 'both'], default='text',
                        help='Output report format (default: text)')
 
     parser.add_argument('--performance-monitoring', action='store_true', default=True,
@@ -1257,10 +1257,16 @@ System Information:
     # Generate comprehensive report based on format
     if args.report_format == 'json':
         output_file = "terraform-lint-report.json"
+        lint_report = linter.generate_report(output_file=output_file, format='json')
+    elif args.report_format == 'both':
+        # Generate both text and JSON reports
+        text_output = "terraform-lint-report.txt"
+        json_output = "terraform-lint-report.json"
+        lint_report = linter.generate_report(output_file=text_output, format='text')
+        linter.generate_report(output_file=json_output, format='json')
     else:
         output_file = "terraform-lint-report.txt"
-    
-    lint_report = linter.generate_report(output_file=output_file, format=args.report_format)
+        lint_report = linter.generate_report(output_file=output_file, format='text')
 
     # Enhanced exit code logic to distinguish different scenarios
     if lint_report.total_errors > 0:
