@@ -1019,64 +1019,86 @@ class TerraformLinter:
                 print("Not in a git repository, cannot use changed-files-only mode")
                 return []
             
-            # Get changed files from git
+            # Get changed files from git with improved fallback logic
             git_commands = []
             
-            # Try different git diff strategies with better fallback
+            # Build git command list with proper prioritization
             if self.base_ref:
+                # User specified base_ref - try variations of it first
                 base_ref = self.base_ref
                 git_commands.extend([
                     f"git diff --name-only {base_ref}...HEAD",
                     f"git diff --name-only {base_ref} HEAD",
                     f"git diff --name-only {base_ref}",
-                    f"git diff --name-only origin/main...HEAD",
-                    f"git diff --name-only main...HEAD",
-                    f"git diff --name-only origin/master...HEAD"
-                ])
-            else:
-                # Enhanced: Check for working directory changes first
-                git_commands.extend([
-                    "git diff --name-only",  # Working directory changes (modified files)
-                    "git diff --name-only --cached",  # Staged changes
-                    "git ls-files --others --exclude-standard",  # Untracked files
-                    "git diff --name-only HEAD~1",  # Committed changes
                 ])
             
+            # Always try common default branches as fallback
+            git_commands.extend([
+                "git diff --name-only HEAD~1...HEAD",
+                "git diff --name-only HEAD~1 HEAD", 
+                "git diff --name-only HEAD~1",
+                "git diff --name-only origin/master...HEAD",
+                "git diff --name-only master...HEAD",
+                "git diff --name-only origin/main...HEAD", 
+                "git diff --name-only main...HEAD",
+            ])
+            
             all_changed_files = []
-            # Try each git command and collect all unique files
+            successful_command = None
+            failed_commands = []
+            
+            # Try each git command until one succeeds
             for cmd in git_commands:
                 try:
                     print(f"Trying git command: {cmd}")
-                    # Use stdout=subprocess.PIPE, stderr=subprocess.PIPE for Python 3.6 compatibility
                     result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, check=True)
                     
                     if result.stdout.strip():
                         files = result.stdout.strip().split('\n')
                         print(f"Git command found {len(files)} changed files")
-                        # Combine all found files (remove duplicates later)
-                        all_changed_files.extend(files)
+                        all_changed_files = files
+                        successful_command = cmd
+                        break  # Stop trying other commands once we find one that works
+                    else:
+                        print(f"Git command succeeded but found no changed files: {cmd}")
+                        successful_command = cmd
+                        break  # Empty result is still success
                         
                 except subprocess.CalledProcessError as e:
-                    print(f"Git command failed: {cmd}")
-                    print(f"Error: {e.stderr}")
+                    failed_commands.append((cmd, e.stderr.strip()))
                     continue
             
-            # Remove duplicates while preserving order
-            unique_files = []
-            seen = set()
-            for file in all_changed_files:
-                file = file.strip()
-                if file and file not in seen:
-                    unique_files.append(file)
-                    seen.add(file)
-            
-            all_changed_files = unique_files
+            # Report results based on what happened
+            if successful_command:
+                print(f"Successfully used git command: {successful_command}")
+                if all_changed_files:
+                    print(f"Found {len(all_changed_files)} changed files")
+                else:
+                    print("No changed files found")
+            else:
+                print("All git commands failed. Failed commands:")
+                for cmd, error in failed_commands:
+                    print(f"  {cmd}")
+                    if error:
+                        print(f"    Error: {error}")
+                return []
             
             if not all_changed_files:
-                print("No changed files found by any git command")
+                print("No changed files found by git command")
                 return []
             
             print(f"All changed files from git: {all_changed_files}")
+            
+            # Get git repository root directory
+            try:
+                git_root_result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], 
+                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                                               universal_newlines=True, check=True)
+                git_root = git_root_result.stdout.strip()
+                print(f"Git repository root: {git_root}")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to get git root directory: {e}")
+                return []
             
             # Process each changed file
             for file in all_changed_files:
@@ -1091,8 +1113,8 @@ class TerraformLinter:
                     print(f"  Skipping non-Terraform file: {file}")
                     continue
                 
-                # Convert to absolute path from git root
-                abs_file_path = os.path.abspath(file)
+                # Convert to absolute path from git root (git returns paths relative to git root)
+                abs_file_path = os.path.join(git_root, file)
                 print(f"  Absolute path: {abs_file_path}")
                 
                 # Check if file exists
@@ -1101,32 +1123,30 @@ class TerraformLinter:
                     continue
                 
                 # Check if file is within or under target directory
-                target_rel_path = os.path.relpath(directory, original_cwd)
-                file_rel_path = os.path.relpath(abs_file_path, original_cwd)
-                
-                print(f"  Target directory (relative): {target_rel_path}")
-                print(f"  File path (relative): {file_rel_path}")
-                
-                # Check if file is in target directory or subdirectory
-                is_in_target = (
-                    file_rel_path.startswith(target_rel_path + '/') or  # File is in subdirectory
-                    file_rel_path == target_rel_path or                # File is the target (unlikely for .tf)
-                    (target_rel_path == '.' and not '/' in file_rel_path) or  # Root directory, file in root
-                    abs_file_path.startswith(directory + '/')          # Absolute path check
-                )
-                
-                print(f"  Is in target directory: {is_in_target}")
-                
-                if is_in_target:
-                    # Apply exclude path filtering
-                    relative_path_for_filtering = os.path.relpath(abs_file_path, directory)
-                    if not self.should_exclude_path(relative_path_for_filtering):
-                        print(f"  ✅ Adding file: {abs_file_path}")
-                        changed_files.append(abs_file_path)
+                try:
+                    # Get relative path from target directory to the file
+                    file_rel_to_target = os.path.relpath(abs_file_path, directory)
+                    print(f"  File relative to target directory: {file_rel_to_target}")
+                    
+                    # Check if file is in target directory or subdirectory
+                    # If the relative path doesn't start with ".." then the file is within the target directory
+                    is_in_target = not file_rel_to_target.startswith('..')
+                    
+                    print(f"  Is in target directory: {is_in_target}")
+                    
+                    if is_in_target:
+                        # Apply exclude path filtering using the relative path from target directory
+                        if not self.should_exclude_path(file_rel_to_target):
+                            print(f"  ✅ Adding file: {abs_file_path}")
+                            changed_files.append(abs_file_path)
+                        else:
+                            print(f"  ❌ Excluded by path filter: {file_rel_to_target}")
                     else:
-                        print(f"  ❌ Excluded by path filter: {relative_path_for_filtering}")
-                else:
-                    print(f"  ❌ Not in target directory")
+                        print(f"  ❌ Not in target directory")
+                except ValueError as e:
+                    # os.path.relpath can raise ValueError if paths are on different drives (Windows)
+                    print(f"  ❌ Cannot determine relative path: {e}")
+                    continue
             
             print(f"Final changed files list: {changed_files}")
             
