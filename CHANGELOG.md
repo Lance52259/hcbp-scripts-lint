@@ -58,8 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Example Updates**: Added examples of excluded vs validated variable scenarios
 
 - **Rule Description Enhancement**:
-  - **Before**: "Required variable declaration check (validates that each required variable used in resources must be declared in terraform.tfvars)"
-  - **After**: "Required variable declaration check (validates that each required variable used in resources must be declared in terraform.tfvars, excluding provider-related variables like region_*, access_key, secret_key, domain_name)"
+  - **Before**: "Required variable declaration check (validates that each required variable used in resources must be
+    declared in terraform.tfvars)"
+  - **After**: "Required variable declaration check (validates that each required variable used in resources must be
+    declared in terraform.tfvars, excluding provider-related variables like region_*, access_key, secret_key,
+    domain_name)"
 
 #### 🧪 Comprehensive Testing Validation
 

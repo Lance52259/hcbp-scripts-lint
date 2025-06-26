@@ -135,7 +135,7 @@ hcbp-lint --categories "DC"
 hcbp-lint --categories "SC"
 
 # Combined checks
-hcbp-lint --categories "ST,IO,DC"
+hcbp-lint --categories "ST,IO,DC,SC"
 ```
 
 ### 3. Advanced Filtering

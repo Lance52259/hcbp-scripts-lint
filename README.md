@@ -78,7 +78,7 @@ Add the following step to your GitHub Actions workflow:
   uses: Lance52259/hcbp-scripts-lint@v2.0.0
   with:
     directory: './terraform'
-    rule-categories: 'ST,IO,DC'
+    rule-categories: 'ST,IO,DC,SC'
     ignore-rules: 'ST.001,ST.003'
     fail-on-error: 'true'
     performance-monitoring: 'true'
@@ -114,7 +114,7 @@ Add the following step to your GitHub Actions workflow:
 | Input | Description | Default | Required |
 |-------|-------------|---------|----------|
 | `directory` | Target directory to check | `.` | No |
-| `rule-categories` | Rule categories to execute (ST,IO,DC) | `ST,IO,DC` | No |
+| `rule-categories` | Rule categories to execute (ST,IO,DC,SC) | `ST,IO,DC,SC` | No |
 | `ignore-rules` | Comma-separated list of rules to ignore | `` | No |
 | `include-paths` | Path patterns to include | `` | No |
 | `exclude-paths` | Path patterns to exclude | `` | No |
@@ -132,14 +132,14 @@ python3 .github/scripts/terraform_lint.py [OPTIONS]
 
 Options:
   -d, --directory TEXT          Target directory to check
-  --categories TEXT             Rule categories (ST,IO,DC)
+  --categories TEXT             Rule categories (ST,IO,DC,SC)
   --ignore-rules TEXT           Rules to ignore (comma-separated)
   --include-paths TEXT          Paths to include (comma-separated)
   --exclude-paths TEXT          Paths to exclude (comma-separated)
   --changed-files-only          Check only changed files
   --base-ref TEXT               Base reference for git diff
   --performance-monitoring      Enable performance monitoring
-  --report-format [text|json]   Output report format
+  --report-format [text|json|both]   Output report format
   --help                        Show help message
 ```
 
@@ -302,7 +302,7 @@ jobs:
         uses: Lance52259/hcbp-scripts-lint@v2.0.0
         with:
           directory: './terraform'
-          rule-categories: 'ST,IO,DC'
+          rule-categories: 'ST,IO,DC,SC'
           changed-files-only: 'true'
           base-ref: 'origin/main'
           performance-monitoring: 'true'
