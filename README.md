@@ -84,6 +84,10 @@ Add the following step to your GitHub Actions workflow:
     performance-monitoring: 'true'
 ```
 
+> ⚠️ **Notes on cross-repository push**: If you push from a personal repository branch to a target repository, you may
+  encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](CROSS_REPO_PUSH.md)
+  to learn how to correctly configure the checkout step.
+
 ### Local Development
 
 1. **Clone the repository:**
@@ -281,7 +285,52 @@ The unified system provides detailed performance analytics:
 
 ## 📈 Advanced Usage Examples
 
-### 1. Comprehensive Workflow
+### 1. Cross-Repository Push Handling
+
+When pushing from personal forks or branches that don't exist in the target repository, use this configuration:
+
+```yaml
+name: Terraform Lint (Cross-Repo Safe)
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  terraform-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smart Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          
+      - name: Fallback Checkout
+        if: failure()
+        uses: actions/checkout@v4
+        with:
+          ref: 'master'  # or 'main' based on your default branch
+          fetch-depth: 0
+      
+      - name: Terraform Lint with Smart Base-Ref
+        uses: Lance52259/hcbp-scripts-lint@v2.0.0
+        with:
+          directory: '.'
+          changed-files-only: 'true'
+          base-ref: ${{ 
+            github.event_name == 'pull_request' && github.event.pull_request.base.sha ||
+            github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before ||
+            'HEAD~1'
+          }}
+          fail-on-error: 'false'
+```
+
+> 📖 **Detailed Configuration Guide**: See [CROSS_REPO_PUSH.md](CROSS_REPO_PUSH.md) for a complete cross-repository push
+  scenario solution.
+
+### 2. Comprehensive Workflow
 
 ```yaml
 name: Terraform Quality Gate
@@ -315,7 +364,7 @@ jobs:
           echo "Performance: ${{ steps.lint.outputs.performance-metrics }}"
 ```
 
-### 2. Multi-Environment Validation
+### 3. Multi-Environment Validation
 
 ```yaml
 strategy:
@@ -331,7 +380,7 @@ steps:
       exclude-paths: '*.backup,test/*'
 ```
 
-### 3. Selective Rule Execution
+### 4. Selective Rule Execution
 
 ```yaml
 - name: Style Check Only

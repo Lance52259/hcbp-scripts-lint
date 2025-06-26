@@ -11,6 +11,12 @@
 # - Matrix job strategies with unique artifact naming
 # - Advanced error handling and fallback mechanisms
 # - Optional report file generation with console-only output support
+# - Cross-repository push scenario support
+#
+# CROSS-REPOSITORY PUSH SCENARIOS:
+# When pushing from a personal fork/branch to the main repository, the checkout
+# action may fail because the branch doesn't exist in the target repository.
+# This example includes configurations to handle such scenarios properly.
 #
 # To use this workflow in your project:
 # 1. Copy this file to your repository's .github/workflows/ directory
@@ -254,6 +260,61 @@ jobs:
         no-report-file: 'true'
         fail-on-error: 'false'
         base-ref: 'origin/main'
+
+  # Cross-repository push scenario handling
+  cross-repo-push-lint:
+    runs-on: ubuntu-latest
+    name: Cross-Repository Push Handling
+    # This job demonstrates how to handle scenarios where users push from
+    # personal forks/branches that don't exist in the target repository
+
+    steps:
+    # Enhanced checkout with fallback for cross-repository scenarios
+    - name: Safe Checkout for Cross-Repo Push
+      uses: actions/checkout@v4
+      with:
+        # Use the target branch (e.g., master/main) instead of the push branch
+        # This prevents failures when the push branch doesn't exist in target repo
+        ref: ${{ github.event.pull_request.base.ref || github.ref }}
+        fetch-depth: 0  # Fetch full history for git operations
+        
+    # Alternative checkout method with explicit error handling
+    - name: Checkout with Error Handling
+      if: failure()  # Only run if previous checkout failed
+      uses: actions/checkout@v4
+      with:
+        ref: 'master'  # Fallback to master branch
+        fetch-depth: 0
+        
+    # Get the actual changes being pushed
+    - name: Fetch Push Changes
+      if: github.event_name == 'push'
+      run: |
+        echo "=== Handling Cross-Repository Push ==="
+        echo "Push event detected from: ${{ github.event.pusher.name }}"
+        echo "Pushed to branch: ${{ github.ref_name }}"
+        echo "Commits in push:"
+        git log --oneline ${{ github.event.before }}..${{ github.event.after }} || echo "No commit range available"
+        
+        # For cross-repo pushes, we want to check the files in the pushed commits
+        if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+          echo "Changed files in this push:"
+          git diff --name-only ${{ github.event.before }}..${{ github.event.after }} || echo "Unable to get diff"
+        fi
+        echo "=================================="
+
+    # Run lint with appropriate base reference for cross-repo scenarios
+    - name: Run Cross-Repo Lint Check
+      uses: ./
+      with:
+        directory: '.'
+        changed-files-only: 'true'
+        # Use appropriate base reference for cross-repo pushes
+        base-ref: ${{ github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'HEAD~1' }}
+        fail-on-error: 'false'
+        performance-monitoring: 'true'
+        report-format: 'both'
+        exclude-paths: 'examples/*'
 
 # =============================================================================
 # Enhanced Configuration Examples
