@@ -1,26 +1,70 @@
-# Quick Start Guide - Terraform Scripts Lint
+# Quick Start Guide - Terraform Scripts Lint (Terraform Code Quality Tool)
 
-Welcome to the **Terraform Scripts Lint** unified rules management system! This guide will help you get started
-quickly with linting your Terraform configurations.
+Welcome to **Terraform Scripts Lint** - the comprehensive Terraform code quality and linting tool! This guide will help
+you get started quickly with improving your Terraform configurations.
 
 ## 🚀 5-Minute Setup
 
-### Option 1: GitHub Actions (Recommended)
+### Option 1: Local Installation (Recommended)
+
+#### One-Click Installation
+
+**English Version:**
+```bash
+# Download and run the English installation script
+curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
+```
+
+**Chinese Version:**
+```bash
+# Download and run the Chinese installation script
+curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/zh-cn/quick_install.sh | bash
+```
+
+#### Manual Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Lance52259/hcbp-scripts-lint.git
+   cd hcbp-scripts-lint
+   ```
+
+2. **Run the installation script:**
+   ```bash
+   # English version
+   chmod +x tools/en-us/quick_install.sh
+   ./tools/en-us/quick_install.sh
+   
+   # 中文版本
+   chmod +x tools/zh-cn/quick_install.sh
+   ./tools/zh-cn/quick_install.sh
+   ```
+
+3. **Activate the environment:**
+   ```bash
+   # Reload shell configuration
+   source ~/.bashrc
+   
+   # Test installation
+   hcbp-lint --help
+   ```
+
+### Option 2: GitHub Actions Integration
 
 1. **Create a workflow file** in your repository:
    ```bash
    mkdir -p .github/workflows
    ```
 
-2. **Add the workflow** (`.github/workflows/terraform-lint.yml`):
+2. **Add the workflow** (`.github/workflows/hcbp-lint.yml`):
    ```yaml
-   name: Terraform Lint
+   name: HCBP Lint - Terraform Code Quality
 
    on:
      push:
-       branches: [ main, develop ]
+       branches: [ master, develop ]
      pull_request:
-       branches: [ main ]
+       branches: [ master ]
 
    jobs:
      terraform-lint:
@@ -29,27 +73,17 @@ quickly with linting your Terraform configurations.
          - name: Checkout code
            uses: actions/checkout@v4
 
-         - name: Terraform Scripts Lint
-           uses: Lance52259/hcbp-scripts-lint@v2.0.0
+         - name: Setup Python
+           uses: actions/setup-python@v4
            with:
-             directory: './terraform'
-             rule-categories: 'ST,IO,DC'
-             fail-on-error: 'true'
-   ```
+             python-version: '3.8'
 
-3. **Commit and push** - Your linting will run automatically!
-
-### Option 2: Local Development
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Lance52259/hcbp-scripts-lint.git
-   cd hcbp-scripts-lint
-   ```
-
-2. **Run the linter:**
-   ```bash
-   python3 .github/scripts/terraform_lint.py --directory ./your-terraform-directory
+         - name: Run HCBP Lint
+           run: |
+             python3 .github/scripts/terraform_lint.py \
+               --directory ./terraform \
+               --categories "ST,IO,DC,SC" \
+               --report-format both
    ```
 
 ## 📁 Example Project Structure
@@ -57,352 +91,346 @@ quickly with linting your Terraform configurations.
 ```
 your-terraform-project/
 ├── main.tf                 # Main resources
-├── variables.tf            # Variable definitions
+├── variables.tf            # Variable definitions  
 ├── outputs.tf              # Output definitions
 ├── terraform.tfvars        # Variable values
-└── modules/
-    └── vpc/
-        ├── main.tf
-        ├── variables.tf
-        └── outputs.tf
+├── modules/
+│   └── vpc/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
+└── .github/
+    └── workflows/
+        └── hcbp-lint.yml   # CI/CD linting
 ```
 
 ## 🎯 Common Use Cases
 
-### 1. Basic Linting
+### 1. Basic Local Linting
 
-**GitHub Actions:**
-```yaml
-- name: Basic Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    directory: './terraform'
-```
-
-**Local:**
 ```bash
-python3 .github/scripts/terraform_lint.py --directory ./terraform
+# Check current directory
+hcbp-lint
+
+# Check specific directory  
+hcbp-lint --directory ./terraform
+
+# Quick check with presets
+hcbp-lint-quick
 ```
 
-### 2. Style Checks Only
+### 2. Category-Specific Checks
 
-**GitHub Actions:**
-```yaml
-- name: Style Check
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    directory: './terraform'
-    rule-categories: 'ST'
-```
-
-**Local:**
 ```bash
-python3 .github/scripts/terraform_lint.py --directory ./terraform --categories "ST"
+# Style checks only
+hcbp-lint --categories "ST"
+
+# Input/Output validation
+hcbp-lint --categories "IO"
+
+# Documentation checks
+hcbp-lint --categories "DC"
+
+# Security checks  
+hcbp-lint --categories "SC"
+
+# Combined checks
+hcbp-lint --categories "ST,IO,DC"
 ```
 
-### 3. Check Only Changed Files (PR Workflow)
+### 3. Advanced Filtering
 
+```bash
+# Exclude specific paths
+hcbp-lint --exclude-paths "test/*,examples/*,*.backup"
+
+# Include only specific paths
+hcbp-lint --include-paths "modules/*,environments/prod/*"
+
+# Ignore specific rules
+hcbp-lint --ignore-rules "ST.001,ST.003"
+
+# JSON output format
+hcbp-lint --report-format json
+```
+
+### 4. Git Integration
+
+```bash
+# Check only changed files (requires git)
+hcbp-lint --changed-files-only
+
+# Check against specific branch
+hcbp-lint --changed-files-only --base-ref origin/master
+```
+
+### 5. Project Integration Scripts
+
+**Create a project check script** (`scripts/check-terraform.sh`):
+```bash
+#!/bin/bash
+
+echo "🔍 Running Terraform Code Quality Check..."
+
+hcbp-lint \
+  --directory . \
+  --exclude-paths ".terraform/*,*.backup,test/*" \
+  --categories "ST,IO,DC,SC" \
+  --report-format both
+
+if [ $? -eq 0 ]; then
+    echo "✅ Code quality check passed!"
+else
+    echo "❌ Code quality issues found. Please fix before committing."
+    exit 1
+fi
+```
+
+**Git pre-commit hook** (`.git/hooks/pre-commit`):
+```bash
+#!/bin/bash
+
+echo "Running HCBP Lint before commit..."
+
+hcbp-lint --changed-files-only --categories "ST,IO"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Linting failed. Commit blocked."
+    echo "Fix the issues above and try again."
+    exit 1
+fi
+
+echo "✅ Linting passed. Proceeding with commit."
+```
+
+## 🔧 Configuration Reference
+
+### Command Line Options
+
+```bash
+hcbp-lint [OPTIONS]
+
+Core Options:
+  -d, --directory TEXT          Target directory (default: current)
+  --categories TEXT             Rule categories: ST,IO,DC,SC
+  --ignore-rules TEXT           Rules to skip (e.g., ST.001,ST.003)
+  
+Path Filtering:
+  --include-paths TEXT          Paths to include (glob patterns)
+  --exclude-paths TEXT          Paths to exclude (glob patterns)
+  
+Git Integration:
+  --changed-files-only          Check only modified files
+  --base-ref TEXT               Base reference for git diff
+  
+Output Control:
+  --report-format [text|json|both]  Output format
+  --performance-monitoring      Show performance metrics
+  --help                        Show detailed help
+```
+
+### Configuration File
+
+The installer creates `~/.hcbp-lint.conf` with default settings:
+
+```ini
+# HCBP Lint Configuration File
+
+# Common configuration options
+DEFAULT_CATEGORIES="ST,IO,DC,SC"
+DEFAULT_REPORT_FORMAT="text"  
+DEFAULT_EXCLUDE_PATHS="*.backup,.terraform/*,test/*"
+
+# Usage examples:
+# hcbp-lint --directory ./terraform
+# hcbp-lint --categories "ST,IO"
+# hcbp-lint --exclude-paths "test/*,examples/*"
+```
+
+## 📊 Understanding Output
+
+### Success Output
+```
+🎉 HCBP Lint Analysis - PASSED
+
+✅ Result: SUCCESS
+📁 Files Processed: 15
+⏱️  Execution Time: 1.2s
+🔍 Rules Applied: 21 (ST:11, IO:8, DC:1, SC:1)
+
+All Terraform files passed the quality checks!
+```
+
+### Error Output  
+```
+❌ HCBP Lint Analysis - FAILED
+
+❌ Result: FAILED
+🚨 Errors: 3  
+⚠️  Warnings: 1
+📁 Files Processed: 15
+
+Errors Found:
+  main.tf:5    [ST.001] Resource name should use underscores
+  variables.tf:12 [IO.006] Variable missing description  
+  outputs.tf:8    [DC.001] Output missing description
+
+Quick Fix Suggestions:
+- ST.001: Use snake_case for resource names
+- IO.006: Add descriptions to all variables
+- DC.001: Add descriptions to all outputs
+```
+
+## 🚨 Common Issues & Solutions
+
+### Issue 1: Command not found after installation
+```bash
+# Solution: Reload shell configuration
+source ~/.bashrc
+
+# Or restart your terminal
+# Alternative: Use full path temporarily
+~/.local/bin/hcbp-lint --help
+```
+
+### Issue 2: "No Terraform files found"
+```bash
+# Check if .tf files exist
+find . -name "*.tf" -type f
+
+# Specify correct directory
+hcbp-lint --directory ./infrastructure
+```
+
+### Issue 3: Git diff errors with changed-files-only
+```bash
+# Ensure git repository is properly initialized
+git status
+
+# For GitHub Actions, ensure fetch-depth: 0
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+```
+
+### Issue 4: Python version issues
+```bash
+# Check Python version (requires 3.6+)
+python3 --version
+
+# Update Python if needed (Ubuntu/Debian)
+sudo apt update && sudo apt install python3.8
+```
+
+## 🎓 Rule Categories Explained
+
+### 🎨 ST (Style/Format) - 11 Rules
+- **Purpose**: Code formatting and consistency
+- **Examples**: Naming conventions, indentation, spacing
+- **Usage**: `hcbp-lint --categories "ST"`
+
+### 📝 IO (Input/Output) - 8 Rules  
+- **Purpose**: Variable and output management
+- **Examples**: Variable descriptions, output definitions
+- **Usage**: `hcbp-lint --categories "IO"`
+
+### 📚 DC (Documentation/Comments) - 1 Rule
+- **Purpose**: Documentation standards
+- **Examples**: Comment formatting, inline documentation
+- **Usage**: `hcbp-lint --categories "DC"`
+
+### 🔒 SC (Security Code) - 1 Rule
+- **Purpose**: Security best practices
+- **Examples**: Sensitive data handling, secure configurations
+- **Usage**: `hcbp-lint --categories "SC"`
+
+## 📈 Performance Tips
+
+### For Large Repositories
+```bash
+# Use changed-files-only for PR workflows
+hcbp-lint --changed-files-only
+
+# Filter specific paths
+hcbp-lint --include-paths "src/*" --exclude-paths "test/*"
+
+# Run specific categories for faster execution
+hcbp-lint --categories "ST,IO"  # Skip DC and SC
+
+# Enable performance monitoring
+hcbp-lint --performance-monitoring
+```
+
+### Example Optimized Workflow
 ```yaml
-name: PR Terraform Lint
+name: Fast PR Check
 on:
   pull_request:
-    paths: ['terraform/**/*.tf']
+    paths: ['**.tf']
 
 jobs:
-  lint:
+  quick-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Lint Changed Files
-        uses: Lance52259/hcbp-scripts-lint@v2.0.0
-        with:
-          changed-files-only: 'true'
-          base-ref: 'origin/main'
+          
+      - name: Quick Style Check
+        run: |
+          python3 .github/scripts/terraform_lint.py \
+            --changed-files-only \
+            --categories "ST" \
+            --performance-monitoring
 ```
 
-### 4. Ignore Specific Rules
-
-**GitHub Actions:**
-```yaml
-- name: Terraform Lint with Rule Exceptions
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    directory: './terraform'
-    ignore-rules: 'ST.001,ST.003,DC.001'
-```
-
-**Local:**
-```bash
-python3 .github/scripts/terraform_lint.py \
-  --directory ./terraform \
-  --ignore-rules "ST.001,ST.003"
-```
-
-### 5. Advanced Filtering
-
-**GitHub Actions:**
-```yaml
-- name: Advanced Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    directory: './infrastructure'
-    include-paths: 'modules/*,environments/prod/*'
-    exclude-paths: 'examples/*,test/*'
-    rule-categories: 'ST,IO'
-```
-
-**Local:**
-```bash
-python3 .github/scripts/terraform_lint.py \
-  --directory ./infrastructure \
-  --include-paths "modules/*,environments/prod/*" \
-  --exclude-paths "examples/*,test/*" \
-  --categories "ST,IO"
-```
-
-### 6. Customizing Summary Output
-
-**Detailed Summary (Default):**
-```yaml
-- name: Detailed Summary Report
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    directory: './terraform'
-    detailed-summary: 'true'    # Shows detailed error analysis
-    report-format: 'both'       # Generate both text and JSON reports
-```
-
-**Basic Summary (Minimal):**
-```yaml
-- name: Basic Summary Report
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    directory: './terraform'
-    detailed-summary: 'false'   # Shows only basic metrics
-    report-format: 'text'       # Generate text report only
-```
-
-**Matrix Strategy with Different Summary Levels:**
-```yaml
-strategy:
-  matrix:
-    config:
-      - { env: "dev", detailed: "true" }
-      - { env: "prod", detailed: "false" }
-
-steps:
-  - name: Lint ${{ matrix.config.env }}
-    uses: Lance52259/hcbp-scripts-lint@v2.0.0
-    with:
-      directory: './environments/${{ matrix.config.env }}'
-      detailed-summary: ${{ matrix.config.detailed }}
-```
-
-## 🔧 Configuration Reference
-
-### GitHub Actions Inputs
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `directory` | Target directory | `'./terraform'` |
-| `rule-categories` | Categories to run | `'ST,IO,DC'` |
-| `ignore-rules` | Rules to skip | `'ST.001,ST.003'` |
-| `include-paths` | Paths to include | `'modules/*'` |
-| `exclude-paths` | Paths to exclude | `'test/*'` |
-| `changed-files-only` | Check only changed files | `'true'` |
-| `base-ref` | Git base reference | `'origin/main'` |
-| `performance-monitoring` | Enable performance tracking | `'true'` |
-| `report-format` | Output format | `'text'`, `'json'`, or `'both'` |
-| `detailed-summary` | Show detailed error info in summary | `'true'` |
-| `fail-on-error` | Fail on errors | `'true'` |
-
-### Command Line Options
+## 🔄 Updating HCBP Lint
 
 ```bash
-python3 .github/scripts/terraform_lint.py [OPTIONS]
+# Re-run the installation script to update
+./tools/en-us/quick_install.sh
 
-Options:
-  -d, --directory TEXT          Target directory
-  --categories TEXT             Rule categories (ST,IO,DC)
-  --ignore-rules TEXT           Rules to ignore
-  --include-paths TEXT          Paths to include
-  --exclude-paths TEXT          Paths to exclude
-  --changed-files-only          Check only changed files
-  --base-ref TEXT               Base reference for git diff
-  --performance-monitoring      Enable performance monitoring
-  --report-format [text|json]   Output format
-  --help                        Show help
+# Or for Chinese version
+./tools/zh-cn/quick_install.sh
+
+# The script will automatically update to the latest version
 ```
 
-## 📊 Understanding Output
+## 🌍 Multi-Language Support
 
-### GitHub Actions Summary (Enhanced)
+HCBP Lint provides installation scripts in multiple languages:
 
-When using GitHub Actions, you'll see a detailed summary with visual indicators:
+- **English**: `tools/en-us/quick_install.sh`
+- **中文**: `tools/zh-cn/quick_install.sh`
 
-#### ✅ Success Summary
-```markdown
-# 🎉 Terraform Lint Analysis - PASSED
-
-✅ **Result**: SUCCESS  
-📁 **Files Processed**: 15  
-⏱️ **Execution Time**: 1.2s  
-
-## 📋 Summary
-All Terraform files passed the linting checks successfully!
-```
-
-#### ❌ Detailed Error Summary (with `detailed-summary: true`)
-```markdown
-# ❌ Terraform Lint Analysis - FAILED
-
-❌ **Result**: FAILED  
-🚨 **Errors**: 2  
-⚠️ **Warnings**: 1  
-📁 **Files Processed**: 15  
-
-## 🔍 Detailed Error Analysis
-
-### 🚨 Errors Found (2)
-| File | Line | Rule | Description |
-|------|------|------|-------------|
-| main.tf | 5 | ST.001 | Resource name should use underscores |
-| variables.tf | 12 | IO.006 | Variable missing description |
-
-## 🔧 Quick Fix Suggestions
-- **ST.001**: Use snake_case for resource names
-- **IO.006**: Add descriptions to all variables
-```
-
-#### Basic Summary (with `detailed-summary: false`)
-```markdown
-# Terraform Lint Analysis
-
-❌ **Result**: FAILED  
-🚨 **Errors**: 2  
-⚠️ **Warnings**: 1  
-
-Download detailed reports from action artifacts.
-```
-
-### Terminal Output
-
-## 🚨 Common Issues & Solutions
-
-### Issue 1: "No Terraform files found"
-**Solution:** Check your directory path and ensure `.tf` files exist.
-```bash
-# Verify files exist
-find ./terraform -name "*.tf" -type f
-```
-
-### Issue 2: "Permission denied"
-**Solution:** Ensure the script has execution permissions.
-```bash
-chmod +x .github/scripts/terraform_lint.py
-```
-
-### Issue 3: "Git diff failed"
-**Solution:** When using `changed-files-only`, ensure git history is available.
-```yaml
-- uses: actions/checkout@v4
-  with:
-    fetch-depth: 0  # Important for git diff
-```
-
-### Issue 4: "Module not found"
-**Solution:** Ensure Python 3.6+ is installed with required modules.
-```bash
-python3 --version
-python3 -c "import sys; print(sys.path)"
-```
-
-## 🎓 Rule Categories Explained
-
-### ST (Style/Format) Rules
-Focus on code formatting and consistency:
-- Naming conventions
-- Indentation standards
-- Spacing requirements
-- Code organization
-
-### IO (Input/Output) Rules
-Validate variables and outputs:
-- Variable definitions
-- Output specifications
-- File organization
-- Documentation requirements
-
-### DC (Documentation/Comments) Rules
-Ensure proper documentation:
-- Comment formatting
-- Module documentation
-- Inline comments
-
-## 📈 Performance Tips
-
-### For Large Repositories
-1. **Use `changed-files-only`** for PR workflows
-2. **Filter paths** with `include-paths` and `exclude-paths`
-3. **Select specific categories** instead of running all rules
-4. **Enable performance monitoring** to track execution times
-
-### Example Optimized Workflow
-```yaml
-- name: Optimized Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
-  with:
-    changed-files-only: 'true'
-    rule-categories: 'ST,IO'  # Skip DC for faster execution
-    exclude-paths: 'examples/*,test/*,*.backup'
-    performance-monitoring: 'true'
-```
-
-## 🔄 Migration from v1.x
-
-If you're upgrading from v1.x:
-
-1. **Update the action version:**
-   ```yaml
-   # Old
-   uses: Lance52259/hcbp-scripts-lint@v1.1.0
-   
-   # New
-   uses: Lance52259/hcbp-scripts-lint@v2.0.0
-   ```
-
-2. **Add new parameters** (optional):
-   ```yaml
-   with:
-     rule-categories: 'ST,IO,DC'  # New parameter
-     performance-monitoring: 'true'  # New parameter
-   ```
-
-3. **Check new outputs** in your workflows:
-   ```yaml
-   - name: Process Results
-     run: |
-       echo "Files processed: ${{ steps.lint.outputs.files-processed }}"
-       echo "Execution time: ${{ steps.lint.outputs.execution-time }}"
-   ```
+Both scripts provide identical functionality with localized user interface.
 
 ## 🎯 Next Steps
 
-1. **Explore Advanced Features:** Check out the full [README.md](README.md) for advanced configurations
-2. **Customize Rules:** Learn about rule customization in [rules/README.md](rules/README.md)
-3. **Contribute:** See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute to the project
-4. **Get Support:** Visit [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues) for help
+1. **📖 Read Full Documentation**: [README.md](README.md) for advanced features
+2. **🔍 Explore Rules**: [rules/introduction.md](rules/introduction.md) for detailed rule explanations  
+3. **🤝 Contribute**: [CONTRIBUTING.md](CONTRIBUTING.md) to help improve the project
+4. **💬 Get Support**: [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues) for questions
 
 ## 📞 Need Help?
 
-- 📖 **Full Documentation:** [README.md](README.md)
-- 🐛 **Report Issues:** [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
-- 📚 **Rule Details:** [rules/introduction.md](rules/introduction.md)
+- 📖 **Full Documentation**: [README.md](README.md)
+- 🐛 **Report Issues**: [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
+- 💭 **Discussions**: [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+- 📚 **Rule Details**: [rules/introduction.md](rules/introduction.md)
+
+## 🚀 Quick Test
+
+After installation, test with the provided examples:
+
+```bash
+# Test with good example (should pass)
+hcbp-lint --directory ~/.local/share/terraform-linter/examples/good-example
+
+# Test with bad example (should show errors)  
+hcbp-lint --directory ~/.local/share/terraform-linter/examples/bad-example
+```
 
 ---
 
-**Happy Linting!** 🎉 Your Terraform code quality journey starts here.
+**Happy Linting!** 🎉 Start improving your Terraform code quality today with HCBP Lint!
