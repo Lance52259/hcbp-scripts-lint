@@ -10,6 +10,7 @@
 # - JSON and text report format support
 # - Matrix job strategies with unique artifact naming
 # - Advanced error handling and fallback mechanisms
+# - Optional report file generation with console-only output support
 #
 # To use this workflow in your project:
 # 1. Copy this file to your repository's .github/workflows/ directory
@@ -216,6 +217,44 @@ jobs:
         fail-on-error: 'false'
         report-format: ${{ matrix.test_case % 2 == 0 && 'json' || 'text' }}
 
+  # Console-only output examples (no report files generated)
+  console-only-lint:
+    runs-on: ubuntu-latest
+    name: Console Only Lint Examples
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Example 1: Basic console-only lint
+    - name: Quick Console Check
+      uses: ./
+      with:
+        directory: '.'
+        no-report-file: 'true'
+        fail-on-error: 'false'
+
+    # Example 2: Console-only with JSON format (faster parsing in logs)
+    - name: Console JSON Check
+      uses: ./
+      with:
+        directory: '.'
+        no-report-file: 'true'
+        report-format: 'json'
+        rule-categories: 'ST,IO'
+        fail-on-error: 'false'
+
+    # Example 3: Changed files only with console output
+    - name: PR Changes Console Check
+      if: github.event_name == 'pull_request'
+      uses: ./
+      with:
+        directory: '.'
+        changed-files-only: 'true'
+        no-report-file: 'true'
+        fail-on-error: 'false'
+        base-ref: 'origin/main'
+
 # =============================================================================
 # Enhanced Configuration Examples
 # =============================================================================
@@ -362,6 +401,30 @@ jobs:
 # Integration Examples
 # =============================================================================
 
+# Example: Quick PR validation without artifacts
+# quick-pr-validation:
+#   if: github.event_name == 'pull_request'
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0
+#     - uses: ./
+#       with:
+#         changed-files-only: 'true'
+#         no-report-file: 'true'
+#         report-format: 'json'  # Faster parsing in console logs
+
+# Example: Development workflow with console-only output
+# dev-workflow:
+#   if: github.ref != 'refs/heads/main'
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v4
+#     - uses: ./
+#       with:
+#         no-report-file: 'true'  # No artifacts for development branches
+
 # Example: Comment on PR with results
 # comment-results:
 #   needs: changed-files-lint
@@ -427,6 +490,12 @@ jobs:
 # Issue: Large repository performance
 # Solution: Use changed-files-only, include-paths, or category filtering
 
+# Issue: Need to reduce artifact storage costs
+# Solution: Use no-report-file: 'true' for console-only output
+
+# Issue: Quick development checks without file generation
+# Solution: Combine no-report-file with changed-files-only for fast feedback
+
 # =============================================================================
 # Available Enhanced Parameters
 # =============================================================================
@@ -436,6 +505,16 @@ jobs:
 #   - Controls output format for reports
 #   - JSON format enables automated processing
 #   - Both formats uploaded as artifacts automatically
+#
+# no-report-file: 'true' or 'false' (default: 'false')
+#   - Skip generating report files, only show console output
+#   - Useful for quick checks and reducing artifact storage
+#   - Works with all report formats (text, json, both)
+#   - Best practices:
+#     * Use 'true' for development branches to save storage
+#     * Combine with 'changed-files-only' for fast PR validation
+#     * Use 'false' for main branch and release pipelines
+#     * Consider 'true' for matrix jobs to reduce artifact count
 
 # ENHANCED PARAMETERS:
 # All existing parameters work with improved artifact management

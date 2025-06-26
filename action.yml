@@ -47,6 +47,10 @@ inputs:
     description: 'Output report format (text, json, or both)'
     required: false
     default: 'text'
+  no-report-file:
+    description: 'Skip generating report files, only show console output'
+    required: false
+    default: 'false'
   detailed-summary:
     description: 'Show detailed error information in GitHub Actions summary'
     required: false
@@ -94,6 +98,7 @@ runs:
         echo "Base Reference: ${{ inputs.base-ref }}"
         echo "Performance Monitoring: ${{ inputs.performance-monitoring }}"
         echo "Report Format: ${{ inputs.report-format }}"
+        echo "No Report File: ${{ inputs.no-report-file }}"
         echo "Detailed Summary: ${{ inputs.detailed-summary }}"
         echo "=================================================="
 
@@ -184,6 +189,11 @@ runs:
         # Add performance monitoring
         if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
           BASE_CMD="$BASE_CMD --performance-monitoring"
+        fi
+        
+        # Add no-report-file option
+        if [ "${{ inputs.no-report-file }}" = "true" ]; then
+          BASE_CMD="$BASE_CMD --no-report-file"
         fi
         
         # Handle report format - support 'both' option
