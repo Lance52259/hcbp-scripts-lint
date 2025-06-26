@@ -611,13 +611,14 @@ class TerraformLinter:
         
         return line_stats
 
-    def generate_report(self, output_file: str = "terraform-lint-report.txt", format: str = "text") -> LintReport:
+    def generate_report(self, output_file: str = "terraform-lint-report.txt", format: str = "text", write_file: bool = True) -> LintReport:
         """
         Generate a comprehensive lint report with enhanced statistics.
 
         Args:
             output_file: Path to the output report file
             format: Report format ('text' or 'json')
+            write_file: Whether to write the report to a file (default: True)
 
         Returns:
             LintReport object with detailed statistics
@@ -717,14 +718,17 @@ class TerraformLinter:
                 }
             }
 
-            # Write JSON report
-            try:
-                import json
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    json.dump(report_data, f, indent=2, ensure_ascii=False)
-                print(f"JSON report saved to: {output_file}")
-            except Exception as e:
-                print(f"Error writing JSON report to {output_file}: {e}")
+            # Write JSON report only if write_file is True
+            if write_file:
+                try:
+                    import json
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        json.dump(report_data, f, indent=2, ensure_ascii=False)
+                    print(f"JSON report saved to: {output_file}")
+                except Exception as e:
+                    print(f"Error writing JSON report to {output_file}: {e}")
+            else:
+                print("Report file generation skipped (--no-report-file specified)")
 
             # For JSON format, we don't need report_content for file writing,
             # but we still need it for the console output logic below
@@ -922,13 +926,16 @@ class TerraformLinter:
 
             report_content = '\n'.join(report_lines)
 
-            # Write to file
-            try:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(report_content)
-                print(f"Text report saved to: {output_file}")
-            except Exception as e:
-                print(f"Error writing text report to {output_file}: {e}")
+            # Write to file only if write_file is True
+            if write_file:
+                try:
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        f.write(report_content)
+                    print(f"Text report saved to: {output_file}")
+                except Exception as e:
+                    print(f"Error writing text report to {output_file}: {e}")
+            else:
+                print("Report file generation skipped (--no-report-file specified)")
 
         # Also print summary to console
         print("\n" + "=" * 60)
@@ -944,7 +951,10 @@ class TerraformLinter:
             for error in self.errors[:10]:  # Limit to first 10 errors for readability
                 print(f"  {error.to_summary_format()}")
             if total_errors > 10:
-                print(f"  ... and {total_errors - 10} more errors (see report file for details)")
+                if write_file:
+                    print(f"  ... and {total_errors - 10} more errors (see report file for details)")
+                else:
+                    print(f"  ... and {total_errors - 10} more errors")
         
         # Add warnings with line numbers to console summary
         if self.warnings:
@@ -952,7 +962,10 @@ class TerraformLinter:
             for warning in self.warnings[:5]:  # Limit to first 5 warnings for readability
                 print(f"  {warning.to_summary_format()}")
             if total_warnings > 5:
-                print(f"  ... and {total_warnings - 5} more warnings (see report file for details)")
+                if write_file:
+                    print(f"  ... and {total_warnings - 5} more warnings (see report file for details)")
+                else:
+                    print(f"  ... and {total_warnings - 5} more warnings")
         
         print("=" * 60)
 
@@ -975,6 +988,7 @@ class TerraformLinter:
     def get_changed_files(self, directory: str) -> List[str]:
         """
         Get list of changed Terraform files using git diff with enhanced error handling.
+        Now supports both committed changes and working directory changes.
 
         Args:
             directory: Directory to check for changes
@@ -1020,14 +1034,16 @@ class TerraformLinter:
                     f"git diff --name-only origin/master...HEAD"
                 ])
             else:
+                # Enhanced: Check for working directory changes first
                 git_commands.extend([
-                    "git diff --name-only HEAD~1",
-                    "git diff --name-only --cached",
-                    "git ls-files --others --exclude-standard"
+                    "git diff --name-only",  # Working directory changes (modified files)
+                    "git diff --name-only --cached",  # Staged changes
+                    "git ls-files --others --exclude-standard",  # Untracked files
+                    "git diff --name-only HEAD~1",  # Committed changes
                 ])
             
             all_changed_files = []
-            # Try each git command until one succeeds
+            # Try each git command and collect all unique files
             for cmd in git_commands:
                 try:
                     print(f"Trying git command: {cmd}")
@@ -1037,13 +1053,24 @@ class TerraformLinter:
                     if result.stdout.strip():
                         files = result.stdout.strip().split('\n')
                         print(f"Git command found {len(files)} changed files")
-                        all_changed_files = files
-                        break
+                        # Combine all found files (remove duplicates later)
+                        all_changed_files.extend(files)
                         
                 except subprocess.CalledProcessError as e:
                     print(f"Git command failed: {cmd}")
                     print(f"Error: {e.stderr}")
                     continue
+            
+            # Remove duplicates while preserving order
+            unique_files = []
+            seen = set()
+            for file in all_changed_files:
+                file = file.strip()
+                if file and file not in seen:
+                    unique_files.append(file)
+                    seen.add(file)
+            
+            all_changed_files = unique_files
             
             if not all_changed_files:
                 print("No changed files found by any git command")
@@ -1125,6 +1152,7 @@ Enhanced Features:
   - Flexible rule filtering by category and severity
   - Comprehensive reporting with multiple output formats
   - Enhanced GitHub Actions integration
+  - Optional report file generation with console-only output
 
 Examples:
   # Check current directory with all rules
@@ -1144,6 +1172,15 @@ Examples:
 
   # Complex filtering with performance optimization
   python3 terraform_lint.py --directory ./prod --ignore-rules "ST.001" --exclude-paths "*.backup,test/*"
+
+  # Console output only, no report files
+  python3 terraform_lint.py --no-report-file
+
+  # Console only with JSON format (no files generated)
+  python3 terraform_lint.py --no-report-file --report-format json
+
+  # Quick check without generating files
+  python3 terraform_lint.py --changed-files-only --no-report-file
 
 Rule Categories:
   ST (Style/Format): Code formatting and style rules
@@ -1194,6 +1231,9 @@ System Information:
 
     parser.add_argument('--performance-monitoring', action='store_true', default=True,
                        help='Enable detailed performance monitoring (default: enabled)')
+
+    parser.add_argument('--no-report-file', action='store_true',
+                       help='Skip generating report files, only show console output')
 
     args = parser.parse_args()
 
@@ -1254,19 +1294,21 @@ System Information:
     # Run linting with performance monitoring
     success = linter.lint_directory(target_directory)
 
-    # Generate comprehensive report based on format
+    # Generate comprehensive report based on format and file output setting
+    write_files = not args.no_report_file
+    
     if args.report_format == 'json':
         output_file = "terraform-lint-report.json"
-        lint_report = linter.generate_report(output_file=output_file, format='json')
+        lint_report = linter.generate_report(output_file=output_file, format='json', write_file=write_files)
     elif args.report_format == 'both':
         # Generate both text and JSON reports
         text_output = "terraform-lint-report.txt"
         json_output = "terraform-lint-report.json"
-        lint_report = linter.generate_report(output_file=text_output, format='text')
-        linter.generate_report(output_file=json_output, format='json')
+        lint_report = linter.generate_report(output_file=text_output, format='text', write_file=write_files)
+        linter.generate_report(output_file=json_output, format='json', write_file=write_files)
     else:
         output_file = "terraform-lint-report.txt"
-        lint_report = linter.generate_report(output_file=output_file, format='text')
+        lint_report = linter.generate_report(output_file=output_file, format='text', write_file=write_files)
 
     # Enhanced exit code logic to distinguish different scenarios
     if lint_report.total_errors > 0:
