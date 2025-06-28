@@ -254,13 +254,26 @@ class TerraformLinter:
 
         # Check exclude paths
         for pattern in self.exclude_paths:
+            # Normalize pattern to handle ./ prefixes consistently
+            normalized_pattern = os.path.normpath(pattern)
+            
             # Handle directory patterns (e.g., "examples" should match "examples/*")
-            if '/' not in pattern and '*' not in pattern:
+            if '/' not in normalized_pattern and '*' not in normalized_pattern:
                 # Simple directory name - check if path starts with this directory
-                if normalized_path.startswith(pattern + '/') or normalized_path.startswith('./' + pattern + '/'):
+                if (normalized_path.startswith(normalized_pattern + '/') or 
+                    normalized_path.startswith('./' + normalized_pattern + '/') or
+                    file_path.startswith(normalized_pattern + '/') or
+                    file_path.startswith('./' + normalized_pattern + '/')):
                     return True
-            # Handle glob patterns
-            elif fnmatch.fnmatch(normalized_path, pattern) or fnmatch.fnmatch(file_path, pattern):
+            # Handle glob patterns and exact paths
+            elif (fnmatch.fnmatch(normalized_path, normalized_pattern) or
+                  fnmatch.fnmatch(file_path, normalized_pattern) or
+                  fnmatch.fnmatch(normalized_path, pattern) or
+                  fnmatch.fnmatch(file_path, pattern) or
+                  normalized_path.startswith(normalized_pattern + '/') or
+                  file_path.startswith(normalized_pattern + '/') or
+                  normalized_path.startswith(pattern + '/') or
+                  file_path.startswith(pattern + '/')):
                 return True
 
         return False
