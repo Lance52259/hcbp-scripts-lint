@@ -141,11 +141,17 @@ hcbp-lint --categories "ST,IO,DC,SC"
 ### 3. Advanced Filtering
 
 ```bash
-# Exclude specific paths
+# Exclude specific paths - Multiple patterns supported
 hcbp-lint --exclude-paths "test/*,examples/*,*.backup"
 
-# Include only specific paths
+# Directory exclusion (all formats work)
+hcbp-lint --exclude-paths "bad-examples"          # Directory name
+hcbp-lint --exclude-paths "./bad-examples"        # Relative path with ./
+hcbp-lint --exclude-paths "bad-examples/*"        # Wildcard pattern
+
+# Include only specific paths - Multiple patterns supported
 hcbp-lint --include-paths "modules/*,environments/prod/*"
+# The include path format is the same as --exclude-paths
 
 # Ignore specific rules
 hcbp-lint --ignore-rules "ST.001,ST.003"
@@ -153,6 +159,12 @@ hcbp-lint --ignore-rules "ST.001,ST.003"
 # JSON output format
 hcbp-lint --report-format json
 ```
+
+**Path Filtering Tips:**
+- Use commas to separate multiple patterns: `"pattern1,pattern2,pattern3"`
+- Directory names automatically match subdirectories: `"examples"` excludes `examples/*`
+- Glob patterns are supported: `"test/*"`, `"*.backup"`, `"**/*.tmp"`
+- Both relative (`"./examples"`) and simple (`"examples"`) formats work
 
 ### 4. Git Integration
 
