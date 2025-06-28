@@ -237,7 +237,7 @@ Git Integration:
   
 Output Control:
   --report-format [text|json|both]  Output format
-  --performance-monitoring      Show performance metrics
+  --performance-monitoring      Show performance metrics (true/false, case-insensitive)
   --help                        Show detailed help
 ```
 

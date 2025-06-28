@@ -40,7 +40,7 @@ inputs:
     required: false
     default: 'origin/main'
   performance-monitoring:
-    description: 'Enable detailed performance monitoring and analytics'
+    description: 'Enable detailed performance monitoring and analytics (true/false, case-insensitive)'
     required: false
     default: 'true'
   report-format:
@@ -187,9 +187,7 @@ runs:
         fi
         
         # Add performance monitoring
-        if [ "${{ inputs.performance-monitoring }}" = "true" ]; then
-          BASE_CMD="$BASE_CMD --performance-monitoring"
-        fi
+        BASE_CMD="$BASE_CMD --performance-monitoring '${{ inputs.performance-monitoring }}'"
         
         # Add no-report-file option
         if [ "${{ inputs.no-report-file }}" = "true" ]; then
