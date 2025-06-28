@@ -223,8 +223,9 @@ def check_rule_example(file_path: str, content: str) -> List[str]:
 # Run all tests
 python3 -m pytest tests/
 
-# Run specific test file
+# Run specific category tests
 python3 -m pytest tests/test_st_rules.py
+python3 -m pytest tests/test_sc_rules.py
 
 # Run with coverage
 python3 -m pytest --cov=.github/scripts tests/

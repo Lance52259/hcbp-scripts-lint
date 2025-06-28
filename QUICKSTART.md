@@ -352,8 +352,9 @@ sudo apt update && sudo apt install python3.8
 - **Usage**: `hcbp-lint --categories "DC"`
 
 ### 🔒 SC (Security Code) - 1 Rule
-- **Purpose**: Security best practices
-- **Examples**: Sensitive data handling, secure configurations
+- **Purpose**: Security best practices and safe array access validation
+- **Examples**: Array index safety checks, preventing index out of bounds errors
+- **Key Rule**: SC.001 - Array index access safety check (enforces try() function usage)
 - **Usage**: `hcbp-lint --categories "SC"`
 
 ## 📈 Performance Tips

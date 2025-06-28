@@ -90,6 +90,7 @@ git push origin v1
 - **ST (Style/Format)**: ST.001, ST.002, ST.003, ST.004, ST.005, ST.006, ST.007, ST.008, ST.009, ST.010, ST.011
 - **DC (Documentation/Comments)**: DC.001
 - **IO (Input/Output)**: IO.001, IO.002, IO.003, IO.004, IO.005, IO.006, IO.007, IO.008
+- **SC (Security Code)**: SC.001
 
 ### ST (Style/Format) Rules
 - ST.001: Resource and data source naming convention check
@@ -116,6 +117,9 @@ git push origin v1
 - IO.006: Variable description check (all variables must have non-empty descriptions)
 - IO.007: Output description check (all outputs must have non-empty descriptions)
 - IO.008: Variable type check (all variables must have type field defined)
+
+### SC (Security Code) Rules
+- SC.001: Array index access safety check (validates that array index access uses try() function to prevent index out of bounds errors)
 
 ### Usage
 ``yaml

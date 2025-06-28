@@ -18,7 +18,7 @@ and flexible configuration options for teams of all sizes.
 - **Extensible Architecture**: Easy to add new rules and categories
 
 ### Enhanced Linting Capabilities
-- **Three Rule Categories**: ST (Style/Format), IO (Input/Output), DC (Documentation/Comments)
+- **Four Rule Categories**: ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), SC (Security Code)
 - **Intelligent Path Filtering**: Include/exclude specific directories and files
 - **Git Integration**: Check only changed files in commits or pull requests
 - **Comprehensive Reporting**: Detailed reports with performance metrics
@@ -32,7 +32,7 @@ and flexible configuration options for teams of all sizes.
 
 ## 📋 Rule Categories
 
-Through the **unified rules management system**, all rules are organized into three main categories, each managed by a
+Through the **unified rules management system**, all rules are organized into four main categories, each managed by a
 dedicated coordinator:
 
 ### ST (Style/Format) Rules
@@ -63,6 +63,10 @@ Variable and output definition validation rules, managed by the `IORules` coordi
 ### DC (Documentation/Comments) Rules
 Documentation and comment standard rules, managed by the `DCRules` coordinator:
 - **DC.001**: Comment formatting and style standards
+
+### SC (Security Code) Rules
+Security best practices and safety validation rules, managed by the `SCRules` coordinator:
+- **SC.001**: Array index access safety check (prevents index out of bounds errors using try() function)
 
 > **Unified Management Advantages**: All rules are coordinated through the `RulesManager`, providing cross-category
   performance monitoring, batch execution, and comprehensive reporting capabilities.
@@ -170,7 +174,7 @@ All Terraform files passed the linting checks successfully!
 
 ## 🔧 Configuration
 - **Report Format**: both
-- **Rule Categories**: ST, IO, DC
+- **Rule Categories**: ST, IO, DC, SC
 - **Performance Monitoring**: enabled
 ```
 
@@ -192,28 +196,33 @@ All Terraform files passed the linting checks successfully!
 | main.tf | 15 | ST.001 | Resource name 'aws_instance.web-server' should use underscores |
 | variables.tf | 8 | IO.006 | Variable 'instance_type' missing description |
 | outputs.tf | 12 | IO.007 | Output 'instance_ip' missing description |
+| main.tf | 95 | SC.001 | Unsafe array index access detected in data source list attribute |
 
 ### ⚠️ Warnings Found (3)
 | File | Line | Rule | Description |
 |------|------|------|-------------|
 | main.tf | 25 | ST.008 | Missing blank line between parameter types |
 | variables.tf | 15 | ST.010 | Variable value should use double quotes |
+| main.tf | 97 | SC.001 | Unsafe array index access detected in for expression result |
 
 ## 📊 Error Categories
 - **ST (Style/Format)**: 3 errors, 2 warnings
 - **IO (Input/Output)**: 2 errors, 1 warning
 - **DC (Documentation)**: 0 errors, 0 warnings
+- **SC (Security Code)**: 1 error, 1 warning
 
 ### 🔧 Quick Fix Suggestions
 - **ST.001**: Use underscores in resource names: `aws_instance.web_server`
 - **IO.006/IO.007**: Add descriptions to variables and outputs
 - **ST.008**: Add blank lines between different parameter types
 - **ST.010**: Use double quotes for string values
+- **SC.001**: Use try() function for safe array access: `try(data.source.list[0], "fallback")`
 
 ## 🎯 Most Common Issues
 1. **ST.001** (Resource Naming): 2 occurrences
 2. **IO.006** (Variable Descriptions): 1 occurrence
 3. **ST.008** (Parameter Spacing): 1 occurrence
+4. **SC.001** (Array Safety): 2 occurrences
 
 ## 📂 Affected Files
 - `main.tf` (3 issues)
@@ -226,7 +235,7 @@ All Terraform files passed the linting checks successfully!
 
 ## 🔧 Configuration  
 - **Report Format**: both
-- **Rule Categories**: ST, IO, DC
+- **Rule Categories**: ST, IO, DC, SC
 - **Performance Monitoring**: enabled
 
 ## 📎 Artifacts
@@ -401,32 +410,32 @@ steps:
 ### Unified Rules Management System
 
 ```
- ┌─────────────────────────────────────┐
- │         RulesManager                │
- │  (Central Unified Coordinator)      │
- ├─────────────────────────────────────┤
- │ • Rule Discovery & Registration     │
- │ • Cross-System Execution            │
- │ • Performance Monitoring            │
- │ • Unified Reporting & Analytics     │
- │ • Configuration Management          │
- └─────────────────────────────────────┘
-                    │
-     ┌──────────────┼──────────────┐
-     │              │              │
-┌────▼────┐    ┌────▼────┐    ┌────▼────┐
-│ST Rules │    │IO Rules │    │DC Rules │
-│Package  │    │Package  │    │Package  │
-├─────────┤    ├─────────┤    ├─────────┤
-│reference│    │reference│    │reference│
-│.py      │    │.py      │    │.py      │
-└─────────┘    └─────────┘    └─────────┘
+ ┌────────────────────────────────────────────────────┐
+ │                  RulesManager                      │
+ │           (Central Unified Coordinator)            │
+ ├────────────────────────────────────────────────────┤
+ │ • Rule Discovery & Registration                    │
+ │ • Cross-System Execution                           │
+ │ • Performance Monitoring                           │
+ │ • Unified Reporting & Analytics                    │
+ │ • Configuration Management                         │
+ └────────────────────────────────────────────────────┘
+                           │
+     ┌──────────────┬──────┴───────┬──────────────┐
+     │              │              │              │
+┌────▼────┐    ┌────▼────┐    ┌────▼────┐    ┌────▼────┐
+│ST Rules │    │IO Rules │    │DC Rules │    │SC Rules │
+│Package  │    │Package  │    │Package  │    │Package  │
+├─────────┤    ├─────────┤    ├─────────┤    ├─────────┤
+│reference│    │reference│    │reference│    │reference│
+│.py      │    │.py      │    │.py      │    │.py      │
+└─────────┘    └─────────┘    └─────────┘    └─────────┘
 ```
 
 ### Key Components
 
 1. **RulesManager**: Central coordinator for all rule systems with unified API
-2. **Rule Packages**: Independent packages (st_rules/, io_rules/, dc_rules/) with their own coordinators
+2. **Rule Packages**: Independent packages (st_rules/, io_rules/, dc_rules/, sc_rules/) with their own coordinators
 3. **Direct Integration**: No intermediate compatibility layers - direct package imports
 4. **Execution Engine**: Optimized rule execution with performance monitoring
 5. **Reporting System**: Comprehensive analytics and detailed reporting
@@ -480,6 +489,7 @@ Success Rate: 96.0%
 ST (Style/Format): 4 violations, 2 errors, 2 warnings
 IO (Input/Output): 3 violations, 1 errors, 2 warnings
 DC (Documentation): 3 violations, 0 errors, 3 warnings
+SC (Security Code): 0 violations, 0 errors, 0 warnings
 
 === PERFORMANCE METRICS ===
 Average Lines per File: 50
@@ -499,7 +509,8 @@ hcbp-scripts-lint/
 │   ├── rules_manager.py            # Central unified coordinator
 │   ├── st_rules/                   # Style/Format rules package
 │   ├── io_rules/                   # Input/Output rules package
-│   └── dc_rules/                   # Documentation rules package
+│   ├── dc_rules/                   # Documentation rules package
+│   └── sc_rules/                   # Security Code rules package
 ├── .github/
 │   └── scripts/
 │       └── terraform_lint.py       # Enhanced linting script
@@ -523,6 +534,7 @@ python3 -m pytest tests/
 
 # Run specific category tests
 python3 -m pytest tests/test_st_rules.py
+python3 -m pytest tests/test_sc_rules.py
 
 # Run with coverage
 python3 -m pytest --cov=rules tests/
@@ -562,4 +574,4 @@ We use [Semantic Versioning](http://semver.org/) for versioning. For the version
 ---
 
 **Enhanced by the Unified Rules Management System** - Providing consistent, efficient, and extensible Terraform linting
-                                                      for teams worldwide.
+for teams worldwide.
