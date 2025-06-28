@@ -124,7 +124,7 @@ Add the following step to your GitHub Actions workflow:
 | `exclude-paths` | Path patterns to exclude | `` | No |
 | `changed-files-only` | Check only changed files | `false` | No |
 | `base-ref` | Base reference for git diff | `origin/main` | No |
-| `performance-monitoring` | Enable performance analytics | `true` | No |
+| `performance-monitoring` | Enable performance analytics (true/false, case-insensitive) | `true` | No |
 | `report-format` | Output format (text, json, or both) | `text` | No |
 | `detailed-summary` | Show detailed error information in GitHub Actions summary | `true` | No |
 | `fail-on-error` | Fail workflow on errors | `true` | No |
@@ -142,7 +142,7 @@ Options:
   --exclude-paths TEXT          Paths to exclude (comma-separated)
   --changed-files-only          Check only changed files
   --base-ref TEXT               Base reference for git diff
-  --performance-monitoring      Enable performance monitoring
+  --performance-monitoring      Enable performance monitoring (true/false, case-insensitive)
   --report-format [text|json|both]   Output report format
   --help                        Show help message
 ```

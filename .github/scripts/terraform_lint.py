@@ -147,7 +147,8 @@ class TerraformLinter:
 
     def __init__(self, ignored_rules: Set[str] = None, include_paths: List[str] = None,
                  exclude_paths: List[str] = None, changed_files_only: bool = False,
-                 base_ref: str = None, rule_categories: List[str] = None):
+                 base_ref: str = None, rule_categories: List[str] = None,
+                 enable_performance_monitoring: bool = True):
         """
         Initialize the enhanced Terraform linter with unified rules management.
 
@@ -158,6 +159,7 @@ class TerraformLinter:
             changed_files_only: If True, only check files changed in current commit/PR
             base_ref: Base reference for git diff (e.g., 'origin/main', 'HEAD~1')
             rule_categories: List of rule categories to execute (ST, IO, DC, SC). If None, all categories are used.
+            enable_performance_monitoring: Whether to enable detailed performance monitoring
         """
         # Initialize unified rules manager
         self.rules_manager = RulesManager()
@@ -169,6 +171,7 @@ class TerraformLinter:
         self.changed_files_only = changed_files_only
         self.base_ref = base_ref or 'HEAD~1'
         self.rule_categories = rule_categories or ["ST", "IO", "DC", "SC"]
+        self.enable_performance_monitoring = enable_performance_monitoring
 
         # Error and warning tracking - using structured records
         self.errors: List[ErrorRecord] = []
@@ -652,21 +655,27 @@ class TerraformLinter:
         failed_rules = sum(result.failed_rules for result in self.execution_results)
         total_violations = sum(result.total_violations for result in self.execution_results)
 
-        # Create performance metrics with improved handling of small execution times
-        if execution_time > 0.0001:  # Only calculate rates if execution time is meaningful
+        # Create performance metrics based on monitoring setting
+        if self.enable_performance_monitoring and execution_time > 0.0001:
+            # Only calculate rates if execution time is meaningful and monitoring is enabled
             performance_metrics = {
                 "files_per_second": self.files_processed / execution_time,
                 "lines_per_second": self.total_lines_processed / execution_time,
                 "rules_per_second": total_rules_executed / execution_time,
                 "avg_lines_per_file": self.total_lines_processed // self.files_processed if self.files_processed > 0 else 0
             }
-        else:
-            # For very fast executions, set reasonable default values
+        elif self.enable_performance_monitoring:
+            # For very fast executions with monitoring enabled, set reasonable default values
             performance_metrics = {
                 "files_per_second": 0.0,
                 "lines_per_second": 0.0,
                 "rules_per_second": 0.0,
                 "avg_lines_per_file": self.total_lines_processed // self.files_processed if self.files_processed > 0 else 0
+            }
+        else:
+            # Performance monitoring disabled - provide minimal metrics
+            performance_metrics = {
+                "monitoring_disabled": True
             }
 
         # Get rules summary
@@ -923,14 +932,20 @@ class TerraformLinter:
                     ""
                 ])
 
-            # Add performance metrics
-            if self.files_processed > 0:
+            # Add performance metrics based on monitoring setting
+            if self.enable_performance_monitoring and self.files_processed > 0:
                 report_lines.extend([
                         "=== PERFORMANCE METRICS ===",
                         f"Average Lines per File: {performance_metrics['avg_lines_per_file']:,}",
                         f"Files per Second: {performance_metrics['files_per_second']:.1f}",
                         f"Lines per Second: {performance_metrics['lines_per_second']:.1f}",
                         f"Rules per Second: {performance_metrics['rules_per_second']:.1f}",
+                        ""
+                    ])
+            elif not self.enable_performance_monitoring:
+                report_lines.extend([
+                        "=== PERFORMANCE METRICS ===",
+                        "Performance monitoring disabled",
                         ""
                     ])
 
@@ -1269,13 +1284,27 @@ System Information:
     parser.add_argument('--report-format', choices=['text', 'json', 'both'], default='text',
                        help='Output report format (default: text)')
 
-    parser.add_argument('--performance-monitoring', action='store_true', default=True,
-                       help='Enable detailed performance monitoring (default: enabled)')
+    parser.add_argument('--performance-monitoring', type=str, default='true',
+                       help='Enable or disable detailed performance monitoring (true/false, case-insensitive, default: true)')
 
     parser.add_argument('--no-report-file', action='store_true',
                        help='Skip generating report files, only show console output')
 
     args = parser.parse_args()
+
+    # Determine performance monitoring setting (case-insensitive)
+    perf_monitoring_value = args.performance_monitoring.lower()
+    if perf_monitoring_value not in ['true', 'false']:
+        print(f"Error: Invalid value for --performance-monitoring: '{args.performance_monitoring}'. Must be 'true' or 'false' (case-insensitive).")
+        sys.exit(1)
+    
+    enable_performance_monitoring = perf_monitoring_value == 'true'
+
+    # Display performance monitoring status
+    if not enable_performance_monitoring:
+        print("Performance monitoring disabled")
+    else:
+        print("Performance monitoring enabled")
 
     # Handle deprecated positional argument
     if args.target_dir:
@@ -1315,7 +1344,8 @@ System Information:
         exclude_paths=exclude_paths,
         changed_files_only=args.changed_files_only,
         base_ref=args.base_ref,
-        rule_categories=rule_categories
+        rule_categories=rule_categories,
+        enable_performance_monitoring=enable_performance_monitoring
     )
 
     print(f"Starting enhanced Terraform lint check in: {target_directory}")
