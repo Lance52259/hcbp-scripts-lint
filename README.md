@@ -39,7 +39,7 @@ dedicated coordinator:
 Code formatting and style consistency rules, managed by the `STRules` coordinator:
 - **ST.001**: Resource and data source naming conventions
 - **ST.002**: Default value checking convention
-- **ST.003**: Parameter alignment and formatting
+- **ST.003**: Parameter alignment with equals signs aligned to maintain one space from longest parameter name
 - **ST.004**: Indentation character validation (spaces only)
 - **ST.005**: Proper indentation level enforcement
 - **ST.006**: Resource and data source spacing standards

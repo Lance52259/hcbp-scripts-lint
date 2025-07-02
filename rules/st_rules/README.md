@@ -30,7 +30,7 @@ st_rules/
 |---------|------|-------------|---------|
 | ST.001 | Resource and data source naming convention check | Validates naming conventions for resources and data sources | `rule_001.py` |
 | ST.002 | Variable default value check | Ensures variables used in data sources have default values | `rule_002.py` |
-| ST.003 | Parameter alignment check | Validates parameter alignment and formatting | `rule_003.py` |
+| ST.003 | Parameter alignment check | Validates proper parameter alignment and formatting with equals signs aligned to maintain one space from the longest parameter name. | `rule_003.py` |
 | ST.004 | Indentation character check | Ensures only spaces are used for indentation (no tabs) | `rule_004.py` |
 | ST.005 | Indentation level check | Validates consistent 2-space indentation levels | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
@@ -216,11 +216,14 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 ### ST.003 - Parameter Alignment Check
 
-**Purpose**: Validates proper parameter alignment and formatting.
+**Purpose**: Validates proper parameter alignment and formatting with equals signs aligned to maintain one space from
+the longest parameter name.
 
 **Validation Criteria**:
-- Parameters should be properly aligned within blocks
-- Consistent spacing and formatting across all parameters
+- Equals signs must be aligned within the same code block
+- Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
+- Exactly one space after the equals sign and parameter value
+- Parameters within the same code block (not separated by blank lines) should follow alignment rules
 
 ### ST.004 - Indentation Character Check
 

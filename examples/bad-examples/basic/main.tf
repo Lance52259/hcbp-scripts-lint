@@ -80,12 +80,12 @@ resource "huaweicloud_networking_secgroup" "test" {
 #  The security group rule resource definition and open the SSH port 22 access from anywhere (DC.001 Error: Incorrect comment format, Too many spaces
 #  after # character)
 resource "huaweicloud_networking_secgroup_rule" "test" {
-  security_group_id = huaweicloud_networking_secgroup.test.id
-  direction        = "ingress"
-  ethertype        = "IPv4"
-  protocol         = "tcp"
-  ports            = "22"
-  remote_ip_prefix = "0.0.0.0/0"
+  security_group_id  = huaweicloud_networking_secgroup.test.id    # ST.003 Error: # The equal sign is not aligned to the longest parameter name in the current code block
+  direction          = "ingress"
+  ethertype          = "IPv4"
+  protocol           = "tcp"
+  ports              = "22"
+  remote_ip_prefix   = "0.0.0.0/0"
 }
 
 resource "huaweicloud_compute_instance" "test" {
