@@ -157,36 +157,45 @@ instance_name = "my-instance"      # Required variable declared
 
 ### ST.003 - Parameter Alignment Format Convention
 
-**Rule Description:** Parameter assignments in code blocks must maintain proper alignment formatting.
+**Rule Description:** Parameter assignments in code blocks must maintain proper alignment formatting with equals signs
+aligned to maintain one space from the longest parameter name.
 
 **Purpose:**
 - Improve code readability and aesthetics
-- Maintain consistent code formatting
+- Maintain consistent code formatting with proper alignment
 - Facilitate code review and maintenance
 - Comply with Terraform community formatting standards
 
 **Format Requirements:**
-- At least one space before the equals sign
-- Exactly one space after the equals sign
-- Consistent parameter alignment within the same code block
+- Equals signs must be aligned within the same code block
+- Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
+- Exactly one space after the equals sign and parameter value
+- Parameters within the same code block (not separated by blank lines) should follow these alignment rules
 
 **Error Example:**
 
 ```hcl
-# ❌ Error: Improper formatting
+# ❌ Error: Improper alignment
+resource "huaweicloud_vpc" "test" {
+  name                   = "test-vpc"
+  cidr                   = "192.168.0.0/16" # The equal sign is not aligned to the longest parameter name in the current code block
+  enterprise_project_id  = "0"
+}
+
+# ❌ Error: Improper alignment and formatting
 resource "huaweicloud_compute_instance" "test" {
   name="test-instance"                    # No spaces around equals
-  flavor_id =c6.large.2  # No space after equals
-  image_id            =  "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"            # Multiple spaces after equals
-  vpc_id        =    huaweicloud_vpc.test.id         # Inconsistent spacing
-  availability_zone="cn-north-1a"              # No spaces around equals
+  flavor_id =c6.large.2                  # No space after equals, not aligned
+  image_id            =  "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"  # Multiple spaces after equals, not aligned
+  vpc_id        =    huaweicloud_vpc.test.id         # Inconsistent spacing, not aligned
+  availability_zone="cn-north-1a"        # No spaces around equals, not aligned
 }
 ```
 
 **Correct Example:**
 
 ```hcl
-# ✅ Correct: Proper formatting
+# ✅ Correct: Proper alignment and formatting
 resource "huaweicloud_compute_instance" "test" {
   name              = "test-instance"
   flavor_id         = "c6.large.2"
@@ -201,11 +210,18 @@ resource "huaweicloud_compute_instance" "test" {
 }
 ```
 
+**Alignment Rules:**
+- Find the longest parameter name in the code block (e.g., "availability_zone" = 17 characters)
+- All equals signs should align at position: base_indent + longest_parameter_name + 1 space
+- In the example above: 2 spaces (indent) + 17 characters (longest name) + 1 space = column 20
+- Shorter parameter names are padded with spaces to align their equals signs
+
 **Best Practices:**
 - Use `terraform fmt` command to automatically format code
 - Configure Terraform formatting plugins in IDE
 - Add format checking steps in CI/CD pipeline
 - Use consistent formatting tools and configurations within the team
+- Ensure proper alignment within each code block section
 
 ---
 

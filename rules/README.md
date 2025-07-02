@@ -83,7 +83,7 @@ Each rule package follows a consistent design pattern:
 |---------|------|-------------|--------|
 | ST.001 | Naming Convention | Resource and data source instance names must be 'test' | ✅ Modular |
 | ST.002 | Data Source Variable Defaults | Variables used in data sources must have default values | ✅ Modular |
-| ST.003 | Parameter Alignment | Proper spacing around equals signs | ✅ Modular |
+| ST.003 | Parameter Alignment | Equals signs aligned with one space from longest parameter name | ✅ Modular |
 | ST.004 | Indentation Character | Use spaces only, not tabs | ✅ Modular |
 | ST.005 | Indentation Level | Follow 2-space indentation rule | ✅ Modular |
 | ST.006 | Resource Spacing | One empty line between resource blocks | ✅ Modular |

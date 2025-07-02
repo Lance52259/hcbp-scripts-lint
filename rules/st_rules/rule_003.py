@@ -7,9 +7,9 @@ in resource and data blocks have proper spacing around equals signs and maintain
 consistent alignment within code blocks.
 
 Rule Specification:
-- At least one space before the equals sign
-- Exactly one space after the equals sign
-- Consistent parameter alignment within the same code block
+- Equals signs must be aligned within the same code block
+- Aligned equals signs should maintain one space from the longest parameter name in the code block
+- Exactly one space after the equals sign and parameter value
 
 Examples:
     Valid declarations:
@@ -34,7 +34,7 @@ Examples:
         }
 
         resource "huaweicloud_compute_instance" "test" {
-          # Parameter equal signs are not aligned
+          # Parameter equal signs are not aligned or not properly spaced
           name = "tf_test_instance"
           flavor_id = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.2xlarge.4")
           security_group_ids = [huaweicloud_networking_secgroup.test.id]
@@ -248,24 +248,43 @@ def _check_parameter_alignment_in_section(
     if len(parameter_lines) <= 1:
         return errors
 
-    equals_positions = []
-
+    # First, find the longest parameter name and calculate expected equals position
+    longest_param_name_length = 0
+    param_names = []
+    
     for line, relative_line_idx in parameter_lines:
+        equals_pos = line.find('=')
+        if equals_pos == -1:
+            continue
+            
+        before_equals = line[:equals_pos]
+        param_name_part = before_equals.strip()
+        
+        # Extract parameter name (remove indentation and quotes if any)
+        param_name_match = re.match(r'^\s*(["\']?)([^"\'=\s]+)\1\s*$', before_equals)
+        if param_name_match:
+            param_name = param_name_match.group(2)
+            param_names.append((param_name, line, relative_line_idx))
+            longest_param_name_length = max(longest_param_name_length, len(param_name))
+
+    if not param_names:
+        return errors
+
+    # Calculate expected equals position: base_indent + longest_param_name + 1 space
+    expected_equals_pos = base_indent + longest_param_name_length + 1
+
+    # Check each parameter line
+    for param_name, line, relative_line_idx in param_names:
         actual_line_num = block_start_line + relative_line_idx + 1
         equals_pos = line.find('=')
+        
         if equals_pos == -1:
             continue
 
         before_equals = line[:equals_pos]
         after_equals = line[equals_pos + 1:]
 
-        if not before_equals.endswith(' '):
-            errors.append((
-                actual_line_num,
-                f"Parameter assignment should have at least one space before '=' in {block_type}"
-            ))
-            continue
-
+        # Check if there's exactly one space after equals sign
         if not after_equals.startswith(' '):
             errors.append((
                 actual_line_num,
@@ -275,22 +294,35 @@ def _check_parameter_alignment_in_section(
         elif after_equals.startswith('  '):
             errors.append((
                 actual_line_num,
-                f"Parameter assignment should have exactly one space after '=' in {block_type}, "
-                f"found multiple spaces"
+                f"Parameter assignment should have exactly one space after '=' in {block_type}, found multiple spaces"
             ))
             continue
 
-        equals_positions.append(equals_pos)
-
-    if len(set(equals_positions)) > 1:
-        for line, relative_line_idx in parameter_lines:
-            actual_line_num = block_start_line + relative_line_idx + 1
-            equals_pos = line.find('=')
-            if equals_pos != -1 and equals_pos != max(equals_positions):
+        # Check if equals sign is at the expected position
+        if equals_pos != expected_equals_pos:
+            # Calculate how many spaces should be between parameter name and equals sign
+            required_spaces_before_equals = expected_equals_pos - base_indent - len(param_name)
+            
+            if equals_pos < expected_equals_pos:
                 errors.append((
                     actual_line_num,
-                    f"Parameter assignment not aligned with other parameters in {block_type}"
+                    f"Parameter assignment equals sign not aligned in {block_type}. "
+                    f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                    f"equals sign should be at column {expected_equals_pos + 1}"
                 ))
+            elif equals_pos > expected_equals_pos:
+                errors.append((
+                    actual_line_num,
+                    f"Parameter assignment equals sign not aligned in {block_type}. "
+                    f"Too many spaces before '=', equals sign should be at column {expected_equals_pos + 1}"
+                ))
+
+        # Check if there's at least one space before equals sign
+        if not before_equals.endswith(' '):
+            errors.append((
+                actual_line_num,
+                f"Parameter assignment should have at least one space before '=' in {block_type}"
+            ))
 
     return errors
 
@@ -322,16 +354,18 @@ def get_rule_description() -> dict:
         "name": "Parameter alignment check",
         "description": (
             "Validates that parameter assignments in resource and data blocks "
-            "have proper spacing around equals signs and maintain consistent "
-            "alignment within code blocks. This ensures code readability and "
+            "have equals signs aligned, with aligned equals signs maintaining one space "
+            "from the longest parameter name in the code block and one space "
+            "between the equals sign and parameter value. This ensures code readability and "
             "follows Terraform formatting standards."
         ),
         "category": "Style/Format",
         "severity": "error",
         "rationale": (
-            "Proper parameter alignment improves code readability and maintains "
-            "consistent formatting standards. It makes it easier to scan through "
-            "configuration parameters and understand the structure at a glance."
+            "Proper parameter alignment with consistent spacing improves code readability and maintains "
+            "consistent formatting standards. Aligning equals signs with proper spacing from the longest "
+            "parameter name makes it easier to scan through configuration parameters and understand "
+            "the structure at a glance."
         ),
         "examples": {
             "valid": [
@@ -359,7 +393,7 @@ data "huaweicloud_compute_flavors" "test" {
 }
 
 resource "huaweicloud_compute_instance" "test" {
-  # Parameter equal signs are not aligned
+  # Parameter equal signs are not aligned or properly spaced
   name = "tf_test_instance"
   flavor_id = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.2xlarge.4")
   security_group_ids = [huaweicloud_networking_secgroup.test.id]
