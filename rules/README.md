@@ -38,7 +38,7 @@ rules/
 │   ├── reference.py            # Main IORules coordinator class
 │   ├── rule_001.py             # IO.001 - Variable File Location
 |   ├── ...
-│   ├── rule_008.py             # IO.008 - Variable Type Check
+│   ├── rule_009.py             # IO.009 - Unused Variable Check
 │   └── [future rule modules]   # Additional IO rules as separate modules
 └── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
@@ -111,6 +111,7 @@ Each rule package follows a consistent design pattern:
 | IO.006 | Variable Description Check | All variables must have non-empty descriptions | ✅ Modular |
 | IO.007 | Output Description Check | All outputs must have non-empty descriptions | ✅ Modular |
 | IO.008 | Variable Type Check | All variables must have type field defined | ✅ Modular |
+| IO.009 | Unused Variable Check | Detects variables defined in variables.tf but not used | ✅ Modular |
 
 ### SC (Security Code) Rules
 

@@ -27,6 +27,7 @@ from .rule_005 import check_io005_output_naming, get_rule_description as get_io0
 from .rule_006 import check_io006_variable_description, get_rule_description as get_io006_description
 from .rule_007 import check_io007_output_description, get_rule_description as get_io007_description
 from .rule_008 import check_io008_variable_type, get_rule_description as get_io008_description
+from .rule_009 import check_io009_unused_variables, get_rule_description as get_io009_description
 
 
 class IORules:
@@ -97,6 +98,12 @@ class IORules:
                 "check_function": check_io008_variable_type,
                 "description_function": get_io008_description,
                 "name": "Variable type check",
+                "status": "modular"
+            },
+            "IO.009": {
+                "check_function": check_io009_unused_variables,
+                "description_function": get_io009_description,
+                "name": "Unused variable check",
                 "status": "modular"
             }
         }
