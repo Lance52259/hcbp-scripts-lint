@@ -228,34 +228,61 @@ def _extract_data_source_variables_with_lines(content: str, original_lines: List
     """
     variables_in_data_sources = {}
     
-    # Pattern to match data source blocks - support quoted, single-quoted, and unquoted syntax
-    # Quoted: data "type" "name" { ... }
-    # Single-quoted: data 'type' 'name' { ... }
-    # Unquoted: data type name { ... }
-    data_pattern = r'data\s+(?:"[^"]+"|\'[^\']+\'|[a-zA-Z_][a-zA-Z0-9_]*)\s+(?:"[^"]+"|\'[^\']+\'|[a-zA-Z_][a-zA-Z0-9_]*)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
+    # Improved pattern to match data source blocks with better boundary detection
+    # Ensures 'data' is at word boundary (start of line or after whitespace)
+    # Supports quoted, single-quoted, and unquoted syntax
+    # Uses a more robust approach to handle nested braces
     
-    # Find all data source matches with their positions
-    for match in re.finditer(data_pattern, content, re.DOTALL):
-        data_body = match.group(1)
+    # Split content into lines for more precise parsing
+    lines = content.split('\n')
+    i = 0
+    
+    while i < len(lines):
+        line = lines[i].strip()
         
-        # Find the line number where this data source starts
-        preceding_text = content[:match.start()]
-        start_line = preceding_text.count('\n') + 1
+        # Check if this line starts a data source block
+        # Pattern: data "type" "name" { or data 'type' 'name' { or data type name {
+        data_start_pattern = r'^data\s+(?:"[^"]+"|\'[^\']+\'|[a-zA-Z_][a-zA-Z0-9_]*)\s+(?:"[^"]+"|\'[^\']+\'|[a-zA-Z_][a-zA-Z0-9_]*)\s*\{'
         
-        # Pattern to match variable references
-        var_ref_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
-        
-        # Find all variable references in this data source block
-        for var_match in re.finditer(var_ref_pattern, data_body):
-            var_name = var_match.group(1)
+        if re.match(data_start_pattern, line):
+            # Found start of data source block
+            block_start_line = i + 1  # Convert to 1-based line numbering
             
-            # Calculate the line number of this variable reference
-            var_preceding_text = content[:match.start() + var_match.start()]
-            var_line = var_preceding_text.count('\n') + 1
+            # Find the end of this data source block by counting braces
+            brace_count = line.count('{') - line.count('}')
+            j = i + 1
+            block_lines = [line]
             
-            if var_name not in variables_in_data_sources:
-                variables_in_data_sources[var_name] = set()
-            variables_in_data_sources[var_name].add(var_line)
+            # Continue until we close all braces
+            while j < len(lines) and brace_count > 0:
+                current_line = lines[j]
+                block_lines.append(current_line)
+                brace_count += current_line.count('{') - current_line.count('}')
+                j += 1
+            
+            # Join all block lines to get the complete data source block content
+            block_content = '\n'.join(block_lines)
+            
+            # Pattern to match variable references
+            var_ref_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
+            
+            # Find all variable references in this data source block
+            for var_match in re.finditer(var_ref_pattern, block_content):
+                var_name = var_match.group(1)
+                
+                # Calculate the line number of this variable reference within the block
+                var_preceding_text = block_content[:var_match.start()]
+                var_line_offset = var_preceding_text.count('\n')
+                var_line = block_start_line + var_line_offset
+                
+                if var_name not in variables_in_data_sources:
+                    variables_in_data_sources[var_name] = set()
+                variables_in_data_sources[var_name].add(var_line)
+            
+            # Move to the line after this block
+            i = j
+        else:
+            i += 1
     
     return variables_in_data_sources
 
