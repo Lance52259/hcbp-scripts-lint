@@ -18,7 +18,8 @@ io_rules/
 ├── rule_005.py   # IO.005 - Output naming convention check
 ├── rule_006.py   # IO.006 - Variable description field check
 ├── rule_007.py   # IO.007 - Output description field check
-└── rule_008.py   # IO.008 - Variable type definition check
+├── rule_008.py   # IO.008 - Variable type definition check
+└── rule_009.py   # IO.009 - Unused variable detection check
 ```
 
 ## 🎯 Available Rules
@@ -33,6 +34,7 @@ io_rules/
 | IO.006 | Variable description field check | All variables must have non-empty descriptions | `rule_006.py` |
 | IO.007 | Output description field check | All outputs must have non-empty descriptions | `rule_007.py` |
 | IO.008 | Variable type definition check | All variables must have type field defined | `rule_008.py` |
+| IO.009 | Unused variable detection check | Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory. | `rule_009.py` |
 
 ## 🚀 Usage
 
@@ -264,6 +266,26 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 - All variable blocks must include a type field
 - Type field must specify the expected variable type
 - Prevents type-related runtime errors and improves validation
+
+### IO.009 - Unused Variable Detection Check
+
+**Purpose**: Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory.
+
+**Validation Criteria**:
+- Identifies variables declared in variables.tf but never used in the codebase
+- Excludes common provider-related variables that may be used internally
+- Helps maintain clean and efficient variable definitions
+- Reduces configuration complexity and improves maintainability
+
+**Smart Exclusions**:
+The rule automatically excludes provider-related variables:
+- Authentication variables: `region`, `access_key`, `secret_key`, `token`
+- Provider configuration: `endpoint`, `domain_id`, `project_id`, `tenant_id`
+- SSL/TLS settings: `insecure`, `cacert_file`, `cert`, `key`
+
+**Examples**:
+- ✅ **Valid**: All declared variables are used in the configuration
+- ❌ **Invalid**: Variables declared but not referenced in any `.tf` files
 
 ## 🔄 Backward Compatibility
 

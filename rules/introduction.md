@@ -1390,6 +1390,112 @@ variable "subnet_count" {
 
 ---
 
+### IO.009 - Unused Variable Detection
+
+**Rule Description:** Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory.
+
+**Purpose:**
+- Identifies dead code and unused variable definitions
+- Helps maintain clean and efficient variable management
+- Reduces configuration file complexity
+- Improves code maintainability and readability
+
+**Good Example:**
+```hcl
+# variables.tf
+variable "vpc_name" {
+  description = "The name of the VPC"
+  type        = string
+  default     = "test-vpc"
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.micro"
+}
+
+# main.tf
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  
+  tags = {
+    Name = var.vpc_name  # ✅ Variable is used
+  }
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-12345678"
+  instance_type = var.instance_type  # ✅ Variable is used
+  
+  tags = {
+    Name = "WebServer"
+  }
+}
+```
+
+**Bad Example:**
+```hcl
+# variables.tf
+variable "vpc_name" {
+  description = "The name of the VPC"
+  type        = string
+  default     = "test-vpc"
+}
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "unused_variable" {
+  description = "This variable is never used"
+  type        = string
+  default     = "unused-value"
+}
+
+# main.tf
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  
+  tags = {
+    Name = var.vpc_name  # ✅ Variable is used
+  }
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-12345678"
+  instance_type = var.instance_type  # ✅ Variable is used
+  
+  tags = {
+    Name = "WebServer"
+  }
+}
+
+# ❌ Error: Variable 'unused_variable' is defined but never used
+```
+
+**Smart Exclusions:**
+The rule automatically excludes common provider-related variables that may be used by the provider but not explicitly referenced in configuration files:
+- Provider configuration variables (e.g., `region`, `access_key`, `secret_key`)
+- Authentication-related variables (e.g., `token`, `key_file`, `tenant_id`)
+- Environment-specific variables (e.g., `endpoint`, `domain_id`, `project_id`)
+
+**Best Practices:**
+- Regularly review and remove unused variable definitions
+- Keep variable definitions focused on actual usage requirements
+- Use descriptive variable names to indicate their purpose
+- Consider moving rarely-used variables to separate configuration files
+- Document variables that may appear unused but serve specific purposes
+
+**Error Output Format:**
+```
+ERROR: variables.tf (15): [IO.009] Variable 'unused_variable' is defined but not used in any Terraform files
+```
+
+---
+
 ## SC (Security Code) Rule Details
 
 ### SC.001 - Array Index Access Safety Check

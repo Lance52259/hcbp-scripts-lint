@@ -59,6 +59,7 @@ Variable and output definition validation rules, managed by the `IORules` coordi
 - **IO.006**: Variable description validation (non-empty descriptions required)
 - **IO.007**: Output description validation (non-empty descriptions required)
 - **IO.008**: Variable type validation (type field required)
+- **IO.009**: Unused variable detection (variables defined but not used)
 
 ### DC (Documentation/Comments) Rules
 Documentation and comment standard rules, managed by the `DCRules` coordinator:
