@@ -12,6 +12,7 @@ Rule Specifications:
 - Empty comments (only '#') are allowed and considered valid
 - Multiple spaces or tabs after '#' are considered violations
 - Comments within string literals are not validated (Terraform-specific)
+- Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation
 
 Valid Examples:
     # This is a properly formatted comment
@@ -23,6 +24,12 @@ Invalid Examples:
     #This comment has no space after #
     #  This comment has multiple spaces after #
     #	This comment has a tab after #
+
+HCL Heredoc Example (comments inside are excluded):
+    locals = <<EOT
+    #! /bin/bash
+    echo "hello world!"
+    EOT
 
 Author: Lance
 License: Apache 2.0
@@ -48,6 +55,7 @@ def check_dc001_comment_format(file_path: str, content: str,
     3. Spacing validation after '#' character
     4. Error reporting with specific line numbers and messages
     5. Handling of edge cases (empty comments, string literals)
+    6. Exclusion of comments within HCL heredoc blocks
 
     Args:
         file_path (str): The path to the file being checked. Used for error reporting
@@ -77,9 +85,8 @@ def check_dc001_comment_format(file_path: str, content: str,
 
     Note:
         This function focuses on comment formatting within Terraform files and
-        may not handle all edge cases such as comments within complex string
-        literals or heredoc blocks. However, it provides reliable validation
-        for typical Terraform file structures and coding patterns.
+        excludes comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) to avoid
+        false positives when validating embedded scripts or configuration files.
     """
     # Split content into individual lines for line-by-line analysis
     lines = content.split('\n')
@@ -96,6 +103,9 @@ def _analyze_comment_formatting(lines: List[str]) -> List[Tuple[int, str, str]]:
     """
     Analyze comment formatting across all lines and identify violations.
     
+    This function processes each line and validates comment formatting while
+    excluding comments that appear within HCL heredoc blocks (<<EOT, <<EOF, etc.).
+    
     Args:
         lines (List[str]): List of file lines to analyze
         
@@ -103,9 +113,20 @@ def _analyze_comment_formatting(lines: List[str]) -> List[Tuple[int, str, str]]:
         List[Tuple[int, str, str]]: List of violations with line number, type, and message
     """
     violations = []
+    in_heredoc = False
+    heredoc_terminator = None
     
     # Process each line with its corresponding line number (1-indexed)
     for line_num, line in enumerate(lines, 1):
+        # Check if we're entering or exiting a heredoc block
+        heredoc_state = _check_heredoc_state(line, in_heredoc, heredoc_terminator)
+        in_heredoc = heredoc_state["in_heredoc"]
+        heredoc_terminator = heredoc_state["terminator"]
+
+        # Skip validation if we're inside a heredoc block
+        if in_heredoc:
+            continue
+
         # Skip empty lines or lines without comments
         if not line.strip() or '#' not in line:
             continue
@@ -121,6 +142,48 @@ def _analyze_comment_formatting(lines: List[str]) -> List[Tuple[int, str, str]]:
                 violations.append((line_num, violation["type"], violation["message"]))
     
     return violations
+
+
+def _check_heredoc_state(line: str, current_in_heredoc: bool, current_terminator: Optional[str]) -> Dict[str, Any]:
+    """
+    Check if the current line changes the heredoc state.
+
+    This function detects the start and end of HCL heredoc blocks by looking for
+    patterns like `<<EOT`, `<<EOF`, etc. in lines, and their corresponding terminators.
+
+    Args:
+        line (str): The current line to analyze
+        current_in_heredoc (bool): Whether we're currently inside a heredoc block
+        current_terminator (Optional[str]): The current heredoc terminator if inside a block
+
+    Returns:
+        Dict[str, Any]: Dictionary with 'in_heredoc' and 'terminator' keys
+    """
+    line_stripped = line.strip()
+    
+    # Check for heredoc start pattern (<<EOT, <<EOF, etc.)
+    # This can appear at the end of a line like: locals = <<EOT
+    if not current_in_heredoc:
+        heredoc_match = re.search(r'<<([A-Z]+)\s*$', line)
+        if heredoc_match:
+            return {
+                "in_heredoc": True,
+                "terminator": heredoc_match.group(1)
+            }
+
+    # Check for heredoc end pattern
+    # The terminator must be at the beginning of the line (after stripping)
+    elif current_terminator and line_stripped == current_terminator:
+        return {
+            "in_heredoc": False,
+            "terminator": None
+        }
+
+    # Return current state if no change
+    return {
+        "in_heredoc": current_in_heredoc,
+        "terminator": current_terminator
+    }
 
 
 def _validate_comment_spacing(comment_text: str) -> Optional[Dict[str, str]]:
@@ -262,7 +325,8 @@ def get_rule_description() -> Dict[str, Any]:
             "Exactly one space must follow the '#' character",
             "Empty comments (only '#') are allowed",
             "Multiple spaces or tabs after '#' are violations",
-            "Comments within string literals are not validated"
+            "Comments within string literals are not validated",
+            "Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation"
         ],
         "examples": {
             "valid": [

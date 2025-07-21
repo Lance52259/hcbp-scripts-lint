@@ -97,7 +97,7 @@ Each rule package follows a consistent design pattern:
 
 | Rule ID | Name | Description | Status |
 |---------|------|-------------|--------|
-| DC.001 | Comment Format | Comments must have exactly one space after '#' | ✅ Modular |
+| DC.001 | Comment Format | Comments must have exactly one space after '#'. Comments in HCL heredoc blocks are excluded | ✅ Modular |
 
 ### IO (Input/Output) Rules
 
