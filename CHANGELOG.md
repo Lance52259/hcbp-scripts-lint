@@ -5,6 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2025-07-21
+
+### 🔧 DC.001 Rule Enhancement - HCL Heredoc Block Comment Exclusion
+
+#### 🛠️ DC.001 Rule Smart Comment Validation
+- **Enhanced Comment Detection Logic**: Improved DC.001 rule to intelligently exclude comments within HCL heredoc blocks
+  - **Issue Resolved**: Previous implementation incorrectly flagged comments within heredoc blocks (<<EOT, <<EOF, etc.) as formatting violations
+  - **New Algorithm**: Introduced heredoc state tracking to identify and exclude comments within multi-line text blocks
+  - **Precision Targeting**: Comments in embedded scripts and configuration files are now properly excluded from validation
+  - **Block Awareness**: Enhanced logic to handle various heredoc terminators (EOT, EOF, etc.) and mixed content
+
+#### 🏷️ Advanced Heredoc Detection Implementation
+
+- **Intelligent Heredoc State Tracking**:
+  - **Start Pattern Detection**: Automatically identifies heredoc start patterns like `<<EOT`, `<<EOF` in assignment statements
+  - **Terminator Recognition**: Supports any uppercase heredoc terminator (EOT, EOF, EOL, etc.)
+  - **State Management**: Maintains heredoc state across multiple lines until terminator is found
+  - **Mixed Content Support**: Handles heredoc blocks containing scripts, configuration files, and other content
+
+- **Enhanced Validation Criteria**:
+  - **Before**: All comments with '#' were validated regardless of context
+  - **After**: Comments within heredoc blocks are automatically excluded from validation
+  - **Context Awareness**: Distinguishes between regular Terraform comments and embedded content
+  - **False Positive Prevention**: Eliminates incorrect error reports for valid embedded scripts
+
+#### 📊 Technical Implementation Improvements
+
+- **Core Logic Enhancement**:
+  ```python
+  # NEW: Heredoc state tracking and comment exclusion
+  def _check_heredoc_state(line: str, current_in_heredoc: bool, current_terminator: Optional[str]) -> Dict[str, Any]:
+      line_stripped = line.strip()
+      
+      # Check for heredoc start pattern (<<EOT, <<EOF, etc.)
+      if not current_in_heredoc:
+          heredoc_match = re.search(r'<<([A-Z]+)\s*$', line)
+          if heredoc_match:
+              return {"in_heredoc": True, "terminator": heredoc_match.group(1)}
+      
+      # Check for heredoc end pattern
+      elif current_terminator and line_stripped == current_terminator:
+          return {"in_heredoc": False, "terminator": None}
+      
+      return {"in_heredoc": current_in_heredoc, "terminator": current_terminator}
+  ```
+
+- **Enhanced Comment Analysis**:
+  - **State-Aware Processing**: Tracks heredoc state during line-by-line analysis
+  - **Selective Validation**: Only validates comments outside of heredoc blocks
+  - **Accurate Reporting**: Maintains precise line number reporting for actual violations
+  - **Performance Optimization**: Minimal overhead for heredoc detection
+
+#### 🔄 Improved Error Reporting System
+
+- **Accurate Error Detection**:
+  - **Before**: False positives for comments in heredoc blocks like `#! /bin/bash`
+  - **After**: Only reports actual comment formatting violations in regular Terraform code
+  - **Context Preservation**: Maintains all existing validation capabilities for regular comments
+  - **Precise Targeting**: Eliminates noise from embedded content validation
+
+#### 📚 Comprehensive Documentation Updates
+
+- **Updated Documentation Files**:
+  1. **`rules/introduction.md`** - Enhanced DC.001 rule description with heredoc exclusion examples
+  2. **`rules/dc_rules/rule_001.py`** - Updated module documentation and specifications
+  3. **`CHANGELOG.md`** - Added detailed enhancement record
+
+- **Enhanced Rule Description**:
+  - **Before**: "Comments must start with '#' character and maintain one space"
+  - **After**: "Comments must start with '#' character and maintain one space. Comments within HCL heredoc blocks are excluded"
+
+#### 🧪 Comprehensive Validation & Testing
+
+- **Extensive Test Coverage**:
+  - **Heredoc Exclusion Validation**: Confirmed proper exclusion of comments within heredoc blocks
+  - **Regular Comment Detection**: Verified continued accurate detection of actual formatting violations
+  - **Mixed Content Testing**: Validated rule performance with complex heredoc content
+  - **Terminator Variety**: Tested with different heredoc terminators (EOT, EOF, etc.)
+
+- **Test Results Summary**:
+  ```bash
+  # Heredoc Exclusion Testing
+  ✅ PASS: Comments in <<EOT blocks properly excluded
+  ✅ PASS: Comments in <<EOF blocks properly excluded  
+  ✅ PASS: Regular comment violations still detected
+  ✅ PASS: No false positives for embedded script comments
+  ```
+
+#### 🎯 Use Cases Addressed
+
+- **Embedded Scripts**: User data scripts with shebang comments (`#! /bin/bash`)
+- **Configuration Files**: Embedded configuration with comment headers
+- **Documentation Blocks**: Heredoc content with explanatory comments
+- **Mixed Content**: Complex heredoc blocks containing various comment types
+
+---
+
 ## [2.3.0] - 2025-07-03
 
 ### 🚀 ST.003 Rule Major Enhancement - Advanced Parameter Alignment Validation
