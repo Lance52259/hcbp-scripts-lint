@@ -178,12 +178,13 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 ### DC.001 - Comment Format Check
 
-**Purpose**: Ensures consistent comment formatting across Terraform files.
+**Purpose**: Ensures consistent comment formatting across Terraform files. Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation.
 
 **Validation Criteria**:
 - Comments must start with `#` character
 - Exactly one space must follow the `#` character
 - Empty comments (only `#`) are allowed
+- Comments within HCL heredoc blocks are excluded from validation
 
 **Examples**:
 
@@ -199,6 +200,24 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 #This comment has no space after #
 #  This comment has multiple spaces after #
 #	This comment has a tab after #
+```
+
+**HCL Heredoc Example (comments inside are excluded from validation)**:
+```hcl
+# ✅ Comments in heredoc blocks are excluded from DC.001 validation
+locals = <<EOT
+#! /bin/bash
+echo "hello world!"
+# This comment in heredoc block is not validated
+EOT
+
+resource "aws_instance" "test" {
+  user_data = <<EOF
+#!/bin/bash
+# This comment is also excluded from validation
+echo "Starting application..."
+EOF
+}
 ```
 
 ## 🔄 Backward Compatibility

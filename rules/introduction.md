@@ -815,13 +815,14 @@ variable "region" {
 ### DC.001 - Comment Format Convention
 
 **Rule Description:** All comments must start with `#` character and maintain one English space between the `#` and the
-                      comment text.
+                      comment text. Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation.
 
 **Purpose:**
 - Ensure comment format consistency and readability
 - Comply with Terraform community comment standards
 - Improve code professionalism and maintainability
 - Facilitate automated tool processing of comment content
+- Avoid false positives when validating embedded scripts or configuration files in heredoc blocks
 
 **Error Example:**
 
@@ -862,12 +863,32 @@ variable "example" {
 }
 ```
 
+**HCL Heredoc Example (comments inside are excluded from validation):**
+
+```hcl
+# ✅ Correct: Comments in heredoc blocks are excluded from DC.001 validation
+locals = <<EOT
+#! /bin/bash
+echo "hello world!"
+# This comment in heredoc block is not validated
+EOT
+
+resource "aws_instance" "test" {
+  user_data = <<EOF
+#!/bin/bash
+# This comment is also excluded from validation
+echo "Starting application..."
+EOF
+}
+```
+
 **Best Practices:**
 - Add explanatory comments for complex resource configurations
 - Use comments in variable and output definitions to explain purposes
 - Use comments to document important configuration decisions and limitations
 - Keep comment content accurate and up-to-date
 - Avoid over-commenting obvious code
+- Comments within heredoc blocks (<<EOT, <<EOF, etc.) are automatically excluded from validation
 
 ---
 
