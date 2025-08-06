@@ -53,3 +53,9 @@ variable "instance_name" {
   description = "The name of the ECS instance"
   type        = string
 }
+
+variable "instance_user_data" {
+  description = "The user data for the ECS instance"
+  type        = string
+  default     = ""
+}
