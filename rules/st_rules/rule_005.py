@@ -117,7 +117,22 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         # Skip lines with no indentation (top-level declarations)
         if indent_level == 0:
             # Check if this line should have indentation based on context
-            if indentation_stack and line.strip() and not line.strip().startswith('#'):
+            # Only check if we're inside a resource/data source block and this line looks like a parameter
+            if (indentation_stack and 
+                line.strip() and 
+                not line.strip().startswith('#') and
+                '=' in line.strip() and
+                not line.strip().startswith('resource') and
+                not line.strip().startswith('data') and
+                not line.strip().startswith('variable') and
+                not line.strip().startswith('output') and
+                not line.strip().startswith('locals') and
+                not line.strip().startswith('terraform') and
+                not line.strip().startswith('provider') and
+                not line.strip().startswith('}') and
+                not line.strip().startswith('{') and
+                len(indentation_stack) > 0 and
+                indentation_stack[-1] > 0):  # Only check if we're inside a block
                 # This line should be indented but isn't
                 log_error_func(
                     file_path,
@@ -126,7 +141,21 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
                     f"Expected: {indentation_stack[-1] * 2} spaces",
                     line_num
                 )
-            indentation_stack = []
+            
+            # Update indentation stack for lines with no indentation
+            # If this line ends with '{', it starts a new block, so add depth 1
+            if line.strip().endswith('{'):
+                indentation_stack = [1]
+            # Reset stack for block starts/ends
+            elif (line.strip().startswith('resource') or 
+                line.strip().startswith('data') or 
+                line.strip().startswith('variable') or 
+                line.strip().startswith('output') or 
+                line.strip().startswith('locals') or 
+                line.strip().startswith('terraform') or 
+                line.strip().startswith('provider') or
+                line.strip() == '}'):
+                indentation_stack = []
             continue
             
         # Check if indentation is a multiple of 2

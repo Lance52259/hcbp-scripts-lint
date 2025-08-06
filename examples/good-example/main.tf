@@ -45,6 +45,7 @@ resource "huaweicloud_compute_instance" "test" {
   availability_zone  = try(data.huaweicloud_availability_zones.test.names[0], null)                # null is correct and safe
   flavor_id          = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.2xlarge.4")    # fixed value is correct and safe
   image_id           = try(data.huaweicloud_images_images.test.images[0].id, "")                   # empty string is correct and safe
+  user_data          = base64encode(var.instance_user_data)
   security_group_ids = [
     huaweicloud_networking_secgroup.test.id
   ]
