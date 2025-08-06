@@ -13,6 +13,7 @@ Rule Specification:
   - Level 2 (nested blocks): 2 * 2 = 4 spaces  
   - Level 3 (deeply nested): 3 * 2 = 6 spaces
 - Indentation must be consistent and properly nested
+- For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation
 
 Examples:
     Valid indentation levels:
@@ -37,6 +38,15 @@ Examples:
             }
         }
 
+    Valid terraform.tfvars with heredoc (excluded from validation):
+        object_upload_content = <<EOT
+def main():
+    print("Hello, World!")
+
+if __name__ == "__main__":
+    main()
+EOT
+
 Author: Lance
 License: Apache 2.0
 """
@@ -59,6 +69,7 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
     3. Check if indentation is in multiples of 2 spaces
     4. Validate proper nesting levels
     5. Report violations through the error logging function
+    6. For terraform.tfvars files, exclude heredoc blocks from validation
 
     Args:
         file_path (str): The path to the file being checked. Used for error reporting
@@ -82,14 +93,39 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
     lines = content.split('\n')
     indentation_stack = []
     
+    # Check if this is a terraform.tfvars file
+    is_tfvars_file = file_path.endswith('.tfvars')
+    in_heredoc = False
+    heredoc_terminator = None
+    
     for line_num, line in enumerate(lines, 1):
         if line.strip() == '':
             continue
+        
+        # For terraform.tfvars files, check heredoc state
+        if is_tfvars_file:
+            heredoc_state = _check_heredoc_state(line, in_heredoc, heredoc_terminator)
+            in_heredoc = heredoc_state["in_heredoc"]
+            heredoc_terminator = heredoc_state["terminator"]
+            
+            # Skip validation if we're inside a heredoc block
+            if in_heredoc:
+                continue
             
         indent_level = _get_indentation_level(line)
         
         # Skip lines with no indentation (top-level declarations)
         if indent_level == 0:
+            # Check if this line should have indentation based on context
+            if indentation_stack and line.strip() and not line.strip().startswith('#'):
+                # This line should be indented but isn't
+                log_error_func(
+                    file_path,
+                    "ST.005",
+                    f"Line should be indented but has no indentation. "
+                    f"Expected: {indentation_stack[-1] * 2} spaces",
+                    line_num
+                )
             indentation_stack = []
             continue
             
@@ -116,6 +152,48 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         
         # Update indentation stack
         _update_indentation_stack(indentation_stack, current_depth, line.strip())
+
+
+def _check_heredoc_state(line: str, current_in_heredoc: bool, current_terminator: Optional[str]) -> dict:
+    """
+    Check if the current line changes the heredoc state.
+
+    This function detects the start and end of HCL heredoc blocks by looking for
+    patterns like `<<EOT`, `<<EOF`, etc. in lines, and their corresponding terminators.
+
+    Args:
+        line (str): The current line to analyze
+        current_in_heredoc (bool): Whether we're currently inside a heredoc block
+        current_terminator (Optional[str]): The current heredoc terminator if inside a block
+
+    Returns:
+        dict: Dictionary with 'in_heredoc' and 'terminator' keys
+    """
+    line_stripped = line.strip()
+    
+    # Check for heredoc start pattern (<<EOT, <<EOF, etc.)
+    # This can appear at the end of a line like: locals = <<EOT
+    if not current_in_heredoc:
+        heredoc_match = re.search(r'<<([A-Z]+)\s*$', line)
+        if heredoc_match:
+            return {
+                "in_heredoc": True,
+                "terminator": heredoc_match.group(1)
+            }
+
+    # Check for heredoc end pattern
+    # The terminator must be at the beginning of the line (after stripping)
+    elif current_terminator and line_stripped == current_terminator:
+        return {
+            "in_heredoc": False,
+            "terminator": None
+        }
+
+    # Return current state if no change
+    return {
+        "in_heredoc": current_in_heredoc,
+        "terminator": current_terminator
+    }
 
 
 def _get_indentation_level(line: str) -> int:
@@ -280,7 +358,8 @@ def get_rule_description() -> dict:
             "correct nesting pattern where each level uses exactly current_level * 2 spaces. "
             "For example, resource root parameters should use 1*2=2 spaces, nested blocks "
             "should use 2*2=4 spaces, and so on. This ensures consistent code structure "
-            "and proper visual hierarchy."
+            "and proper visual hierarchy. For terraform.tfvars files, heredoc blocks "
+            "(<<EOT, <<EOF, etc.) are excluded from validation to allow flexible content formatting."
         ),
         "category": "Style/Format",
         "severity": "error",
@@ -288,7 +367,9 @@ def get_rule_description() -> dict:
             "Consistent indentation levels using the current_level * 2 formula "
             "provide clear visual hierarchy and make code structure immediately "
             "apparent. This standard helps developers quickly understand nesting "
-            "relationships and ensures consistent formatting across the codebase."
+            "relationships and ensures consistent formatting across the codebase. "
+            "Heredoc blocks in .tfvars files are excluded to allow for flexible "
+            "content formatting without affecting the overall file structure."
         ),
         "examples": {
             "valid": [
@@ -303,6 +384,18 @@ resource "huaweicloud_compute_instance" "test" {    # Level 0
     Environment = "dev"                             # Level 2: 2*2=4 spaces
   }
 }
+''',
+                '''
+# Valid terraform.tfvars with heredoc (excluded from validation)
+key_alias             = "tf-test-obs-key"
+bucket_name           = "tf-test-obs-bucket"
+object_upload_content = <<EOT
+def main():
+    print("Hello, World!")
+
+if __name__ == "__main__":
+    main()
+EOT
 '''
             ],
             "invalid": [

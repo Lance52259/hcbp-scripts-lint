@@ -41,7 +41,7 @@ Code formatting and style consistency rules, managed by the `STRules` coordinato
 - **ST.002**: Default value checking convention
 - **ST.003**: Parameter alignment with equals signs aligned to maintain one space from longest parameter name
 - **ST.004**: Indentation character validation (spaces only)
-- **ST.005**: Proper indentation level enforcement
+- **ST.005**: Proper indentation level enforcement (excludes heredoc blocks in .tfvars files)
 - **ST.006**: Resource and data source spacing standards
 - **ST.007**: Same parameter block spacing consistency
 - **ST.008**: Different parameter type spacing rules (exactly 1 empty line between basic parameters and parameter blocks)

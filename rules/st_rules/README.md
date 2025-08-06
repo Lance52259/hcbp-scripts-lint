@@ -32,7 +32,7 @@ st_rules/
 | ST.002 | Variable default value check | Ensures variables used in data sources have default values | `rule_002.py` |
 | ST.003 | Parameter alignment check | Validates proper parameter alignment and formatting with equals signs aligned to maintain one space from the longest parameter name. | `rule_003.py` |
 | ST.004 | Indentation character check | Ensures only spaces are used for indentation (no tabs) | `rule_004.py` |
-| ST.005 | Indentation level check | Validates consistent 2-space indentation levels | `rule_005.py` |
+| ST.005 | Indentation level check | Validates consistent 2-space indentation levels. For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
 | ST.007 | Same parameter block spacing check | Validates spacing between same-named parameter blocks | `rule_007.py` |
 | ST.008 | Different parameter block spacing check | Ensures proper spacing between different parameter types | `rule_008.py` |
@@ -240,6 +240,7 @@ the longest parameter name.
 **Validation Criteria**:
 - Each indentation level must use exactly 2 spaces
 - Consistent indentation depth throughout the file
+- For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation
 
 ### ST.006 - Resource and Data Source Spacing Check
 

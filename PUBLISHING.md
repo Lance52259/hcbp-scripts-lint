@@ -97,7 +97,7 @@ git push origin v1
 - ST.002: Variable default value requirement check
 - ST.003: Parameter alignment formatting check
 - ST.004: Indentation character check (spaces only, no tabs)
-- ST.005: Indentation level check (2 spaces per level)
+- ST.005: Indentation level check (2 spaces per level, excludes heredoc blocks in .tfvars files)
 - ST.006: Resource and data source spacing check (exactly 1 empty line between blocks)
 - ST.007: Same parameter block spacing check (≤1 empty line between same-name blocks)
 - ST.008: Different parameter type spacing check (exactly 1 empty line between basic parameters and parameter blocks)
