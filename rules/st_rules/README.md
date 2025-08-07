@@ -273,6 +273,8 @@ the longest parameter name.
 **Validation Criteria**:
 - Variable definition order in variables.tf must match usage order in main.tf
 - Cross-file analysis for maintaining logical organization
+- Provider-related variables (access_key, secret_key, region_name) are excluded from ordering validation
+- Excludes authentication and region configuration variables to avoid interference with business logic ordering
 
 ### ST.010 - Resource, Data Source, Variable, and Output Quote Check
 

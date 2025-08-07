@@ -155,15 +155,27 @@ def check_st009_variable_order(file_path: str, content: str, log_error_func: Cal
 def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
     """
     Extract the order of variable usage from main.tf content.
+    
+    Excludes provider-related variables that should not affect ordering:
+    - access_key variable
+    - secret_key variable
+    - region_name variable
 
     Args:
         main_tf_content (str): Content of main.tf file
 
     Returns:
-        List[str]: List of variable names in order of first usage
+        List[str]: List of variable names in order of first usage (excluding provider variables)
     """
     usage_order = []
     seen_variables = set()
+    
+    # Define provider-related variables to exclude from ordering
+    def _should_exclude_variable(var_name: str) -> bool:
+        """Check if a variable should be excluded from ordering validation."""
+        if var_name in ['access_key', 'secret_key', 'region_name']:
+            return True
+        return False
     
     # Find all variable references in order
     var_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
@@ -171,7 +183,7 @@ def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
     
     for match in matches:
         var_name = match.group(1)
-        if var_name not in seen_variables:
+        if var_name not in seen_variables and not _should_exclude_variable(var_name):
             usage_order.append(var_name)
             seen_variables.add(var_name)
     
@@ -181,15 +193,27 @@ def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
 def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[str, int]]:
     """
     Extract the order of variable definitions from variables.tf content.
+    
+    Excludes provider-related variables that should not affect ordering:
+    - access_key variable
+    - secret_key variable
+    - region_name variable
 
     Args:
         variables_tf_content (str): Content of variables.tf file
 
     Returns:
-        List[Tuple[str, int]]: List of (variable_name, line_number) tuples in definition order
+        List[Tuple[str, int]]: List of (variable_name, line_number) tuples in definition order (excluding provider variables)
     """
     definition_order = []
     lines = variables_tf_content.split('\n')
+    
+    # Define provider-related variables to exclude from ordering
+    def _should_exclude_variable(var_name: str) -> bool:
+        """Check if a variable should be excluded from ordering validation."""
+        if var_name in ['access_key', 'secret_key', 'region_name']:
+            return True
+        return False
     
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
@@ -198,7 +222,8 @@ def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[
         if var_match:
             # Extract variable name from quoted, single-quoted, or unquoted group
             var_name = var_match.group(1) if var_match.group(1) else (var_match.group(2) if var_match.group(2) else var_match.group(3))
-            definition_order.append((var_name, line_num))
+            if not _should_exclude_variable(var_name):
+                definition_order.append((var_name, line_num))
     
     return definition_order
 
@@ -314,7 +339,10 @@ def get_rule_description() -> dict:
             "Validates that variable definitions in variables.tf follow the same "
             "order as their usage in main.tf. This ensures logical consistency "
             "between variable definitions and their usage patterns, making it "
-            "easier for developers to understand variable dependencies and relationships."
+            "easier for developers to understand variable dependencies and relationships. "
+            "Provider-related variables (access_key, secret_key, region_name) are "
+            "excluded from ordering validation to avoid interference with authentication "
+            "and region configuration patterns."
         ),
         "category": "Style/Format",
         "severity": "warning",
@@ -323,12 +351,15 @@ def get_rule_description() -> dict:
             "improves code readability and helps developers understand the logical "
             "flow of variable dependencies. When variables are defined in the same "
             "order they are used, it becomes easier to trace variable relationships "
-            "and understand the configuration structure."
+            "and understand the configuration structure. Provider variables are excluded "
+            "because they follow different patterns and should not interfere with "
+            "business logic variable ordering."
         ),
         "examples": {
             "valid": [
                 '''
 # main.tf uses variables in order: flavor_id, performance_type, instance_name
+# (access_key, secret_key, region_name are excluded from ordering)
 data "huaweicloud_compute_flavors" "test" {
   count = var.flavor_id == "" ? 1 : 0
 
@@ -340,7 +371,17 @@ resource "huaweicloud_compute_instance" "test" {
   flavor_id  = try(data.huaweicloud_compute_flavors.test.flavors[0].id, var.flavor_id)
 }
 
-# variables.tf defines variables in same order
+# variables.tf defines variables in same order (provider variables can be anywhere)
+variable "region_name" {
+  description = "The region where resources are located"
+  type        = string
+}
+
+variable "access_key" {
+  description = "The access key of the IAM user"
+  type        = string
+}
+
 variable "flavor_id" {
   description = "The flavor ID of the ECS instance"
   type        = string
@@ -357,12 +398,17 @@ variable "instance_name" {
   description = "The name of the ECS instance"
   type        = string
 }
+
+variable "secret_key" {
+  description = "The secret key of the IAM user"
+  type        = string
+}
 '''
             ],
             "invalid": [
                 '''
 # main.tf uses variables in order: flavor_id, performance_type, instance_name
-# But variables.tf defines them in different order
+# But variables.tf defines them in different order (excluding provider variables)
 data "huaweicloud_compute_flavors" "test" {
   count = var.flavor_id == "" ? 1 : 0
 
@@ -374,7 +420,12 @@ resource "huaweicloud_compute_instance" "test" {
   flavor_id  = try(data.huaweicloud_compute_flavors.test.flavors[0].id, var.flavor_id)
 }
 
-# variables.tf defines variables in same order
+# variables.tf defines variables in wrong order (provider variables excluded from check)
+variable "region_name" {
+  description = "The region where resources are located"
+  type        = string
+}
+
 variable "instance_name" {
   description = "The name of the ECS instance"
   type        = string
@@ -391,6 +442,16 @@ variable "performance_type" {
   type        = string
   default     = "normal"
 }
+
+variable "access_key" {
+  description = "The access key of the IAM user"
+  type        = string
+}
+
+variable "secret_key" {
+  description = "The secret key of the IAM user"
+  type        = string
+}
 '''
             ]
         },
@@ -400,7 +461,8 @@ variable "performance_type" {
         "configuration": {
             "check_usage_order": True,
             "require_main_tf": True,
-            "ignore_unused_variables": False
+            "ignore_unused_variables": False,
+            "excluded_provider_variables": ["access_key", "secret_key", "region_name"]
         }
     }
 
