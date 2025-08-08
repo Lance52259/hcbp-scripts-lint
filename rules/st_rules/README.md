@@ -21,7 +21,8 @@ st_rules/
 ├── rule_008.py   # ST.008 - Different parameter block spacing check
 ├── rule_009.py   # ST.009 - Variable definition order check
 ├── rule_010.py   # ST.010 - Resource, data source, variable, and output quote check
-└── rule_011.py   # ST.011 - Trailing whitespace check
+├── rule_011.py   # ST.011 - Trailing whitespace check
+└── rule_012.py   # ST.012 - File header and footer whitespace check
 ```
 
 ## 🎯 Available Rules
@@ -39,6 +40,7 @@ st_rules/
 | ST.009 | Variable definition order check | Validates variable order consistency between files | `rule_009.py` |
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
+| ST.012 | File header and footer whitespace check | Ensures no extra whitespace at the beginning or end of the file | `rule_012.py` |
 
 ## 🚀 Usage
 
@@ -291,6 +293,14 @@ the longest parameter name.
 **Validation Criteria**:
 - No trailing whitespace characters at the end of lines
 - Clean line endings for better version control
+
+### ST.012 - File Header and Footer Whitespace Check
+
+**Purpose**: Ensures no extra whitespace at the beginning or end of the file.
+
+**Validation Criteria**:
+- No leading or trailing whitespace at the beginning of the file
+- No leading or trailing whitespace at the end of the file
 
 ## 🔄 Backward Compatibility
 

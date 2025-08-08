@@ -18,6 +18,7 @@ Available Rules:
 - ST.009: Variable definition order check
 - ST.010: Resource, data source, variable, and output quote check
 - ST.011: Trailing whitespace check
+- ST.012: File header and footer whitespace check
 
 Author: Lance
 License: Apache 2.0

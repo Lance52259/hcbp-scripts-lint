@@ -1,4 +1,96 @@
-# Terraform Scripts Lint
+# Terraform Scripts Lint - Unified Rules Management System
+
+[![GitHub Release](https://img.shields.io/github/v/release/Lance52259/hcbp-scripts-lint)](https://github.com/Lance52259/hcbp-scripts-lint/releases)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-compatible-green.svg)](action.yml)
+
+A comprehensive and enhanced linting tool for Terraform scripts that uses a **unified rules management system** to
+ensure code quality, consistency, and best practices. This tool provides advanced rule coordination, detailed analytics,
+and flexible configuration options for teams of all sizes.
+
+## 🔧 Installation & Usage
+
+### GitHub Actions (Recommended)
+
+Add the following step to your GitHub Actions workflow:
+
+```yaml
+- name: Terraform Scripts Lint
+  uses: Lance52259/hcbp-scripts-lint@v2.0.0
+  with:
+    directory: './terraform'
+    rule-categories: 'ST,IO,DC,SC'
+    ignore-rules: 'ST.001,ST.003'
+    fail-on-error: 'true'
+    performance-monitoring: 'true'
+```
+
+> ⚠️ **Notes on cross-repository push**: If you push from a personal repository branch to a target repository, you may
+  encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](CROSS_REPO_PUSH.md)
+  to learn how to correctly configure the checkout step.
+
+### Local Development
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Lance52259/hcbp-scripts-lint.git
+   cd hcbp-scripts-lint
+   ```
+
+2. **Run the linter:**
+   ```bash
+   python3 .github/scripts/terraform_lint.py --directory ./terraform
+   ```
+
+3. **Advanced usage with filtering:**
+   ```bash
+   python3 .github/scripts/terraform_lint.py \
+     --directory ./infrastructure \
+     --categories "ST,IO" \
+     --ignore-rules "ST.001,ST.003" \
+     --exclude-paths "examples/*,test/*" \
+     --performance-monitoring
+   ```
+
+## ⚙️ Configuration Options
+
+### GitHub Actions Inputs
+
+| Input | Description | Default | Required |
+|-------|-------------|---------|----------|
+| `directory` | Target directory to check | `.` | No |
+| `rule-categories` | Rule categories to execute (ST,IO,DC,SC) | `ST,IO,DC,SC` | No |
+| `ignore-rules` | Comma-separated list of rules to ignore | `` | No |
+| `include-paths` | Path patterns to include | `` | No |
+| `exclude-paths` | Path patterns to exclude | `` | No |
+| `changed-files-only` | Check only changed files | `false` | No |
+| `base-ref` | Base reference for git diff | `origin/main` | No |
+| `performance-monitoring` | Enable performance analytics (true/false, case-insensitive) | `true` | No |
+| `report-format` | Output format (text, json, or both) | `text` | No |
+| `detailed-summary` | Show detailed error information in GitHub Actions summary | `true` | No |
+| `fail-on-error` | Fail workflow on errors | `true` | No |
+
+### Command Line Options
+
+```bash
+python3 .github/scripts/terraform_lint.py [OPTIONS]
+
+Options:
+  -d, --directory TEXT          Target directory to check
+  --categories TEXT             Rule categories (ST,IO,DC,SC)
+  --ignore-rules TEXT           Rules to ignore (comma-separated)
+  --include-paths TEXT          Paths to include (comma-separated)
+  --exclude-paths TEXT          Paths to exclude (comma-separated)
+  --changed-files-only          Check only changed files
+  --base-ref TEXT               Base reference for git diff
+  --performance-monitoring      Enable performance monitoring (true/false, case-insensitive)
+  --report-format [text|json|both]   Output report format
+  --help                        Show help message
+```
+
+## 📊 Enhanced Summary Reports
+
+### GitHub Actions Summary with Detailed Error Analysis
 
 A comprehensive linting tool for Terraform scripts with advanced rule management and comment-based control.
 
@@ -106,7 +198,7 @@ jobs:
 
 ## Rule Categories
 
-### ST (Style/Format) Rules - 11 Rules
+### ST (Style/Format) Rules - 12 Rules
 - **ST.001**: Resource and data source naming convention check
 - **ST.002**: Variable default value requirement for data sources
 - **ST.003**: Parameter alignment with equals signs
@@ -118,6 +210,7 @@ jobs:
 - **ST.009**: Variable definition order validation
 - **ST.010**: Quote usage consistency check
 - **ST.011**: Trailing whitespace detection
+- **ST.012**: File header and footer whitespace check
 
 ### IO (Input/Output) Rules - 9 Rules
 - **IO.001**: Variable definition file organization

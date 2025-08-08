@@ -336,7 +336,7 @@ sudo apt update && sudo apt install python3.8
 
 ## 🎓 Rule Categories Explained
 
-### 🎨 ST (Style/Format) - 11 Rules
+### 🎨 ST (Style/Format) - 12 Rules
 - **Purpose**: Code formatting and consistency
 - **Examples**: Naming conventions, indentation, spacing
 - **Usage**: `hcbp-lint --categories "ST"`

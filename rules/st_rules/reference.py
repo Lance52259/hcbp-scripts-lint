@@ -30,6 +30,7 @@ from .rule_008 import check_st008_different_named_parameter_spacing, get_rule_de
 from .rule_009 import check_st009_variable_order, get_rule_description as get_st009_description
 from .rule_010 import check_st010_quote_usage, get_rule_description as get_st010_description
 from .rule_011 import check_st011_trailing_whitespace, get_rule_description as get_st011_description
+from .rule_012 import check_st012_file_whitespace, get_rule_description as get_st012_description
 
 
 class STRules:
@@ -117,6 +118,12 @@ class STRules:
                 "check_function": check_st011_trailing_whitespace,
                 "description_function": get_st011_description,
                 "name": "Trailing whitespace check",
+                "status": "modular"
+            },
+            "ST.012": {
+                "check_function": check_st012_file_whitespace,
+                "description_function": get_st012_description,
+                "name": "File header and footer whitespace check",
                 "status": "modular"
             }
         }

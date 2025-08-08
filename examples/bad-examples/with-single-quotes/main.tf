@@ -153,3 +153,4 @@ output 'vpc_id' {
   description = "The ID of the created VPC"
   value       = huaweicloud_vpc.test.id
 }
+# ST.012 Error: This file has no empty line after the last non-empty line

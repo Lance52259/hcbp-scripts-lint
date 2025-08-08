@@ -36,3 +36,4 @@ output 'mixedCaseOutput' {
   description = "Output with mixed case name"
   value       = "incorrect_output_naming"
 }
+# ST.012 Error: This file has no empty line after the last non-empty line

@@ -92,6 +92,7 @@ Each rule package follows a consistent design pattern:
 | ST.009 | Variable Order | Variable definition order matches usage order | ✅ Modular |
 | ST.010 | Quote Usage | Double quotes around resource, data source, variable, and output names | ✅ Modular |
 | ST.011 | Trailing Whitespace | No trailing spaces or tabs at line ends | ✅ Modular |
+| ST.012 | File Header and Footer Whitespace | Files should not have empty lines before first non-empty line and should have exactly one empty line after last non-empty line | ✅ Modular |
 
 ### DC (Documentation/Comments) Rules
 
