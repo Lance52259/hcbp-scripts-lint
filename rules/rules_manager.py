@@ -13,6 +13,7 @@ individual rule systems and provides unified functionality for:
 - Configuration management
 - Performance monitoring and statistics
 - Error reporting and logging
+- Comment-based rule control
 
 Author: Lance
 License: Apache 2.0
@@ -27,6 +28,9 @@ from .st_rules.reference import STRules
 from .io_rules.reference import IORules
 from .dc_rules.reference import DCRules
 from .sc_rules.reference import SCRules
+
+# Import comment control functionality
+from .comment_control import CommentController, RuleControlState
 
 
 class RuleExecutionResult:
@@ -71,6 +75,7 @@ class RulesManager:
         self._io_rules = IORules()
         self._dc_rules = DCRules()
         self._sc_rules = SCRules()
+        self._comment_controller = CommentController()
         
         # Build unified rule registry
         self._unified_registry = self._build_unified_registry()
@@ -80,7 +85,8 @@ class RulesManager:
             "enable_performance_monitoring": True,
             "enable_batch_reporting": True,
             "max_violations_per_rule": 100,
-            "timeout_per_rule": 30.0
+            "timeout_per_rule": 30.0,
+            "enable_comment_control": True  # New setting for comment control
         }
     
     def _build_unified_registry(self) -> Dict[str, Dict[str, Any]]:
@@ -150,50 +156,32 @@ class RulesManager:
         Get rules filtered by category.
         
         Args:
-            category (str): Category to filter by (ST, IO, DC, SC, or full category name)
+            category (str): Category to filter by (ST, IO, DC, SC)
             
         Returns:
             List[str]: List of rule IDs in the specified category
         """
-        category_mapping = {
-            "ST": "Style/Format",
-            "IO": "Input/Output", 
-            "DC": "Documentation/Comments",
-            "SC": "Security Code",
-            "Style/Format": "Style/Format",
-            "Input/Output": "Input/Output",
-            "Documentation/Comments": "Documentation/Comments",
-            "Security Code": "Security Code"
-        }
-        
-        target_category = category_mapping.get(category, category)
-        
-        return [
-            rule_id for rule_id, info in self._unified_registry.items()
-            if info["category"] == target_category
-        ]
+        return [rule_id for rule_id, meta in self._unified_registry.items() 
+                if meta["system"] == category]
     
     def get_rules_by_system(self, system: str) -> List[str]:
         """
-        Get rules filtered by rule system.
+        Get rules filtered by system.
         
         Args:
-            system (str): Rule system (ST, IO, DC, SC)
+            system (str): System to filter by (ST, IO, DC, SC)
             
         Returns:
-            List[str]: List of rule IDs from the specified system
+            List[str]: List of rule IDs in the specified system
         """
-        return [
-            rule_id for rule_id, info in self._unified_registry.items()
-            if info["system"] == system.upper()
-        ]
+        return self.get_rules_by_category(system)
     
     def get_rule_info(self, rule_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get comprehensive information about a specific rule.
+        Get detailed information about a specific rule.
         
         Args:
-            rule_id (str): The rule ID to query
+            rule_id (str): The rule ID to get information for
             
         Returns:
             Optional[Dict[str, Any]]: Rule information or None if not found
@@ -204,14 +192,12 @@ class RulesManager:
         rule_meta = self._unified_registry[rule_id]
         coordinator = rule_meta["coordinator"]
         
-        # Get detailed info from the appropriate coordinator
+        # Get rule info from the appropriate coordinator
         rule_info = coordinator.get_rule_info(rule_id)
         if rule_info:
-            # Add unified manager metadata
             rule_info.update({
-                "unified_category": rule_meta["category"],
-                "rule_system": rule_meta["system"],
-                "manager_version": "1.0.0"
+                "system": rule_meta["system"],
+                "category": rule_meta["category"]
             })
         
         return rule_info
@@ -219,7 +205,7 @@ class RulesManager:
     def execute_rule(self, rule_id: str, file_path: str, content: str,
                     log_error_func: Callable[[str, str, str, Optional[int]], None]) -> RuleExecutionResult:
         """
-        Execute a specific rule with performance monitoring.
+        Execute a specific rule with comment control support.
         
         Args:
             rule_id (str): The rule ID to execute
@@ -228,32 +214,48 @@ class RulesManager:
             log_error_func (Callable): Function to log errors
             
         Returns:
-            RuleExecutionResult: Execution result with metadata
+            RuleExecutionResult: Result of rule execution
         """
         start_time = time.time()
         
-        if rule_id not in self._unified_registry:
-            return RuleExecutionResult(
-                rule_id=rule_id,
-                success=False,
-                execution_time=0.0,
-                error_message=f"Unknown rule: {rule_id}"
-            )
+        # Parse comment control states if comment control is enabled
+        control_states = {}
+        if self._config.get("enable_comment_control", True):
+            control_states = self._comment_controller.parse_control_comments(content)
         
-        rule_meta = self._unified_registry[rule_id]
-        coordinator = rule_meta["coordinator"]
-        
-        # Track violations for this rule
-        violations_count = 0
-        original_log_func = log_error_func
-        
-        def counting_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
-            nonlocal violations_count
-            violations_count += 1
-            original_log_func(path, rule, message, line_number)
+        # Create a wrapper log function that checks comment control
+        def controlled_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
+            # Check if this rule is enabled at this line
+            if line_number is not None and control_states:
+                if not self._comment_controller.get_rule_state_at_line(rule, line_number, control_states):
+                    return  # Skip logging if rule is disabled at this line
+            
+            # Call the original log function
+            log_error_func(path, rule, message, line_number)
         
         try:
+            # Get rule metadata
+            if rule_id not in self._unified_registry:
+                return RuleExecutionResult(
+                    rule_id=rule_id,
+                    success=False,
+                    execution_time=0.0,
+                    error_message=f"Rule {rule_id} not found",
+                    violations_count=0
+                )
+            
+            rule_meta = self._unified_registry[rule_id]
+            coordinator = rule_meta["coordinator"]
+            
+            # Execute the rule with controlled logging
+            violations_count = 0
+            def counting_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
+                nonlocal violations_count
+                violations_count += 1
+                controlled_log_func(path, rule, message, line_number)
+            
             success = coordinator.execute_rule(rule_id, file_path, content, counting_log_func)
+            
             execution_time = time.time() - start_time
             
             return RuleExecutionResult(
@@ -262,6 +264,7 @@ class RulesManager:
                 execution_time=execution_time,
                 violations_count=violations_count
             )
+            
         except Exception as e:
             execution_time = time.time() - start_time
             return RuleExecutionResult(
@@ -269,12 +272,12 @@ class RulesManager:
                 success=False,
                 execution_time=execution_time,
                 error_message=str(e),
-                violations_count=violations_count
+                violations_count=0
             )
     
     def execute_rules_by_category(self, category: str, file_path: str, content: str,
-                                 log_error_func: Callable[[str, str, str, Optional[int]], None],
-                                 excluded_rules: Optional[List[str]] = None) -> List[RuleExecutionResult]:
+                                log_error_func: Callable[[str, str, str, Optional[int]], None],
+                                excluded_rules: Optional[List[str]] = None) -> List[RuleExecutionResult]:
         """
         Execute all rules in a specific category.
         
@@ -286,13 +289,11 @@ class RulesManager:
             excluded_rules (Optional[List[str]]): Rules to exclude
             
         Returns:
-            List[RuleExecutionResult]: Results for each rule executed
+            List[RuleExecutionResult]: Results of rule execution
         """
         excluded_rules = excluded_rules or []
-        rules_to_execute = [
-            rule_id for rule_id in self.get_rules_by_category(category)
-            if rule_id not in excluded_rules
-        ]
+        rules_to_execute = [rule_id for rule_id in self.get_rules_by_category(category)
+                           if rule_id not in excluded_rules]
         
         results = []
         for rule_id in rules_to_execute:
@@ -306,7 +307,7 @@ class RulesManager:
                          excluded_rules: Optional[List[str]] = None,
                          excluded_categories: Optional[List[str]] = None) -> BatchExecutionSummary:
         """
-        Execute all available rules with comprehensive reporting.
+        Execute all available rules with comprehensive reporting and comment control.
         
         Args:
             file_path (str): Path to the file being checked
@@ -321,6 +322,11 @@ class RulesManager:
         start_time = time.time()
         excluded_rules = excluded_rules or []
         excluded_categories = excluded_categories or []
+        
+        # Parse comment control states if enabled
+        control_states = {}
+        if self._config.get("enable_comment_control", True):
+            control_states = self._comment_controller.parse_control_comments(content)
         
         # Build list of rules to execute
         rules_to_execute = []
@@ -398,83 +404,53 @@ class RulesManager:
                 "SC": sc_summary
             },
             "configuration": self._config,
-            "all_rule_ids": self.get_all_available_rules()
+            "comment_control_enabled": self._config.get("enable_comment_control", True)
         }
     
     def validate_file(self, file_path: str, content: str,
                      log_error_func: Callable[[str, str, str, Optional[int]], None],
                      rule_filter: Optional[Dict[str, Any]] = None) -> BatchExecutionSummary:
         """
-        Validate a file with flexible rule filtering.
+        Validate a file with comprehensive rule checking and comment control.
         
         Args:
-            file_path (str): Path to the file being validated
+            file_path (str): Path to the file to validate
             content (str): File content to validate
             log_error_func (Callable): Function to log errors
-            rule_filter (Optional[Dict[str, Any]]): Filtering options
+            rule_filter (Optional[Dict[str, Any]]): Filter for specific rules
             
         Returns:
             BatchExecutionSummary: Validation results
         """
-        rule_filter = rule_filter or {}
-        
-        # Extract filter parameters
-        included_systems = rule_filter.get("systems", ["ST", "IO", "DC", "SC"])
-        excluded_rules = rule_filter.get("excluded_rules", [])
-        included_severities = rule_filter.get("severities", ["error", "warning", "info"])
-        
-        # Filter rules based on criteria
-        filtered_rules = []
-        for rule_id in self.get_all_available_rules():
-            rule_meta = self._unified_registry[rule_id]
+        # Parse comment control states
+        control_states = {}
+        if self._config.get("enable_comment_control", True):
+            control_states = self._comment_controller.parse_control_comments(content)
             
-            # Check system inclusion
-            if rule_meta["system"] not in included_systems:
-                continue
-                
-            # Check rule exclusion
-            if rule_id in excluded_rules:
-                continue
-            
-            # Check severity (if rule info is available)
-            rule_info = self.get_rule_info(rule_id)
-            if rule_info and rule_info.get("severity") not in included_severities:
-                continue
-            
-            filtered_rules.append(rule_id)
+            # Validate control comments
+            validation_errors = self._comment_controller.validate_control_comments(content)
+            for error in validation_errors:
+                log_error_func(file_path, "COMMENT_CONTROL", error, None)
         
-        # Execute filtered rules
-        start_time = time.time()
-        results_by_category = {"ST": [], "IO": [], "DC": [], "SC": []}
-        total_violations = 0
-        successful_rules = 0
-        failed_rules = 0
+        # Apply rule filter if provided
+        excluded_rules = []
+        excluded_categories = []
         
-        for rule_id in filtered_rules:
-            result = self.execute_rule(rule_id, file_path, content, log_error_func)
-            
-            system = self._unified_registry[rule_id]["system"]
-            results_by_category[system].append(result)
-            
-            total_violations += result.violations_count
-            if result.success:
-                successful_rules += 1
-            else:
-                failed_rules += 1
+        if rule_filter:
+            excluded_rules = rule_filter.get("excluded_rules", [])
+            excluded_categories = rule_filter.get("excluded_categories", [])
         
-        total_execution_time = time.time() - start_time
-        
-        return BatchExecutionSummary(
-            total_rules=len(filtered_rules),
-            successful_rules=successful_rules,
-            failed_rules=failed_rules,
-            total_violations=total_violations,
-            total_execution_time=total_execution_time,
-            results_by_category=results_by_category
+        return self.execute_all_rules(
+            file_path, content, log_error_func, excluded_rules, excluded_categories
         )
     
     def get_configuration(self) -> Dict[str, Any]:
-        """Get current configuration settings."""
+        """
+        Get current configuration settings.
+        
+        Returns:
+            Dict[str, Any]: Current configuration
+        """
         return self._config.copy()
     
     def update_configuration(self, config_updates: Dict[str, Any]) -> None:
@@ -486,37 +462,58 @@ class RulesManager:
         """
         self._config.update(config_updates)
     
-    # Legacy compatibility methods
     def check_all_rules(self, file_path: str, content: str,
                        log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
-        """Legacy method for backward compatibility."""
-        self.execute_all_rules(file_path, content, log_error_func)
+        """
+        Check all rules against a file (legacy method).
+        
+        Args:
+            file_path (str): Path to the file to check
+            content (str): File content to check
+            log_error_func (Callable): Function to log errors
+        """
+        self.validate_file(file_path, content, log_error_func)
     
     def get_all_rules(self) -> Dict[str, Any]:
-        """Legacy method - returns unified registry."""
-        return self._unified_registry
+        """
+        Get all rules information (legacy method).
+        
+        Returns:
+            Dict[str, Any]: All rules information
+        """
+        return self.get_rules_summary()
     
     def list_rule_ids(self) -> List[str]:
-        """Legacy method - returns all available rule IDs."""
+        """
+        List all available rule IDs.
+        
+        Returns:
+            List[str]: List of all rule IDs
+        """
         return self.get_all_available_rules()
 
 
-# Convenience functions for easy access
 def get_rules_manager() -> RulesManager:
-    """Get a configured rules manager instance."""
+    """
+    Get a new rules manager instance.
+    
+    Returns:
+        RulesManager: A new rules manager instance
+    """
     return RulesManager()
 
+
 def validate_terraform_file(file_path: str, content: str,
-                           log_error_func: Callable[[str, str, str, Optional[int]], None],
-                           rule_filter: Optional[Dict[str, Any]] = None) -> BatchExecutionSummary:
+                          log_error_func: Callable[[str, str, str, Optional[int]], None],
+                          rule_filter: Optional[Dict[str, Any]] = None) -> BatchExecutionSummary:
     """
-    Validate a Terraform file using all available rules.
+    Validate a Terraform file with all rules and comment control.
     
     Args:
-        file_path (str): Path to the file being validated
+        file_path (str): Path to the file to validate
         content (str): File content to validate
         log_error_func (Callable): Function to log errors
-        rule_filter (Optional[Dict[str, Any]]): Rule filtering options
+        rule_filter (Optional[Dict[str, Any]]): Filter for specific rules
         
     Returns:
         BatchExecutionSummary: Validation results
@@ -524,10 +521,24 @@ def validate_terraform_file(file_path: str, content: str,
     manager = get_rules_manager()
     return manager.validate_file(file_path, content, log_error_func, rule_filter)
 
+
 def get_all_available_rules() -> List[str]:
-    """Get list of all available rule IDs across all systems."""
-    return get_rules_manager().get_all_available_rules()
+    """
+    Get all available rule IDs.
+    
+    Returns:
+        List[str]: List of all available rule IDs
+    """
+    manager = get_rules_manager()
+    return manager.get_all_available_rules()
+
 
 def get_unified_rules_summary() -> Dict[str, Any]:
-    """Get comprehensive summary of all rules."""
-    return get_rules_manager().get_rules_summary() 
+    """
+    Get unified rules summary.
+    
+    Returns:
+        Dict[str, Any]: Unified rules summary
+    """
+    manager = get_rules_manager()
+    return manager.get_rules_summary() 
