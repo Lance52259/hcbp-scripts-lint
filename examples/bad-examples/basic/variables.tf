@@ -1,3 +1,5 @@
+
+# ST.012 Error: This file has a empty line before the first non-empty line
 # Variables definition
 
 # ST.010 Error: Variable name is without quotes
@@ -90,3 +92,6 @@ variable "BadVariableName" {
   type        = string
   default     = "incorrect_variable_naming"
 }
+# ST.012 Error: This file has multiple empty lines after the last non-empty line
+
+

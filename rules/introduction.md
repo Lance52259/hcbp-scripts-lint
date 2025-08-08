@@ -808,6 +808,53 @@ variable "region" {
 **Cross-references**: Works with [ST.004](#st004---indentation-character-check),
                       [ST.005](#st005---indentation-level-check)
 
+### ST.012 - File Header and Footer Whitespace Check
+
+**Rule Description:** Terraform files should not have empty lines before the first non-empty line and should have exactly one empty line after the last non-empty line.
+
+**Purpose:**
+- Ensures consistent file formatting across all Terraform files
+- Prevents unnecessary leading whitespace that can affect readability
+- Maintains proper file endings for version control systems
+- Follows professional code formatting standards
+- Reduces merge conflicts caused by inconsistent file formatting
+
+**Error Example:**
+
+```hcl
+# ❌ Error: File has empty lines before first non-empty line
+# ❌ Error: File has no empty line after last non-empty line
+
+resource "huaweicloud_vpc" "test" {
+  name = "example-vpc"
+  cidr = "192.168.0.0/16"
+}
+
+# This is the last line without proper trailing empty line
+```
+
+**Correct Example:**
+
+```hcl
+# ✅ Correct: No empty lines before first non-empty line
+resource "huaweicloud_vpc" "test" {
+  name = "example-vpc"
+  cidr = "192.168.0.0/16"
+}
+
+# This is the last line
+[empty line]
+```
+
+**Best Practices:**
+- Configure your editor to automatically add/remove leading/trailing empty lines
+- Use `.editorconfig` files to standardize file formatting across team members
+- Set up pre-commit hooks to ensure proper file formatting
+- Use automated formatting tools that handle file whitespace consistently
+- Maintain consistent file formatting across all Terraform files in the project
+
+**Cross-references**: Works with [ST.011](#st011---trailing-whitespace-check)
+
 ---
 
 ## DC (Documentation/Comments) Rule Details

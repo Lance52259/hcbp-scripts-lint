@@ -1,3 +1,6 @@
+
+
+# ST.012 Error: This file has multiple empty lines before the first non-empty line
 # Terraform configuration example that violates the standards
 
 locals {
@@ -138,3 +141,6 @@ output "vpc_id" {
   description = "The ID of the created VPC"
   value       = huaweicloud_vpc.myvpc.id
 }
+# ST.012 Error: This file has multiple empty lines after the last non-empty line
+
+

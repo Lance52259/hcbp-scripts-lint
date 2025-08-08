@@ -104,6 +104,7 @@ git push origin v1
 - ST.009: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
 - ST.010: Resource, data source, variable, and output quote check (double quotes around names)
 - ST.011: Trailing whitespace check (no trailing spaces or tabs at line ends)
+- ST.012: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty line after last non-empty line)
 
 ### DC (Documentation/Comments) Rules
 - DC.001: Comment format check

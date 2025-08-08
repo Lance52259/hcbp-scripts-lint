@@ -1,3 +1,6 @@
+
+
+# ST.012 Error: This file has multiple empty lines before the first non-empty line
 # Outputs definition
 
 # ST.010 Error: Output name without quotes
@@ -25,3 +28,6 @@ output "BadOutputName" {
   description = "Output with uppercase letters in name"
   value       = "incorrect_output_naming"
 }
+# ST.012 Error: This file has multiple empty lines after the last non-empty line
+
+

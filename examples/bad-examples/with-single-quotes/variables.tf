@@ -115,3 +115,4 @@ variable 'missing_type_completely' {
   description = "Variable without type field"
   default = "test"
 }
+# ST.012 Error: This file has no empty line after the last non-empty line
