@@ -59,3 +59,75 @@ variable "instance_user_data" {
   type        = string
   default     = ""
 }
+
+variable "data_disk_configurations" {
+  description = "The data disk configurations for the ECS instance"
+  type        = list(object({
+    type = optional(string, "SSD")
+    size = optional(number, 40)
+  }))
+}
+
+variable "system_disk_type" {
+  description = "The type of the system disk"
+  type        = string
+  default     = "SSD"
+}
+
+variable "system_disk_size" {
+  description = "The size of the system disk"
+  type        = number
+  default     = 40
+}
+
+variable "bucket_name" {
+  description = "The name of the OBS bucket"
+  type        = string
+}
+
+variable "bucket_storage_class" {
+  description = "The storage class of the OBS bucket"
+  type        = string
+  default     = "STANDARD"
+}
+
+variable "bucket_acl" {
+  description = "The ACL of the OBS bucket"
+  type        = string
+  default     = "private"
+}
+
+variable "bucket_sse_algorithm" {
+  description = "The SSE algorithm of the OBS bucket"
+  type        = string
+  default     = "kms"
+}
+
+variable "bucket_force_destroy" {
+  description = "The force destroy of the OBS bucket"
+  type        = bool
+  default     = true
+}
+
+variable "bucket_tags" {
+  description = "The tags of the OBS bucket"
+  type        = map(string)
+  default     = {}
+}
+
+variable "object_extension_name" {
+  description = "The extension name of the OBS object to be uploaded"
+  type        = string
+  default     = ".txt"
+  nullable    = false
+}
+
+variable "object_name" {
+  description = "The name of the OBS object to be uploaded"
+  type        = string
+}
+
+variable "object_upload_content" {
+  description = "The content of the OBS object to be uploaded"
+  type        = string
+}
