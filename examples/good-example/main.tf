@@ -53,4 +53,57 @@ resource "huaweicloud_compute_instance" "test" {
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
+
+  dynamic "data_disks" {
+    for_each = var.data_disk_configurations
+
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
+  }
+
+  system_disk_type = var.system_disk_type
+  system_disk_size = var.system_disk_size
+}
+
+resource "huaweicloud_obs_bucket" "test" {
+  bucket        = var.bucket_name
+  storage_class = var.bucket_storage_class
+  acl           = var.bucket_acl
+  encryption    = var.bucket_encryption
+  sse_algorithm = var.bucket_encryption ? var.bucket_sse_algorithm : null
+  kms_key_id    = var.bucket_encryption ? var.bucket_encryption_key_id != "" ? var.bucket_encryption_key_id : huaweicloud_kms_key.test[0].id : null
+  force_destroy = var.bucket_force_destroy
+  tags          = var.bucket_tags
+
+  lifecycle {
+    ignore_changes = [
+      sse_algorithm
+    ]
+  }
+}
+
+resource "huaweicloud_obs_bucket_object" "test" {
+  bucket       = huaweicloud_obs_bucket.test.id
+  key          = var.object_extension_name != "" ? format("%s%s", var.object_name, var.object_extension_name) : var.object_name
+  content_type = "application/xml"
+  content      = var.object_upload_content
+}
+
+resource "huaweicloud_obs_bucket_policy" "test" {
+  bucket = huaweicloud_obs_bucket.test.id
+  policy = <<POLICY
+{
+    "Statement": [
+        {
+            "Sid": "",
+            "Effect": "Allow",
+            "Principal": {"ID": "*"},
+            "Action": ["GetObject"],
+            "Resource": "${huaweicloud_obs_bucket.test.id}/*"
+        }
+    ]
+}
+POLICY
 }
