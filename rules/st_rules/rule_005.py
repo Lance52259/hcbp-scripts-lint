@@ -102,16 +102,15 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         if line.strip() == '':
             continue
         
-        # For terraform.tfvars files, check heredoc state
-        if is_tfvars_file:
-            heredoc_state = _check_heredoc_state(line, in_heredoc, heredoc_terminator)
-            in_heredoc = heredoc_state["in_heredoc"]
-            heredoc_terminator = heredoc_state["terminator"]
-            
-            # Skip validation if we're inside a heredoc block
-            if in_heredoc:
-                continue
-            
+        # Check heredoc state for all files (not just terraform.tfvars)
+        heredoc_state = _check_heredoc_state(line, in_heredoc, heredoc_terminator)
+        in_heredoc = heredoc_state["in_heredoc"]
+        heredoc_terminator = heredoc_state["terminator"]
+        
+        # Skip validation if we're inside a heredoc block
+        if in_heredoc:
+            continue
+        
         indent_level = _get_indentation_level(line)
         
         # Skip lines with no indentation (top-level declarations)
@@ -132,7 +131,9 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
                 not line.strip().startswith('}') and
                 not line.strip().startswith('{') and
                 len(indentation_stack) > 0 and
-                indentation_stack[-1] > 0):  # Only check if we're inside a block
+                indentation_stack[-1] > 0 and
+                # For terraform.tfvars files, don't require indentation for top-level variable declarations
+                not (is_tfvars_file and not _is_inside_block_structure(line, lines, line_num))):  # Only check if we're inside a block
                 # This line should be indented but isn't
                 log_error_func(
                     file_path,
@@ -355,6 +356,64 @@ def _analyze_indentation_consistency(content: str) -> dict:
             if indent_levels else 100
         )
     }
+
+
+def _is_inside_block_structure(current_line: str, all_lines: List[str], current_line_num: int) -> bool:
+    """
+    Check if the current line is inside a block structure (like arrays, objects, etc.).
+    
+    This function helps determine if a line should be indented by checking if it's
+    inside a block structure that requires indentation.
+    
+    Args:
+        current_line (str): The current line being checked
+        all_lines (List[str]): All lines in the file
+        current_line_num (int): Current line number (1-indexed)
+        
+    Returns:
+        bool: True if the line is inside a block structure, False otherwise
+    """
+    # If this is a top-level variable declaration in terraform.tfvars, it's not inside a block
+    if '=' in current_line.strip() and not current_line.strip().startswith('#'):
+        # Look backwards to see if we're inside a block structure
+        brace_count = 0
+        bracket_count = 0
+        
+        for i in range(current_line_num - 2, -1, -1):  # Start from 2 lines before current
+            if i >= len(all_lines):
+                continue
+                
+            line = all_lines[i].strip()
+            if not line:
+                continue
+                
+            # Count braces and brackets to track block structure
+            for char in line:
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                elif char == '[':
+                    bracket_count += 1
+                elif char == ']':
+                    bracket_count -= 1
+            
+            # If we have unmatched opening braces/brackets, we're inside a block
+            if brace_count > 0 or bracket_count > 0:
+                return True
+                
+            # If we find a line that ends with { or [, check if it's part of a block structure
+            if line.endswith('{') or line.endswith('['):
+                # Check if this is a block structure (not just a simple assignment)
+                if '=' in line and ('{' in line or '[' in line):
+                    return True
+                break
+            # If we find a line that doesn't end with { or [, and it's not empty,
+            # and it's not a comment, then we're probably at the top level
+            elif not line.startswith('#') and not line.endswith('{') and not line.endswith('['):
+                break
+    
+    return False
 
 
 def get_rule_description() -> dict:
