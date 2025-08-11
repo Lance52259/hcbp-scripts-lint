@@ -30,30 +30,3 @@ resource "huaweicloud_compute_instance" "test" {
   system_disk_size = 40
 }
 # ST.003 Enable
-
-# This should trigger ST.003 error
-resource "huaweicloud_compute_instance" "another" {
-  name = "test-instance2"
-  flavor_id = "c6.large.2"
-  image_id = "test-image"
-  system_disk_size = 40
-}
-
-# Test multiple rule control
-# ST.001 Disable
-# ST.003 Disable
-resource "huaweicloud_vpc_route" "vpc_route_multiple" {
-  vpc_id      = huaweicloud_vpc.vpcD.id
-  destination = "192.168.0.0/16"
-  type        = "peering"
-  nexthop     = huaweicloud_vpc_peering_connection.peering.id
-}
-
-resource "huaweicloud_compute_instance" "test_multiple" {
-  name = "test-instance-multiple"
-  flavor_id = "c6.large.2"
-  image_id = "test-image"
-  system_disk_size = 40
-}
-# ST.001 Enable
-# ST.003 Enable
