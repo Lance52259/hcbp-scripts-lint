@@ -20,6 +20,8 @@ import os
 
 # Import individual rule modules
 from .rule_001 import check_sc001_array_index_safety, get_rule_description as get_sc001_description
+from .rule_002 import check_sc002_terraform_version_declaration, get_rule_description as get_sc002_description
+from .rule_003 import check_sc003_terraform_version_compatibility, get_rule_description as get_sc003_description
 
 
 class SCRules:
@@ -47,6 +49,18 @@ class SCRules:
                 "check_function": check_sc001_array_index_safety,
                 "description_function": get_sc001_description,
                 "name": "Array index access safety check",
+                "status": "modular"
+            },
+            "SC.002": {
+                "check_function": check_sc002_terraform_version_declaration,
+                "description_function": get_sc002_description,
+                "name": "Terraform required version declaration check",
+                "status": "modular"
+            },
+            "SC.003": {
+                "check_function": check_sc003_terraform_version_compatibility,
+                "description_function": get_sc003_description,
+                "name": "Terraform version compatibility check",
                 "status": "modular"
             }
         }

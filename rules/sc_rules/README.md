@@ -11,7 +11,9 @@ sc_rules/
 ├── __init__.py   # Package initialization and exports
 ├── README.md     # This documentation file
 ├── reference.py  # Main SCRules coordinator class
-└── rule_001.py   # SC.001 - Array index access safety check
+├── rule_001.py   # SC.001 - Array index access safety check
+├── rule_002.py   # SC.002 - Terraform required version declaration check
+└── rule_003.py   # SC.003 - Terraform version compatibility check
 ```
 
 ## 🎯 Available Rules
@@ -19,6 +21,8 @@ sc_rules/
 | Rule ID | Name | Description | Module |
 |---------|------|-------------|---------|
 | SC.001 | Array index access safety check | Enforce safe array access using try() function | `rule_001.py` |
+| SC.002 | Terraform required version declaration check | Validates that providers.tf files contain terraform block with required_version declaration | `rule_002.py` |
+| SC.003 | Terraform version compatibility check | Validates that declared required_version is compatible with features used | `rule_003.py` |
 
 ## 🚀 Usage
 
