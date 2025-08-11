@@ -8,6 +8,8 @@ better maintainability and extensibility.
 
 Available Rules:
 - SC.001: Array index access safety check
+- SC.002: Terraform required version declaration check
+- SC.003: Terraform version compatibility check
 
 Author: Lance
 License: Apache 2.0

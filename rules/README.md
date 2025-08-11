@@ -119,6 +119,8 @@ Each rule package follows a consistent design pattern:
 | Rule ID | Name | Description | Status |
 |---------|------|-------------|--------|
 | SC.001 | Array Index Access Safety Check | Validates that array index access uses try() function for safety | ✅ Modular |
+| SC.002 | Terraform Required Version Declaration Check | Validates that providers.tf files contain terraform block with required_version declaration | ✅ Modular |
+| SC.003 | Terraform Version Compatibility Check | Validates that declared required_version is compatible with features used | ✅ Modular |
 
 ## Usage Examples
 

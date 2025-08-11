@@ -226,8 +226,10 @@ jobs:
 ### DC (Documentation/Comments) Rules - 1 Rule
 - **DC.001**: Comment formatting standards
 
-### SC (Security Code) Rules - 1 Rule
+### SC (Security Code) Rules - 3 Rules
 - **SC.001**: Unsafe array index access detection
+- **SC.002**: Terraform required version declaration check
+- **SC.003**: Terraform version compatibility check
 
 ## Configuration Options
 
