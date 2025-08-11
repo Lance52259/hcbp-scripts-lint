@@ -220,12 +220,32 @@ def _analyze_file_for_version_requirements(content: str) -> Tuple[List[str], Lis
         
         # Check for variable validation with other variable references
         if 'validation' in line and in_variable_block:
-            # Look for var. references in the next few lines
-            for i in range(line_num, min(line_num + 10, len(lines))):
-                if 'var.' in lines[i]:
-                    required_versions.append(">= 1.9.0")
-                    used_features.append("other variables are referenced in validation.condition")
-                    break
+            # Look for var. references in the next few lines and analyze if they reference other variables
+            current_variable_name = None
+            for i in range(line_num - 1, max(-1, line_num - 10), -1):
+                # Find the current variable name by looking backwards
+                if i >= 0 and lines[i].strip().startswith('variable '):
+                    match = re.search(r'variable\s+"([^"]+)"', lines[i])
+                    if match:
+                        current_variable_name = match.group(1)
+                        break
+            
+            if current_variable_name:
+                # Look for var. references in the validation block
+                for i in range(line_num, min(line_num + 10, len(lines))):
+                    if 'var.' in lines[i]:
+                        # Check if this var. reference is to a different variable
+                        var_matches = re.findall(r'var\.([a-zA-Z0-9_-]+)', lines[i])
+                        for var_name in var_matches:
+                            if var_name != current_variable_name:
+                                # Found reference to another variable
+                                required_versions.append(">= 1.9.0")
+                                used_features.append("other variables are referenced in validation.condition")
+                                break
+                        if ">= 1.9.0" in required_versions:
+                            break
+                    if lines[i].strip() == '}':
+                        break
         
         # Check for import block with for_each
         if 'import' in line:
