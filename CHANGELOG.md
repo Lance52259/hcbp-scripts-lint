@@ -5,6 +5,128 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.5] - 2025-09-5
+
+### 🚀 New SC Rules Category - Security Code Checks
+
+#### 🛡️ SC.002 - Terraform Required Version Declaration Check
+- **New Rule**: Validates that `providers.tf` files contain proper `terraform` block with `required_version` declaration
+- **Features**:
+  - Ensures consistent Terraform version usage across the project
+  - Prevents version compatibility issues
+  - Supports multiple version constraint formats (`>= 1.3.0`, `~> 1.0`, `>= 0.14.0, < 2.0.0`, etc.)
+  - Intelligent detection of terraform block structure and required_version declaration
+
+#### 🔍 SC.003 - Terraform Version Compatibility Check
+- **New Rule**: Analyzes Terraform configuration to determine minimum required version and validates that declared `required_version` is compatible with used features
+- **Version Requirements Detection**:
+  - `variable/output sensitive = "true"` requires >= 0.14.0
+  - `variable nullable = "true"` requires >= 1.1.0
+  - `variable type with optional()` requires >= 1.3.0
+  - `resource lifecycle precondition` requires >= 1.2.0
+  - `variable validation with other variable references` requires >= 1.9.0
+  - `import block with for_each` requires >= 1.7.0
+  - Default minimum version: 0.12.0
+
+### 🎯 New ST Rule - Style/Format Check
+
+#### 📄 ST.012 - File Header and Footer Whitespace Check
+- **New Rule**: Validates that Terraform files have proper whitespace formatting at the beginning and end
+- **Validation Content**:
+  - Files should not have empty lines before the first non-empty line
+  - Files should have exactly one empty line after the last non-empty line
+  - Ensures consistent file formatting and readability
+
+### 🔧 Comment Control Feature
+
+#### 💬 New Comment Control Module
+- **New Feature**: Supports controlling rule execution through comments
+- **Control Format**:
+  - `# ST.001 Disable` - Disables ST.001 rule from this line onwards
+  - `# ST.001 Enable` - Re-enables ST.001 rule from this line onwards
+- **Features**:
+  - File-scoped control (comments only affect the current file)
+  - Line-based control (rules are disabled/enabled from the comment line onwards)
+  - Support for all rule categories (ST, IO, DC, SC)
+  - Robust parsing with error handling
+
+### 🛠️ Rule Fixes and Improvements
+
+#### 🔧 SC Rules Fix
+- **Fixed Issue**: Resolved import block triggering SC rule issue
+- **Example Updates**: Updated related example files to reflect the fix
+
+#### 📁 Example Files Restructuring
+- **Structure Reorganization**: Renamed `examples/good-example` to `examples/good-examples`
+- **New Examples**: Added extensive Terraform version-related example files:
+  - `combinations/` - Combination usage examples
+  - `import/` - Import block examples
+  - `lifecycle/precondition/` - Lifecycle precondition examples
+  - `nullable/` - Nullable variable examples
+  - `optional/` - Optional type examples
+  - `sensitive/` - Sensitive variable examples
+  - `validation/condition-with-another-var/` - Variable validation examples
+
+### 📚 Documentation Updates
+
+#### 📖 Core Documentation Updates
+- **CHANGELOG.md** - Detailed changelog
+- **Introduction.md** - New rules introduction
+- **README.md** - Updated rules list and descriptions
+- **QUICKSTART.md** - Quick start guide updates
+- **PUBLISHING.md** - Publishing documentation updates
+
+#### 📋 Rule Documentation Enhancement
+- **rules/README.md** - Rules overview updates
+- **rules/sc_rules/README.md** - New SC rules documentation
+- **rules/st_rules/README.md** - ST rules documentation updates
+- Each rule includes detailed descriptions, examples, and fix suggestions
+
+### 🔧 Technical Improvements
+
+#### ⚙️ Rules Management System
+- Updated `rules_manager.py`
+- Enhanced rule registration and discovery mechanism
+- Improved rule execution flow
+
+#### 🚀 Code Quality Enhancement
+- Enhanced error handling and reporting
+- Improved rule validation logic
+- Optimized performance
+
+### 📊 Impact Scope
+
+#### ✅ Backward Compatibility
+- All existing functionality remains compatible
+- New rules can be selectively disabled using `ignore-rules` parameter
+- Supports gradual adoption of new rules
+
+#### 🎯 Usage Recommendations
+- Recommend gradually enabling new SC rules to ensure Terraform version compatibility
+- Can utilize comment control feature to disable rules in specific files
+- New example files provide best practice references
+
+### 📈 Version Statistics
+- **New Rules**: 3 (2 SC rules + 1 ST rule)
+- **Files Changed**: 64 files modified
+- **Code Lines**: 1,684 lines added, 3 lines deleted
+- **Example Files**: Added extensive Terraform version-related examples
+
+### 🎉 Summary
+
+This version significantly enhances Terraform code quality checking capabilities, particularly in version compatibility validation. The new SC rules category provides important security code checking functionality, while the comment control feature offers developers more flexible rule management.
+
+**Key Achievements**:
+- **New SC Rules Category**: Provides Terraform version declaration and compatibility checks
+- **New ST.012 Rule**: File format standardization check
+- **Comment Control Feature**: Flexible rule management mechanism
+- **Example Files Expansion**: Comprehensive best practice references
+- **Documentation Enhancement**: Detailed rule descriptions and usage guides
+
+**Recommended for**: Projects requiring strict Terraform version management, large team collaborative development, and organizations pursuing code quality standardization.
+
+---
+
 ## [2.3.4] - 2025-08-08
 
 ### 🔧 ST.005 Rule Enhancement - Comprehensive Heredoc and Top-Level Variable Support
