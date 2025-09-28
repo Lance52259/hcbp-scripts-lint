@@ -85,6 +85,10 @@ def _find_all_files(base_dir: str) -> List[str]:
     
     try:
         for root, dirs, filenames in os.walk(base_dir):
+            # Filter out hidden directories from further traversal
+            # This prevents os.walk from descending into hidden directories
+            dirs[:] = [d for d in dirs if not d.startswith('.') and not _should_skip_directory(d)]
+            
             for filename in filenames:
                 file_path = os.path.join(root, filename)
                 files.append(file_path)
@@ -93,6 +97,50 @@ def _find_all_files(base_dir: str) -> List[str]:
         pass
     
     return files
+
+
+def _should_skip_directory(dir_name: str) -> bool:
+    """
+    Check if a directory should be skipped from traversal.
+    
+    Args:
+        dir_name (str): Directory name to check
+        
+    Returns:
+        bool: True if directory should be skipped, False otherwise
+    """
+    # Skip hidden directories
+    if dir_name.startswith('.'):
+        return True
+    
+    # Skip common system directories and Terraform-specific directories
+    skip_dirs = {
+        '__pycache__',
+        'node_modules',
+        '.git',
+        '.svn',
+        '.hg',
+        'venv',
+        'env',
+        '.venv',
+        '.env',
+        'build',
+        'dist',
+        'target',
+        'bin',
+        'obj',
+        'tmp',
+        'temp',
+        'vendor',
+        'examples',
+        'test',
+        'tests',
+        # Terraform-specific directories
+        '.terraform',
+        'terraform.tfstate.d'
+    }
+    
+    return dir_name.lower() in skip_dirs
 
 
 def _should_skip_file(file_name: str) -> bool:
@@ -107,6 +155,10 @@ def _should_skip_file(file_name: str) -> bool:
     """
     # Skip hidden files
     if file_name.startswith('.'):
+        return True
+    
+    # Skip Terraform auto.tfvars files (xxx.auto.tfvars format)
+    if file_name.endswith('.auto.tfvars'):
         return True
     
     # Skip common system files
@@ -170,7 +222,12 @@ def _should_skip_file(file_name: str) -> bool:
         '.pytest_cache',
         '.tox',
         '.mypy_cache',
-        '.ruff_cache'
+        '.ruff_cache',
+        # Terraform-specific files
+        'terraform.tfstate',
+        'terraform.tfstate.backup',
+        '.terraform.lock.hcl',
+        '.terraform.tfstate.lock.info'
     }
     
     return file_name.lower() in skip_files
@@ -260,6 +317,7 @@ def get_rule_description() -> dict:
         ],
         "excluded_files": [
             "Hidden files (starting with .)",
+            "Terraform auto.tfvars files (xxx.auto.tfvars format)",
             "System files (Thumbs.db, desktop.ini, .DS_Store, etc.)",
             "Configuration files (.gitignore, .editorconfig, etc.)",
             "Build and cache files (build, dist, target, etc.)",
