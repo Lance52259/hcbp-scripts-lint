@@ -124,6 +124,7 @@ git push origin v1
 - SC.001: Array index access safety check (validates that array index access uses try() function to prevent index out of bounds errors)
 - SC.002: Terraform required version declaration check (validates that providers.tf files contain terraform block with required_version declaration)
 - SC.003: Terraform version compatibility check (validates that declared required_version is compatible with features used)
+- SC.004: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing with current and previous versions)
 
 ### Usage
 ``yaml

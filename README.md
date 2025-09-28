@@ -96,7 +96,7 @@ A comprehensive linting tool for Terraform scripts with advanced rule management
 
 ## Features
 
-- **Multi-Category Rules**: 22 rules across ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and SC (Security Code) categories
+- **Multi-Category Rules**: 23 rules across ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and SC (Security Code) categories
 - **Comment Control**: Enable/disable specific rules using inline comments
 - **Flexible Configuration**: Path filtering, rule exclusion, and performance monitoring
 - **GitHub Actions Integration**: Seamless CI/CD integration with artifact support
@@ -226,10 +226,11 @@ jobs:
 ### DC (Documentation/Comments) Rules - 1 Rule
 - **DC.001**: Comment formatting standards
 
-### SC (Security Code) Rules - 3 Rules
+### SC (Security Code) Rules - 4 Rules
 - **SC.001**: Unsafe array index access detection
 - **SC.002**: Terraform required version declaration check
 - **SC.003**: Terraform version compatibility check
+- **SC.004**: HuaweiCloud provider version validity check
 
 ## Configuration Options
 

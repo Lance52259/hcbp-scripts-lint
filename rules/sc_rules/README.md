@@ -13,7 +13,8 @@ sc_rules/
 ├── reference.py  # Main SCRules coordinator class
 ├── rule_001.py   # SC.001 - Array index access safety check
 ├── rule_002.py   # SC.002 - Terraform required version declaration check
-└── rule_003.py   # SC.003 - Terraform version compatibility check
+├── rule_003.py   # SC.003 - Terraform version compatibility check
+└── rule_004.py   # SC.004 - HuaweiCloud provider version validity check
 ```
 
 ## 🎯 Available Rules
@@ -23,6 +24,7 @@ sc_rules/
 | SC.001 | Array index access safety check | Enforce safe array access using try() function | `rule_001.py` |
 | SC.002 | Terraform required version declaration check | Validates that providers.tf files contain terraform block with required_version declaration | `rule_002.py` |
 | SC.003 | Terraform version compatibility check | Validates that declared required_version is compatible with features used | `rule_003.py` |
+| SC.004 | HuaweiCloud provider version validity check | Validates huaweicloud provider version constraints by testing with current and previous versions | `rule_004.py` |
 
 ## 🚀 Usage
 
@@ -243,6 +245,90 @@ locals {
 - Use `for_each` instead of direct indexing when possible
 - Use `coalesce()` for multiple fallback options
 - Implement proper validation in variable definitions
+
+### SC.004 - HuaweiCloud Provider Version Validity Check
+
+**Purpose**: Validates huaweicloud provider version constraints by testing with current and previous versions to ensure proper version boundaries.
+
+**Scenarios Covered**:
+- Version constraint is too permissive (previous version also works)
+- Version constraint is too restrictive (current version doesn't work)
+- Version constraint points to non-existent version
+- Version constraint syntax is invalid
+
+**Validation Criteria**:
+- Fetches real version data from GitHub releases
+- Finds the previous available version (excluding known problematic versions)
+- Executes terraform validate with current version (should pass)
+- Executes terraform validate with previous version (should fail)
+
+**Examples**:
+
+**❌ Too Permissive (Previous Version Also Works)**:
+```hcl
+# Version constraint too permissive - previous version also works
+terraform {
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = ">= 1.76.0"  # Previous version 1.75.x also works
+    }
+  }
+}
+```
+
+**✅ Properly Set (Only Current Version Works)**:
+```hcl
+# Properly set version constraint - only current version works
+terraform {
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = ">= 1.77.1"  # Previous version 1.76.5 fails validation
+    }
+  }
+}
+```
+
+**❌ Non-existent Version**:
+```hcl
+# Version doesn't exist in GitHub releases
+terraform {
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = ">= 99.0.0"  # Non-existent version
+    }
+  }
+}
+```
+
+**❌ Invalid Syntax**:
+```hcl
+# Invalid version constraint syntax
+terraform {
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = "invalid-version"  # Invalid syntax
+    }
+  }
+}
+```
+
+**Best Practices**:
+1. Use semantic versioning constraints (>=, ~>, etc.)
+2. Test version constraints in development environment
+3. Check GitHub releases for available versions
+4. Exclude known problematic versions (1.63.0-1.63.2, 1.64.0-1.64.2, 1.77.0)
+5. Ensure current version passes terraform validate
+6. Verify previous version fails terraform validate
+
+**Technical Details**:
+- Fetches versions from GitHub API with pagination support
+- Excludes known problematic versions automatically
+- Executes actual terraform commands for validation
+- Provides detailed error messages with suggestions
 
 ## 🔄 Backward Compatibility
 
