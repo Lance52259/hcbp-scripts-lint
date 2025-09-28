@@ -23,7 +23,8 @@ st_rules/
 ├── rule_010.py   # ST.010 - Resource, data source, variable, and output quote check
 ├── rule_011.py   # ST.011 - Trailing whitespace check
 ├── rule_012.py   # ST.012 - File header and footer whitespace check
-└── rule_013.py   # ST.013 - Directory naming convention check
+├── rule_013.py   # ST.013 - Directory naming convention check
+└── rule_014.py   # ST.014 - File naming convention check
 ```
 
 ## 🎯 Available Rules
@@ -43,6 +44,7 @@ st_rules/
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
 | ST.012 | File header and footer whitespace check | Ensures no extra whitespace at the beginning or end of the file | `rule_012.py` |
 | ST.013 | Directory naming convention check | Validates directory names contain only letters, numbers, and hyphens, and start/end with letters | `rule_013.py` |
+| ST.014 | File naming convention check | Validates file names contain only letters, numbers, and underscores, and start/end with letters | `rule_014.py` |
 
 ## 🚀 Usage
 
@@ -318,6 +320,21 @@ the longest parameter name.
 **Examples**:
 - Valid: `my-project`, `terraform-modules`, `test-env-1`, `data-processing`
 - Invalid: `_private-dir` (starts with underscore), `my-project-` (ends with hyphen), `123-project` (starts with number)
+
+### ST.014 - File Naming Convention Check
+
+**Purpose**: Validates that all file names follow proper naming conventions.
+
+**Validation Criteria**:
+- File names must contain only letters, numbers, and underscores
+- File names must start and end with a letter
+- No consecutive underscores allowed
+- Recursively checks all files at any depth
+- Automatically skips hidden files and system files
+
+**Examples**:
+- Valid: `main.tf`, `variables.tf`, `terraform_config.tf`, `test_file.tfvars`
+- Invalid: `_private.tf` (starts with underscore), `config-.tf` (ends with underscore), `123_config.tf` (starts with number)
 
 ## 🔄 Backward Compatibility
 
