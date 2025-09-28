@@ -22,7 +22,8 @@ st_rules/
 ├── rule_009.py   # ST.009 - Variable definition order check
 ├── rule_010.py   # ST.010 - Resource, data source, variable, and output quote check
 ├── rule_011.py   # ST.011 - Trailing whitespace check
-└── rule_012.py   # ST.012 - File header and footer whitespace check
+├── rule_012.py   # ST.012 - File header and footer whitespace check
+└── rule_013.py   # ST.013 - Directory naming convention check
 ```
 
 ## 🎯 Available Rules
@@ -41,6 +42,7 @@ st_rules/
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
 | ST.012 | File header and footer whitespace check | Ensures no extra whitespace at the beginning or end of the file | `rule_012.py` |
+| ST.013 | Directory naming convention check | Validates directory names contain only letters, numbers, and hyphens, and start/end with letters | `rule_013.py` |
 
 ## 🚀 Usage
 
@@ -301,6 +303,21 @@ the longest parameter name.
 **Validation Criteria**:
 - No leading or trailing whitespace at the beginning of the file
 - No leading or trailing whitespace at the end of the file
+
+### ST.013 - Directory Naming Convention Check
+
+**Purpose**: Validates that all directory names follow proper naming conventions.
+
+**Validation Criteria**:
+- Directory names must contain only letters, numbers, and hyphens
+- Directory names must start and end with a letter
+- No consecutive hyphens allowed
+- Recursively checks all subdirectories at any depth
+- Automatically skips hidden directories and system directories
+
+**Examples**:
+- Valid: `my-project`, `terraform-modules`, `test-env-1`, `data-processing`
+- Invalid: `_private-dir` (starts with underscore), `my-project-` (ends with hyphen), `123-project` (starts with number)
 
 ## 🔄 Backward Compatibility
 

@@ -26,6 +26,8 @@ rules/
 │   ├── rule_001.py             # ST.001 - Naming convention check
 |   ├── ...
 │   ├── rule_011.py             # ST.011 - Trailing whitespace check
+│   ├── rule_012.py             # ST.012 - File header and footer whitespace check
+│   ├── rule_013.py             # ST.013 - Directory naming convention check
 │   └── [future rule modules]   # Additional ST rules as separate modules
 ├── dc_rules/                   # DC rules modular package
 │   ├── __init__.py             # Package initialization
@@ -96,6 +98,7 @@ Each rule package follows a consistent design pattern:
 | ST.010 | Quote Usage | Double quotes around resource, data source, variable, and output names | ✅ Modular |
 | ST.011 | Trailing Whitespace | No trailing spaces or tabs at line ends | ✅ Modular |
 | ST.012 | File Header and Footer Whitespace | Files should not have empty lines before first non-empty line and should have exactly one empty line after last non-empty line | ✅ Modular |
+| ST.013 | Directory Naming Convention | Validates directory names contain only letters, numbers, and hyphens, and start/end with letters | ✅ Modular |
 
 ### DC (Documentation/Comments) Rules
 
