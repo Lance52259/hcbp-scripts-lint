@@ -169,7 +169,12 @@ def check_sc004_provider_version_validity(file_path: str, content: str, log_erro
         # Test with previous version (should fail)
         previous_result = _test_terraform_validate_with_version(terraform_dir, previous_version)
         if previous_result['success']:
-            error_msg = f"Version constraint '{version_constraint}' is too permissive. Previous version '{previous_version}' also works. Consider using '>= {min_version}' instead."
+            # Find the actual minimum required version
+            actual_min_version = _find_actual_minimum_version(terraform_dir, available_versions, min_version)
+            if actual_min_version and actual_min_version != min_version:
+                error_msg = f"Version constraint '{version_constraint}' is too permissive. Previous version '{previous_version}' also works. Consider using '>= {actual_min_version}' instead."
+            else:
+                error_msg = f"Version constraint '{version_constraint}' is too permissive. Previous version '{previous_version}' also works. Consider using a more restrictive version constraint."
             log_error_func(file_path, "SC.004", error_msg, line_num)
         # If previous version fails, that's expected and good
 
@@ -485,6 +490,47 @@ def _get_github_versions() -> List[str]:
         raise Exception(f"Failed to fetch versions from GitHub: {str(e)}")
 
 
+def _find_actual_minimum_version(terraform_dir: str, available_versions: List[str], current_min_version: str) -> Optional[str]:
+    """
+    Find the actual minimum version required by testing with different versions.
+    
+    Args:
+        terraform_dir (str): Directory containing Terraform files
+        available_versions (List[str]): List of all available versions
+        current_min_version (str): Current minimum version constraint
+        
+    Returns:
+        Optional[str]: Actual minimum required version or None if not found
+    """
+    # Find versions less than current minimum version
+    lower_versions = [v for v in available_versions if _compare_versions(v, current_min_version) < 0]
+    
+    if not lower_versions:
+        return None
+    
+    # Sort versions in descending order (newest first)
+    lower_versions.sort(key=lambda x: _compare_versions(x, "0.0.0"), reverse=True)
+    
+    # Test each version to find the highest one that still works
+    last_working_version = None
+    for version in lower_versions:
+        result = _test_terraform_validate_with_version(terraform_dir, version)
+        if result['success']:
+            last_working_version = version
+        else:
+            # This version fails, so the last working version + 1 is the minimum required
+            if last_working_version:
+                # Find the next higher version after the last working version
+                higher_versions = [v for v in available_versions if _compare_versions(v, last_working_version) > 0]
+                if higher_versions:
+                    higher_versions.sort(key=lambda x: _compare_versions(x, "0.0.0"))
+                    return higher_versions[0]
+            break
+    
+    # If all lower versions work, return the current minimum version
+    return current_min_version
+
+
 def _find_previous_available_version(current_version: str, available_versions: List[str]) -> Optional[str]:
     """
     Find the previous available version, excluding problematic versions.
@@ -608,7 +654,7 @@ def get_rule_description() -> dict:
                 'provider "huaweicloud" { version = ">= 1.40.0" }  # Properly set version constraint'
             ],
             "invalid": [
-                'required_providers { huaweicloud = { version = ">= 1.76.0" } }  # Too permissive - previous version also works',
+                'required_providers { huaweicloud = { version = ">= 1.52.1" } }  # Too permissive - previous version 1.51.0 also works, should use >= 1.52.2',
                 'required_providers { huaweicloud = { version = ">= 99.0.0" } }  # Non-existent version',
                 'required_providers { huaweicloud = { version = "invalid-version" } }  # Invalid syntax'
             ]
@@ -618,7 +664,9 @@ def get_rule_description() -> dict:
             "Verify that previous version fails terraform validate",
             "Use GitHub releases to find available versions",
             "Exclude known problematic versions (1.52.0, 1.63.0-1.63.2, 1.64.0-1.64.2, 1.75.4, 1.77.0)",
-            "Test version constraints in development environment"
+            "Test version constraints in development environment",
+            "Use the suggested minimum version from the error message",
+            "Verify the actual minimum required version by testing with different provider versions"
         ],
         "terraform_commands": [
             "terraform init - initializes with specific provider version",
