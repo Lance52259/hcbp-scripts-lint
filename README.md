@@ -96,7 +96,7 @@ A comprehensive linting tool for Terraform scripts with advanced rule management
 
 ## Features
 
-- **Multi-Category Rules**: 24 rules across ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and SC (Security Code) categories
+- **Multi-Category Rules**: 25 rules across ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and SC (Security Code) categories
 - **Comment Control**: Enable/disable specific rules using inline comments
 - **Flexible Configuration**: Path filtering, rule exclusion, and performance monitoring
 - **GitHub Actions Integration**: Seamless CI/CD integration with artifact support
@@ -198,7 +198,7 @@ jobs:
 
 ## Rule Categories
 
-### ST (Style/Format) Rules - 13 Rules
+### ST (Style/Format) Rules - 14 Rules
 - **ST.001**: Resource and data source naming convention check
 - **ST.002**: Variable default value requirement for data sources
 - **ST.003**: Parameter alignment with equals signs
@@ -212,6 +212,7 @@ jobs:
 - **ST.011**: Trailing whitespace detection
 - **ST.012**: File header and footer whitespace check
 - **ST.013**: Directory naming convention check
+- **ST.014**: File naming convention check
 
 ### IO (Input/Output) Rules - 9 Rules
 - **IO.001**: Variable definition file organization
