@@ -56,6 +56,7 @@ The tool implements a modular rule system organized into four distinct categorie
 - **ST.010**: Resource, data source, variable, and output quote check (double quotes around names)
 - **ST.011**: Trailing whitespace check (no trailing spaces or tabs at line ends)
 - **ST.012**: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty line after last non-empty line)
+- **ST.013**: Directory naming convention check (validates directory names contain only letters, numbers, and hyphens, and start/end with letters)
 
 **Implementation Pattern**:
 
