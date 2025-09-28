@@ -22,6 +22,7 @@ import os
 from .rule_001 import check_sc001_array_index_safety, get_rule_description as get_sc001_description
 from .rule_002 import check_sc002_terraform_version_declaration, get_rule_description as get_sc002_description
 from .rule_003 import check_sc003_terraform_version_compatibility, get_rule_description as get_sc003_description
+from .rule_004 import check_sc004_provider_version_validity, get_rule_description as get_sc004_description
 
 
 class SCRules:
@@ -61,6 +62,12 @@ class SCRules:
                 "check_function": check_sc003_terraform_version_compatibility,
                 "description_function": get_sc003_description,
                 "name": "Terraform version compatibility check",
+                "status": "modular"
+            },
+            "SC.004": {
+                "check_function": check_sc004_provider_version_validity,
+                "description_function": get_sc004_description,
+                "name": "Provider minimum version validity check",
                 "status": "modular"
             }
         }

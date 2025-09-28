@@ -111,6 +111,7 @@ class STRules:
 - **SC.001**: Array index access safety check (prevents index out of bounds errors)
 - **SC.002**: Terraform required version declaration check (ensures providers.tf contains proper version constraints)
 - **SC.003**: Terraform version compatibility check (validates version compatibility with used features)
+- **SC.004**: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing with current and previous versions)
 
 **Implementation Features**:
 - **Data Source Safety**: Validates safe array index access in data source list attribute references
