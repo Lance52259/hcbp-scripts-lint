@@ -253,52 +253,6 @@ def _extract_provider_constraints(content: str) -> List[Tuple[str, str, int]]:
     return constraints
 
 
-def _validate_provider_version(provider_name: str, version_constraint: str, terraform_dir: str) -> Dict[str, Any]:
-    """
-    Validate provider version constraint syntax and basic validity.
-    
-    Args:
-        provider_name (str): Name of the provider
-        version_constraint (str): Version constraint string
-        terraform_dir (str): Directory containing Terraform files
-        
-    Returns:
-        Dict[str, any]: Validation result with 'valid' and 'reason' keys
-    """
-    try:
-        # Basic syntax validation
-        if not version_constraint.strip():
-            return {'valid': False, 'reason': 'Empty version constraint'}
-        
-        # Check for valid version constraint patterns
-        valid_patterns = [
-            r'^\d+\.\d+\.\d+$',  # Exact version: 1.0.0
-            r'^>=\s*\d+\.\d+\.\d+$',  # Greater than or equal: >= 1.0.0
-            r'^>\s*\d+\.\d+\.\d+$',   # Greater than: > 1.0.0
-            r'^<=\s*\d+\.\d+\.\d+$',  # Less than or equal: <= 1.0.0
-            r'^<\s*\d+\.\d+\.\d+$',   # Less than: < 1.0.0
-            r'^~>\s*\d+\.\d+\.\d+$',  # Pessimistic: ~> 1.0.0
-            r'^\d+\.\d+\.\d+\s*-\s*\d+\.\d+\.\d+$',  # Range: 1.0.0 - 2.0.0
-        ]
-        
-        if not any(re.match(pattern, version_constraint.strip()) for pattern in valid_patterns):
-            return {'valid': False, 'reason': f'Invalid version constraint syntax: {version_constraint}'}
-        
-        # Extract minimum version for further validation
-        min_version = _extract_minimum_version(version_constraint)
-        if not min_version:
-            return {'valid': False, 'reason': 'Could not extract minimum version from constraint'}
-        
-        # Validate version format
-        if not _is_valid_version(min_version):
-            return {'valid': False, 'reason': f'Invalid version format: {min_version}'}
-        
-        return {'valid': True, 'reason': 'Valid version constraint'}
-        
-    except Exception as e:
-        return {'valid': False, 'reason': f'Validation error: {str(e)}'}
-
-
 def _extract_minimum_version(version_constraint: str) -> Optional[str]:
     """
     Extract the minimum version from a version constraint.
@@ -471,77 +425,8 @@ def _execute_terraform_command(args: List[str], working_dir: str) -> Dict[str, A
         }
 
 
-def _get_available_versions(provider_name: str) -> List[str]:
-    """
-    Get list of available versions for a provider.
-    
-    Args:
-        provider_name (str): Name of the provider
-        
-    Returns:
-        List[str]: List of available version strings
-    """
-    # This is a simplified version - in practice, you would query the Terraform registry
-    # or maintain a local version list. For now, we'll use a predefined list.
-    
-    # Common provider version lists (this would typically be loaded from a config file)
-    version_lists = {
-        'huaweicloud': [
-            '1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0',
-            '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0',
-            '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0',
-            '1.18.0', '1.19.0', '1.20.0', '1.21.0', '1.22.0', '1.23.0',
-            '1.24.0', '1.25.0', '1.26.0', '1.27.0', '1.28.0', '1.29.0',
-            '1.30.0', '1.31.0', '1.32.0', '1.33.0', '1.34.0', '1.35.0',
-            '1.36.0', '1.37.0', '1.38.0', '1.39.0', '1.40.0', '1.41.0',
-            '1.42.0', '1.43.0', '1.44.0', '1.45.0', '1.46.0', '1.47.0',
-            '1.48.0', '1.49.0', '1.50.0'
-        ],
-        'aws': [
-            '1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0',
-            '2.0.0', '2.1.0', '2.2.0', '2.3.0', '2.4.0', '2.5.0',
-            '3.0.0', '3.1.0', '3.2.0', '3.3.0', '3.4.0', '3.5.0',
-            '4.0.0', '4.1.0', '4.2.0', '4.3.0', '4.4.0', '4.5.0',
-            '5.0.0', '5.1.0', '5.2.0', '5.3.0', '5.4.0', '5.5.0'
-        ],
-        'azurerm': [
-            '1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0',
-            '2.0.0', '2.1.0', '2.2.0', '2.3.0', '2.4.0', '2.5.0',
-            '3.0.0', '3.1.0', '3.2.0', '3.3.0', '3.4.0', '3.5.0'
-        ]
-    }
-    
-    return version_lists.get(provider_name, [])
 
 
-def _find_closest_version(target_version: str, available_versions: List[str]) -> str:
-    """
-    Find the closest available version to the target version.
-    
-    Args:
-        target_version (str): Target version to find closest match for
-        available_versions (List[str]): List of available versions
-        
-    Returns:
-        str: Closest available version
-    """
-    if not available_versions:
-        return target_version
-    
-    try:
-        # Sort versions and find the closest one >= target
-        sorted_versions = sorted(available_versions, key=lambda x: _compare_versions(x, "0.0.0"))
-        
-        for ver in sorted_versions:
-            if _compare_versions(ver, target_version) >= 0:
-                return ver
-        
-        # If no version >= target, return the latest
-        return sorted_versions[-1]
-        
-    except Exception:
-        # If version parsing fails, return the latest available version
-        return available_versions[-1] if available_versions else target_version
 
 
 def _get_github_versions() -> List[str]:
@@ -613,8 +498,14 @@ def _find_previous_available_version(current_version: str, available_versions: L
     """
     # Known problematic versions to exclude
     problematic_versions = {
-        "1.63.0", "1.63.1", "1.63.2",
-        "1.64.0", "1.64.1", "1.64.2",
+        "1.52.0",
+        "1.63.0",
+        "1.63.1",
+        "1.63.2",
+        "1.64.0",
+        "1.64.1",
+        "1.64.2",
+        "1.75.4",
         "1.77.0"
     }
     
@@ -688,25 +579,6 @@ def _test_terraform_validate_with_version(terraform_dir: str, provider_version: 
         }
 
 
-def _get_latest_stable_version(provider_name: str) -> str:
-    """
-    Get the latest stable version for a provider.
-    
-    Args:
-        provider_name (str): Name of the provider
-        
-    Returns:
-        str: Latest stable version
-    """
-    try:
-        available_versions = _get_github_versions()
-        if available_versions:
-            return available_versions[-1]
-    except Exception:
-        pass
-    return "1.0.0"  # Fallback version
-
-
 def get_rule_description() -> dict:
     """
     Get the rule description for SC.004.
@@ -745,7 +617,7 @@ def get_rule_description() -> dict:
             "Check that current version passes terraform validate",
             "Verify that previous version fails terraform validate",
             "Use GitHub releases to find available versions",
-            "Exclude known problematic versions (1.63.0-1.63.2, 1.64.0-1.64.2, 1.77.0)",
+            "Exclude known problematic versions (1.52.0, 1.63.0-1.63.2, 1.64.0-1.64.2, 1.75.4, 1.77.0)",
             "Test version constraints in development environment"
         ],
         "terraform_commands": [
@@ -753,6 +625,6 @@ def get_rule_description() -> dict:
             "terraform validate - validates configuration with specific version"
         ],
         "version_source": "GitHub releases: https://github.com/huaweicloud/terraform-provider-huaweicloud/releases",
-        "problematic_versions": ["1.63.0", "1.63.1", "1.63.2", "1.64.0", "1.64.1", "1.64.2", "1.77.0"],
+        "problematic_versions": ["1.52.0", "1.63.0", "1.63.1", "1.63.2", "1.64.0", "1.64.1", "1.64.2", "1.75.4", "1.77.0"],
         "target_provider": "huaweicloud"
     }
