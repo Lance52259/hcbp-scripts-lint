@@ -109,7 +109,7 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
     declared_version = _extract_declared_version(content)
     
     if declared_version and min_required_version:
-        # Compare versions
+        # Check if declared version is too low
         if not _is_version_compatible(declared_version, min_required_version):
             # Generate feature description
             feature_description = _generate_feature_description(used_features)
@@ -117,6 +117,17 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
                 file_path,
                 "SC.003",
                 f"Declared version '{declared_version}' is too low. Required: '{min_required_version}' {feature_description}",
+                1
+            )
+        
+        # Check if declared version is unnecessarily high for specific features
+        if _is_version_unnecessarily_high(declared_version, min_required_version, used_features):
+            suggested_version = _get_suggested_version(used_features)
+            feature_description = _generate_feature_description(used_features)
+            log_error_func(
+                file_path,
+                "SC.003",
+                f"Declared version '{declared_version}' is unnecessarily high. Suggested: '{suggested_version}' {feature_description}",
                 1
             )
 
@@ -342,6 +353,71 @@ def _is_version_compatible(declared_version: str, required_version: str) -> bool
     return declared_min >= required_min
 
 
+def _is_version_unnecessarily_high(declared_version: str, required_version: str, used_features: List[str]) -> bool:
+    """
+    Check if declared version is unnecessarily high for the features used.
+    
+    Args:
+        declared_version (str): Version declared in providers.tf
+        required_version (str): Version required by features
+        used_features (List[str]): List of used features
+        
+    Returns:
+        bool: True if version is unnecessarily high, False otherwise
+    """
+    # Parse versions
+    declared_min = _parse_version(declared_version)
+    required_min = _parse_version(required_version)
+    
+    # Special case: if only optional() is used and declared version is 1.3.1 or higher
+    if set(used_features) == {"optional()"} and declared_min >= [1, 3, 1]:
+        return True
+    
+    # If declared version is higher than required, check if it's unnecessarily high
+    if declared_min > required_min:
+        # For other cases, if declared version is significantly higher than required
+        # (more than one minor version higher), suggest the exact required version
+        if declared_min[0] > required_min[0] or (declared_min[0] == required_min[0] and declared_min[1] > required_min[1] + 1):
+            return True
+    
+    return False
+
+
+def _get_suggested_version(used_features: List[str]) -> str:
+    """
+    Get the suggested version based on used features.
+    
+    Args:
+        used_features (List[str]): List of used features
+        
+    Returns:
+        str: Suggested version constraint
+    """
+    # Special case: if only optional() is used, suggest exactly 1.3.0
+    if set(used_features) == {"optional()"}:
+        return ">= 1.3.0"
+    
+    # For other features, use the standard required version
+    feature_version_map = {
+        "sensitive": ">= 0.14.0",
+        "nullable": ">= 1.1.0", 
+        "optional()": ">= 1.3.0",
+        "lifecycle.precondition": ">= 1.2.0",
+        "other variables are referenced in validation.condition": ">= 1.9.0",
+        "import.for_each": ">= 1.7.0"
+    }
+    
+    # Find the highest required version
+    highest_version = ">= 0.12.0"
+    for feature in used_features:
+        if feature in feature_version_map:
+            feature_version = feature_version_map[feature]
+            if _parse_version(feature_version) > _parse_version(highest_version):
+                highest_version = feature_version
+    
+    return highest_version
+
+
 def _parse_version(version_constraint: str) -> List[int]:
     """
     Parse version constraint to get minimum version.
@@ -371,10 +447,15 @@ def get_rule_description() -> dict:
         dict: Rule description with name, description, and examples
     """
     return {
-        "name": "Terraform version compatibility check",
-        "description": "Validates that the declared Terraform required_version in providers.tf is compatible with the features used in the Terraform configuration.",
+        "rule_id": "SC.003",
+        "title": "Terraform Version Compatibility Check",
         "category": "Security Code",
         "severity": "error",
+        "description": "Validates that the declared Terraform required_version in providers.tf is compatible with the features used in the Terraform configuration",
+        "rationale": "Ensures version constraints are appropriate for the features used, preventing both compatibility issues and unnecessarily high version requirements",
+        "scope": ["terraform_version_compatibility", "feature_version_requirements", "version_optimization"],
+        "implementation": "modular",
+        "version": "2.0.0",
         "examples": {
             "valid": [
                 'terraform {\\n  required_version = ">= 1.3.0"\\n}\\n\\nvariable "example" {\\n  type = optional(string)\\n}',
@@ -382,21 +463,30 @@ def get_rule_description() -> dict:
             ],
             "invalid": [
                 'terraform {\\n  required_version = ">= 0.14.0"\\n}\\n\\nvariable "example" {\\n  type = optional(string)\\n}',
+                'terraform {\\n  required_version = ">= 1.3.1"\\n}\\n\\nvariable "example" {\\n  type = optional(string)\\n}',
                 'terraform {\\n  required_version = ">= 1.1.0"\\n}\\n\\nvariable "example" {\\n  validation {\\n    condition = var.other_var != ""\\n  }\\n}'
             ]
         },
         "fix_suggestions": [
             "Update required_version to match the highest version requirement from used features",
             "Review all .tf files in the directory for version-dependent features",
-            "Use version constraints that accommodate all used features"
+            "Use version constraints that accommodate all used features",
+            "For optional() usage, use exactly '>= 1.3.0' instead of higher versions",
+            "Avoid unnecessarily high version constraints that don't match actual feature requirements"
         ],
         "version_requirements": {
             "sensitive attribute": ">= 0.14.0",
             "nullable attribute": ">= 1.1.0",
-            "optional() function": ">= 1.3.0",
+            "optional() function": ">= 1.3.0 (suggested exactly 1.3.0)",
             "lifecycle precondition": ">= 1.2.0",
             "validation with var references": ">= 1.9.0",
             "import with for_each": ">= 1.7.0",
             "default minimum": ">= 0.12.0"
-        }
+        },
+        "optimization_checks": [
+            "Detects unnecessarily high version constraints",
+            "Suggests exact minimum versions for specific features",
+            "Provides specific recommendations for optional() usage",
+            "Validates version constraints against actual feature usage"
+        ]
     } 
