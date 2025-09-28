@@ -85,6 +85,10 @@ def _find_all_directories(base_dir: str) -> List[str]:
     
     try:
         for root, dirs, files in os.walk(base_dir):
+            # Filter out hidden directories from further traversal
+            # This prevents os.walk from descending into hidden directories
+            dirs[:] = [d for d in dirs if not d.startswith('.') and not _should_skip_directory(d)]
+            
             for dir_name in dirs:
                 dir_path = os.path.join(root, dir_name)
                 directories.append(dir_path)
@@ -135,7 +139,10 @@ def _should_skip_directory(dir_name: str) -> bool:
         '.pytest_cache',
         '.tox',
         '.mypy_cache',
-        '.ruff_cache'
+        '.ruff_cache',
+        # Terraform-specific directories
+        '.terraform',
+        'terraform.tfstate.d'
     }
     
     return dir_name.lower() in skip_dirs
