@@ -454,8 +454,12 @@ class TerraformLinter:
 
         try:
             # Create rule filter based on configuration
+            # Calculate excluded categories (all categories except the ones we want to include)
+            all_categories = ["ST", "IO", "DC", "SC"]
+            excluded_categories = [cat for cat in all_categories if cat not in self.rule_categories]
+
             rule_filter = {
-                "systems": self.rule_categories,
+                "excluded_categories": excluded_categories,
                 "excluded_rules": list(self.ignored_rules)
             }
 
