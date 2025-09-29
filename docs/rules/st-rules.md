@@ -1,7 +1,5 @@
 # ST (Style/Format) Rules Package
 
-> 📖 **For detailed ST rules documentation, see [docs/rules/st-rules.md](../../docs/rules/st-rules.md)**
-
 This package contains all style and format related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better
 maintainability and extensibility.
@@ -336,11 +334,13 @@ the longest parameter name.
 
 **Examples**:
 - Valid: `main.tf`, `variables.tf`, `terraform_config.tf`, `test_file.tfvars`
-- Invalid: `_private.tf` (starts with underscore), `config-.tf` (ends with underscore), `123_config.tf` (starts with number)
+- Invalid: `_private.tf` (starts with underscore), `config-.tf` (ends with underscore), `123_config.tf` (starts with
+  number)
 
 ## 🔄 Backward Compatibility
 
-The package maintains full backward compatibility with the original `st_rules.py` module. Existing code will continue to work without modifications:
+The package maintains full backward compatibility with the original `st_rules.py` module. Existing code will continue to
+work without modifications:
 
 ```python
 # This still works

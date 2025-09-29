@@ -1,7 +1,5 @@
 # IO (Input/Output) Rules Package
 
-> 📖 **For detailed IO rules documentation, see [docs/rules/io-rules.md](../../docs/rules/io-rules.md)**
-
 This package contains all input/output related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better
 maintainability and extensibility.
@@ -271,7 +269,8 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 ### IO.009 - Unused Variable Detection Check
 
-**Purpose**: Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory.
+**Purpose**: Detects variables defined in variables.tf but not referenced in any Terraform files within the same
+directory.
 
 **Validation Criteria**:
 - Identifies variables declared in variables.tf but never used in the codebase
@@ -291,7 +290,8 @@ The rule automatically excludes provider-related variables:
 
 ## 🔄 Backward Compatibility
 
-The package maintains full backward compatibility with the original `io_rules.py` module. Existing code will continue to work without modifications:
+The package maintains full backward compatibility with the original `io_rules.py` module. Existing code will continue to
+work without modifications:
 
 ```python
 # This still works

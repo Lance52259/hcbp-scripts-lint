@@ -52,12 +52,16 @@ The tool implements a modular rule system organized into four distinct categorie
 - **ST.006**: Resource and data source block spacing (exactly 1 empty line)
 - **ST.007**: Same parameter block spacing (≤1 empty line)
 - **ST.008**: Different parameter type spacing (exactly 1 empty line between basic parameters and parameter blocks)
-- **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
+- **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in
+  `main.tf`)
 - **ST.010**: Resource, data source, variable, and output quote check (double quotes around names)
 - **ST.011**: Trailing whitespace check (no trailing spaces or tabs at line ends)
-- **ST.012**: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty line after last non-empty line)
-- **ST.013**: Directory naming convention check (validates directory names contain only letters, numbers, and hyphens, and start/end with letters)
-- **ST.014**: File naming convention check (validates file names contain only letters, numbers, and underscores, and start/end with letters)
+- **ST.012**: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty
+  line after last non-empty line)
+- **ST.013**: Directory naming convention check (validates directory names contain only letters, numbers, and hyphens,
+  and start/end with letters)
+- **ST.014**: File naming convention check (validates file names contain only letters, numbers, and underscores, and
+  start/end with letters)
 
 **Implementation Pattern**:
 
@@ -113,8 +117,10 @@ class STRules:
 - **SC.001**: Array index access safety check (prevents index out of bounds errors)
 - **SC.002**: Terraform required version declaration check (ensures providers.tf contains proper version constraints)
 - **SC.003**: Terraform version compatibility check (validates version compatibility with used features)
-- **SC.004**: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing with current and previous versions)
-- **SC.005**: Sensitive variable declaration check (validates that sensitive variables are properly declared with Sensitive=true)
+- **SC.004**: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing
+  with current and previous versions)
+- **SC.005**: Sensitive variable declaration check (validates that sensitive variables are properly declared with
+  Sensitive=true)
 
 **Implementation Features**:
 - **Data Source Safety**: Validates safe array index access in data source list attribute references

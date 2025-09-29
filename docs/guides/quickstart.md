@@ -392,11 +392,10 @@ jobs:
 
 ## 📚 Additional Resources
 
-- [Complete Rule Reference](rules/README.md)
-- [Configuration Guide](docs/configuration.md)
-- [API Documentation](docs/api.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Troubleshooting Guide](TROUBLESHOOTING.md)
+- [Complete Rule Reference](../rules/overview.md)
+- [GitHub Setup Guide](../github/setup.md)
+- [Contributing Guide](../project/contributing.md)
+- [Troubleshooting Guide](troubleshooting.md)
 
 ## 🆘 Getting Help
 
@@ -406,9 +405,9 @@ jobs:
 
 ## 🎉 What's Next?
 
-1. **Explore Rules**: Check out the [complete rule list](rules/README.md)
-2. **Customize**: Create your own [configuration file](docs/configuration.md)
-3. **Integrate**: Set up [CI/CD integration](docs/ci-cd.md)
-4. **Contribute**: Help improve the tool by [contributing](CONTRIBUTING.md)
+1. **Explore Rules**: Check out the [complete rule list](../rules/overview.md)
+2. **GitHub Integration**: Set up [GitHub Actions integration](../github/setup.md)
+3. **Troubleshooting**: Check [common issues and solutions](troubleshooting.md)
+4. **Contribute**: Help improve the tool by [contributing](../project/contributing.md)
 
 Happy linting! 🚀

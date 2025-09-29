@@ -8,6 +8,22 @@ A comprehensive and enhanced linting tool for Terraform scripts that uses a **un
 ensure code quality, consistency, and best practices. This tool provides advanced rule coordination, detailed analytics,
 and flexible configuration options for teams of all sizes.
 
+## 🚀 Quick Start
+
+Get up and running in 5 minutes with our comprehensive Terraform linting tool. Whether you're using GitHub Actions or
+local development, we provide everything you need to ensure code quality and consistency across your Terraform projects.
+
+**Key Features:**
+- 29 Linting Rules across 4 categories (ST, IO, DC, SC)
+- GitHub Actions Integration with artifact support
+- Performance Monitoring and detailed reporting
+- Flexible Configuration with rule filtering and path exclusion
+- Comment Control to disable rules inline
+
+📖 **[Complete Quick Start Guide](docs/guides/quickstart.md)** - Detailed setup, configuration, and usage examples
+
+---
+
 ## 🔧 Installation & Usage
 
 ### GitHub Actions (Recommended)
@@ -26,7 +42,7 @@ Add the following step to your GitHub Actions workflow:
 ```
 
 > ⚠️ **Notes on cross-repository push**: If you push from a personal repository branch to a target repository, you may
-  encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](CROSS_REPO_PUSH.md)
+  encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](docs/project/cross-repo-push.md)
   to learn how to correctly configure the checkout step.
 
 ### Local Development
@@ -96,7 +112,8 @@ A comprehensive linting tool for Terraform scripts with advanced rule management
 
 ## Features
 
-- **Multi-Category Rules**: 25 rules across ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and SC (Security Code) categories
+- **Multi-Category Rules**: 25 rules across ST (Style/Format), IO (Input/Output), DC (Documentation/Comments), and
+  SC (Security Code) categories
 - **Comment Control**: Enable/disable specific rules using inline comments
 - **Flexible Configuration**: Path filtering, rule exclusion, and performance monitoring
 - **GitHub Actions Integration**: Seamless CI/CD integration with artifact support
@@ -341,7 +358,8 @@ python3 .github/scripts/terraform_lint.py . --report-format json
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and contribution instructions.
+See [docs/project/contributing.md](docs/project/contributing.md) for development guidelines and contribution
+instructions.
 
 ## License
 
@@ -351,5 +369,5 @@ This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) fo
 
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
 - 💡 **Feature Requests**: [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
-- 📖 **Documentation**: [Project README](README.md)
-- 🚀 **Quick Start**: [QUICKSTART.md](QUICKSTART.md)
+- 📖 **Documentation**: [Complete Documentation](docs/README.md)
+- 🚀 **Quick Start**: [docs/guides/quickstart.md](docs/guides/quickstart.md)
