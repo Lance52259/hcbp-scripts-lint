@@ -14,7 +14,8 @@ sc_rules/
 ├── rule_001.py   # SC.001 - Array index access safety check
 ├── rule_002.py   # SC.002 - Terraform required version declaration check
 ├── rule_003.py   # SC.003 - Terraform version compatibility check
-└── rule_004.py   # SC.004 - HuaweiCloud provider version validity check
+├── rule_004.py   # SC.004 - HuaweiCloud provider version validity check
+└── rule_005.py   # SC.005 - Sensitive variable declaration check
 ```
 
 ## 🎯 Available Rules
@@ -25,6 +26,7 @@ sc_rules/
 | SC.002 | Terraform required version declaration check | Validates that providers.tf files contain terraform block with required_version declaration | `rule_002.py` |
 | SC.003 | Terraform version compatibility check | Validates that declared required_version is compatible with features used | `rule_003.py` |
 | SC.004 | HuaweiCloud provider version validity check | Validates huaweicloud provider version constraints by testing with current and previous versions | `rule_004.py` |
+| SC.005 | Sensitive variable declaration check | Validates that sensitive variables are properly declared with Sensitive=true | `rule_005.py` |
 
 ## 🚀 Usage
 
@@ -329,6 +331,70 @@ terraform {
 - Excludes known problematic versions automatically
 - Executes actual terraform commands for validation
 - Provides detailed error messages with suggestions
+
+### SC.005 - Sensitive Variable Declaration Check
+
+**Purpose**: Validates that sensitive variables are properly declared with Sensitive=true to prevent sensitive data exposure in Terraform state files and logs.
+
+**Sensitive Variable Patterns**:
+- **Exact Match**: email, age, access_key, secret_key, sex, signature
+- **Fuzzy Match**: phone (contains "phone"), password (contains "password"), pwd (contains "pwd")
+
+**Validation Criteria**:
+- Variables matching sensitive patterns must have `sensitive = true` declaration
+- Supports various spacing formats: `sensitive = true`, `sensitive=true`, `sensitive  =  true`
+- Ignores comments and only validates actual declarations
+- Prevents sensitive data from appearing in Terraform state and logs
+
+**Examples**:
+
+**❌ Missing Sensitive Declaration**:
+```hcl
+variable "email" {
+  type        = string
+  description = "User email address"
+  # Missing sensitive = true - will trigger error
+}
+
+variable "user_password" {
+  type        = string
+  description = "User password"
+  # Missing sensitive = true - will trigger error (fuzzy match)
+}
+```
+
+**✅ Proper Sensitive Declaration**:
+```hcl
+variable "email" {
+  type        = string
+  description = "User email address"
+  sensitive   = true
+}
+
+variable "user_password" {
+  type        = string
+  description = "User password"
+  sensitive   = true
+}
+
+variable "access_key" {
+  type        = string
+  description = "API access key"
+  sensitive   = true
+}
+```
+
+**Best Practices**:
+1. Always declare sensitive variables with `sensitive = true`
+2. Review variable names against sensitive patterns list
+3. Use descriptive variable names for non-sensitive data
+4. Regularly audit variable declarations for sensitive data exposure
+5. Consider using more specific variable names to avoid false positives
+
+**Security Impact**:
+- **Risk Level**: High
+- **Exposure Points**: Terraform state files, Terraform plan output, Terraform apply logs, CI/CD pipeline logs
+- **Mitigation**: Declaring sensitive variables prevents their values from being displayed in logs and state files
 
 ## 🔄 Backward Compatibility
 

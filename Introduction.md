@@ -114,6 +114,7 @@ class STRules:
 - **SC.002**: Terraform required version declaration check (ensures providers.tf contains proper version constraints)
 - **SC.003**: Terraform version compatibility check (validates version compatibility with used features)
 - **SC.004**: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing with current and previous versions)
+- **SC.005**: Sensitive variable declaration check (validates that sensitive variables are properly declared with Sensitive=true)
 
 **Implementation Features**:
 - **Data Source Safety**: Validates safe array index access in data source list attribute references

@@ -50,6 +50,7 @@ rules/
     ├── rule_002.py             # SC.002 - Terraform required version declaration check
     ├── rule_003.py             # SC.003 - Terraform version compatibility check
     ├── rule_004.py             # SC.004 - HuaweiCloud provider version validity check
+    ├── rule_005.py             # SC.005 - Sensitive variable declaration check
     └── [future rule modules]   # Additional SC rules as separate modules
 ```
 
@@ -130,6 +131,7 @@ Each rule package follows a consistent design pattern:
 | SC.002 | Terraform Required Version Declaration Check | Validates that providers.tf files contain terraform block with required_version declaration | ✅ Modular |
 | SC.003 | Terraform Version Compatibility Check | Validates that declared required_version is compatible with features used | ✅ Modular |
 | SC.004 | HuaweiCloud Provider Version Validity Check | Validates huaweicloud provider version constraints by testing with current and previous versions | ✅ Modular |
+| SC.005 | Sensitive Variable Declaration Check | Validates that sensitive variables are properly declared with Sensitive=true | ✅ Modular |
 
 ## Usage Examples
 

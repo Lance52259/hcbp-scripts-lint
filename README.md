@@ -228,11 +228,12 @@ jobs:
 ### DC (Documentation/Comments) Rules - 1 Rule
 - **DC.001**: Comment formatting standards
 
-### SC (Security Code) Rules - 4 Rules
+### SC (Security Code) Rules - 5 Rules
 - **SC.001**: Unsafe array index access detection
 - **SC.002**: Terraform required version declaration check
 - **SC.003**: Terraform version compatibility check
 - **SC.004**: HuaweiCloud provider version validity check
+- **SC.005**: Sensitive variable declaration check
 
 ## Configuration Options
 
