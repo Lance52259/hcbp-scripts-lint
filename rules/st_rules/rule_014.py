@@ -161,6 +161,14 @@ def _should_skip_file(file_name: str) -> bool:
     if file_name.endswith('.auto.tfvars'):
         return True
     
+    # Skip Terraform state files (terraform.tfstate and variations)
+    if file_name.startswith('terraform.tfstate'):
+        return True
+    
+    # Skip log files
+    if file_name.endswith('.log'):
+        return True
+    
     # Skip common system files
     skip_files = {
         'Thumbs.db',
@@ -318,6 +326,8 @@ def get_rule_description() -> dict:
         "excluded_files": [
             "Hidden files (starting with .)",
             "Terraform auto.tfvars files (xxx.auto.tfvars format)",
+            "Terraform state files (terraform.tfstate and variations like terraform.tfstate.1754040310.backup)",
+            "Log files (*.log)",
             "System files (Thumbs.db, desktop.ini, .DS_Store, etc.)",
             "Configuration files (.gitignore, .editorconfig, etc.)",
             "Build and cache files (build, dist, target, etc.)",
