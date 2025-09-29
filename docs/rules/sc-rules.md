@@ -1,7 +1,5 @@
 # SC (Security Code) Rules Package
 
-> 📖 **For detailed SC rules documentation, see [docs/rules/sc-rules.md](../../docs/rules/sc-rules.md)**
-
 This package contains all security-related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better
 maintainability and extensibility.
@@ -252,7 +250,8 @@ locals {
 
 ### SC.004 - HuaweiCloud Provider Version Validity Check
 
-**Purpose**: Validates huaweicloud provider version constraints by testing with current and previous versions to ensure proper version boundaries.
+**Purpose**: Validates huaweicloud provider version constraints by testing with current and previous versions to ensure
+proper version boundaries.
 
 **Scenarios Covered**:
 - Version constraint is too permissive (previous version also works)
@@ -336,7 +335,8 @@ terraform {
 
 ### SC.005 - Sensitive Variable Declaration Check
 
-**Purpose**: Validates that sensitive variables are properly declared with Sensitive=true to prevent sensitive data exposure in Terraform state files and logs.
+**Purpose**: Validates that sensitive variables are properly declared with Sensitive=true to prevent sensitive data
+exposure in Terraform state files and logs.
 
 **Sensitive Variable Patterns**:
 - **Exact Match**: email, age, access_key, secret_key, sex, signature
@@ -400,7 +400,8 @@ variable "access_key" {
 
 ## 🔄 Backward Compatibility
 
-The package maintains full backward compatibility with the original `sc_rules.py` module. Existing code will continue to work without modifications:
+The package maintains full backward compatibility with the original `sc_rules.py` module. Existing code will continue to
+work without modifications:
 
 ```python
 # This still works

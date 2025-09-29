@@ -2,7 +2,8 @@
 
 ## Problem Scenario
 
-When you push from a personal repository branch to a target repository, GitHub Actions may encounter the following issue:
+When you push from a personal repository branch to a target repository, GitHub Actions may encounter the following
+issue:
 
 ```
 Error: A branch or tag with the name 'your-personal-branch-name' could not be found

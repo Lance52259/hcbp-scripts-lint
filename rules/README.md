@@ -2,6 +2,8 @@
 
 This directory contains all the linting rules for the Terraform Scripts Lint Tool, organized in a modular architecture for better maintainability, extensibility, and testability.
 
+> 📖 **For detailed rules documentation, see [docs/rules/overview.md](../docs/rules/overview.md)**
+
 ## Architecture Overview
 
 The rules are organized into three main categories, each implemented as a separate package:

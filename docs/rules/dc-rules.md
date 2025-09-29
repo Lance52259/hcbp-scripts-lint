@@ -1,7 +1,5 @@
 # DC (Documentation/Comments) Rules Package
 
-> 📖 **For detailed DC rules documentation, see [docs/rules/dc-rules.md](../../docs/rules/dc-rules.md)**
-
 This package contains all documentation and comment related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better
 maintainability and extensibility.
@@ -180,7 +178,8 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 ### DC.001 - Comment Format Check
 
-**Purpose**: Ensures consistent comment formatting across Terraform files. Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation.
+**Purpose**: Ensures consistent comment formatting across Terraform files. Comments within HCL heredoc blocks (<<EOT,
+  <<EOF, etc.) are excluded from validation.
 
 **Validation Criteria**:
 - Comments must start with `#` character
@@ -224,7 +223,8 @@ EOF
 
 ## 🔄 Backward Compatibility
 
-The package maintains full backward compatibility with the original `dc_rules.py` module. Existing code will continue to work without modifications:
+The package maintains full backward compatibility with the original `dc_rules.py` module. Existing code will continue to
+work without modifications:
 
 ```python
 # This still works

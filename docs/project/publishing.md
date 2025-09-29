@@ -101,10 +101,12 @@ git push origin v1
 - ST.006: Resource and data source spacing check (exactly 1 empty line between blocks)
 - ST.007: Same parameter block spacing check (≤1 empty line between same-name blocks)
 - ST.008: Different parameter type spacing check (exactly 1 empty line between basic parameters and parameter blocks)
-- ST.009: Variable definition order check (variable definition order in `variables.tf` must match usage order in `main.tf`)
+- ST.009: Variable definition order check (variable definition order in `variables.tf` must match usage order in
+  `main.tf`)
 - ST.010: Resource, data source, variable, and output quote check (double quotes around names)
 - ST.011: Trailing whitespace check (no trailing spaces or tabs at line ends)
-- ST.012: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty line after last non-empty line)
+- ST.012: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty line
+  after last non-empty line)
 
 ### DC (Documentation/Comments) Rules
 - DC.001: Comment format check
@@ -121,10 +123,14 @@ git push origin v1
 - IO.009: Unused variable detection check (detects variables defined but not used)
 
 ### SC (Security Code) Rules
-- SC.001: Array index access safety check (validates that array index access uses try() function to prevent index out of bounds errors)
-- SC.002: Terraform required version declaration check (validates that providers.tf files contain terraform block with required_version declaration)
-- SC.003: Terraform version compatibility check (validates that declared required_version is compatible with features used)
-- SC.004: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing with current and previous versions)
+- SC.001: Array index access safety check (validates that array index access uses try() function to prevent index out of
+  bounds errors)
+- SC.002: Terraform required version declaration check (validates that providers.tf files contain terraform block with
+  required_version declaration)
+- SC.003: Terraform version compatibility check (validates that declared required_version is compatible with features
+  used)
+- SC.004: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing
+  with current and previous versions)
 
 ### Usage
 ``yaml
