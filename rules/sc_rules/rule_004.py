@@ -42,6 +42,8 @@ import shutil
 import json
 import urllib.request
 import urllib.error
+import time
+import hashlib
 from typing import Callable, Optional, List, Dict, Tuple, Set, Any
 
 
@@ -436,7 +438,51 @@ def _execute_terraform_command(args: List[str], working_dir: str) -> Dict[str, A
 
 def _get_github_versions() -> List[str]:
     """
-    Get available versions from GitHub releases with pagination.
+    Get available versions from GitHub releases with caching and retry logic.
+    
+    Returns:
+        List[str]: List of available version strings
+    """
+    # Check cache first
+    cached_versions = _get_cached_versions()
+    if cached_versions:
+        return cached_versions
+    
+    # Try to fetch from GitHub with retry logic
+    for attempt in range(3):  # Try up to 3 times
+        try:
+            versions = _fetch_github_versions_with_auth()
+            # Cache the results
+            _cache_versions(versions)
+            return versions
+        except urllib.error.HTTPError as e:
+            if e.code == 403 and "rate limit exceeded" in str(e).lower():
+                if attempt < 2:  # Not the last attempt
+                    # Wait before retry (exponential backoff)
+                    wait_time = (2 ** attempt) * 60  # 1min, 2min, 4min
+                    print(f"GitHub API rate limit exceeded. Waiting {wait_time} seconds before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Last attempt failed, try fallback
+                    return _get_fallback_versions()
+            else:
+                raise
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(5)  # Short wait for other errors
+                continue
+            else:
+                # Try fallback on final failure
+                return _get_fallback_versions()
+    
+    # This should not be reached, but just in case
+    return _get_fallback_versions()
+
+
+def _fetch_github_versions_with_auth() -> List[str]:
+    """
+    Fetch versions from GitHub API with flexible authentication support.
     
     Returns:
         List[str]: List of available version strings
@@ -445,49 +491,176 @@ def _get_github_versions() -> List[str]:
     page = 1
     per_page = 100  # Maximum per page
     
-    try:
-        while True:
-            url = f"https://api.github.com/repos/huaweicloud/terraform-provider-huaweicloud/releases?page={page}&per_page={per_page}"
-            
-            with urllib.request.urlopen(url, timeout=30) as response:
-                data = json.loads(response.read().decode())
-            
-            # If no more releases, break
-            if not data:
-                break
-            
-            page_versions = []
-            for release in data:
-                if not release.get('draft', False) and not release.get('prerelease', False):
-                    tag_name = release['tag_name']
-                    # Remove 'v' prefix if present
-                    if tag_name.startswith('v'):
-                        version = tag_name[1:]
-                    else:
-                        version = tag_name
-                    
-                    # Validate version format
-                    if _is_valid_version(version):
-                        page_versions.append(version)
-            
-            versions.extend(page_versions)
-            
-            # If we got less than per_page, we've reached the end
-            if len(data) < per_page:
-                break
+    # Get authentication configuration
+    auth_config = _get_github_auth_config()
+    
+    while True:
+        url = f"https://api.github.com/repos/huaweicloud/terraform-provider-huaweicloud/releases?page={page}&per_page={per_page}"
+        
+        # Create request with authentication
+        request = urllib.request.Request(url)
+        
+        # Add authentication headers
+        if auth_config['token']:
+            request.add_header('Authorization', f'{auth_config["auth_type"]} {auth_config["token"]}')
+        
+        # Add user agent with account info if available
+        user_agent = f'hcbp-scripts-lint/1.0'
+        if auth_config['username']:
+            user_agent += f' (via {auth_config["username"]})'
+        request.add_header('User-Agent', user_agent)
+        
+        # Add additional headers for better API behavior
+        request.add_header('Accept', 'application/vnd.github.v3+json')
+        
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = json.loads(response.read().decode())
+        
+        # If no more releases, break
+        if not data:
+            break
+        
+        page_versions = []
+        for release in data:
+            if not release.get('draft', False) and not release.get('prerelease', False):
+                tag_name = release['tag_name']
+                # Remove 'v' prefix if present
+                if tag_name.startswith('v'):
+                    version = tag_name[1:]
+                else:
+                    version = tag_name
                 
-            page += 1
+                # Validate version format
+                if _is_valid_version(version):
+                    page_versions.append(version)
+        
+        versions.extend(page_versions)
+        
+        # If we got less than per_page, we've reached the end
+        if len(data) < per_page:
+            break
             
-            # Safety limit to prevent infinite loops
-            if page > 50:  # Maximum 5000 releases
-                break
+        page += 1
         
-        # Sort versions using semantic versioning
-        versions.sort(key=lambda x: tuple(map(int, x.split('.'))))
-        return versions
+        # Safety limit to prevent infinite loops
+        if page > 50:  # Maximum 5000 releases
+            break
+    
+    # Sort versions using semantic versioning
+    versions.sort(key=lambda x: tuple(map(int, x.split('.'))))
+    return versions
+
+
+def _get_github_auth_config() -> Dict[str, str]:
+    """
+    Get GitHub authentication configuration from environment variables.
+    
+    Returns:
+        Dict[str, str]: Authentication configuration with keys: token, auth_type, username
+    """
+    config = {
+        'token': None,
+        'auth_type': 'token',
+        'username': None
+    }
+    
+    # Check for GitHub token (legacy support)
+    github_token = os.getenv('GITHUB_TOKEN')
+    if github_token:
+        config['token'] = github_token
+        config['auth_type'] = 'token'
+    
+    # Check for GitHub Personal Access Token
+    github_pat = os.getenv('GITHUB_PAT')
+    if github_pat:
+        config['token'] = github_pat
+        config['auth_type'] = 'token'
+    
+    # Check for GitHub App token
+    github_app_token = os.getenv('GITHUB_APP_TOKEN')
+    if github_app_token:
+        config['token'] = github_app_token
+        config['auth_type'] = 'Bearer'
+    
+    # Check for GitHub username (for user agent)
+    github_username = os.getenv('GITHUB_USERNAME')
+    if github_username:
+        config['username'] = github_username
+    
+    # Check for GitHub App ID (for better identification)
+    github_app_id = os.getenv('GITHUB_APP_ID')
+    if github_app_id and config['username'] is None:
+        config['username'] = f'app-{github_app_id}'
+    
+    return config
+
+
+def _get_cached_versions() -> Optional[List[str]]:
+    """
+    Get cached versions if available and not expired.
+    
+    Returns:
+        Optional[List[str]]: Cached versions or None if not available/expired
+    """
+    cache_file = os.path.join(tempfile.gettempdir(), 'hcbp_github_versions_cache.json')
+    
+    try:
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r') as f:
+                cache_data = json.load(f)
+            
+            # Check if cache is not expired (24 hours)
+            cache_time = cache_data.get('timestamp', 0)
+            if time.time() - cache_time < 24 * 60 * 60:  # 24 hours
+                return cache_data.get('versions', [])
+    except (json.JSONDecodeError, KeyError, OSError):
+        pass
+    
+    return None
+
+
+def _cache_versions(versions: List[str]) -> None:
+    """
+    Cache versions for future use.
+    
+    Args:
+        versions (List[str]): Versions to cache
+    """
+    cache_file = os.path.join(tempfile.gettempdir(), 'hcbp_github_versions_cache.json')
+    
+    try:
+        cache_data = {
+            'timestamp': time.time(),
+            'versions': versions
+        }
         
-    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
-        raise Exception(f"Failed to fetch versions from GitHub: {str(e)}")
+        with open(cache_file, 'w') as f:
+            json.dump(cache_data, f)
+    except OSError:
+        pass  # Ignore cache write errors
+
+
+def _get_fallback_versions() -> List[str]:
+    """
+    Get fallback versions when GitHub API is unavailable.
+    
+    Returns:
+        List[str]: Fallback version list
+    """
+    # Return a curated list of recent stable versions
+    # This list should be updated periodically
+    return [
+        "1.80.0", "1.79.0", "1.78.0", "1.77.0", "1.76.0", "1.75.0", "1.74.0", "1.73.0",
+        "1.72.0", "1.71.0", "1.70.0", "1.69.0", "1.68.0", "1.67.0", "1.66.0", "1.65.0",
+        "1.64.0", "1.63.0", "1.62.0", "1.61.0", "1.60.0", "1.59.0", "1.58.0", "1.57.0",
+        "1.56.0", "1.55.0", "1.54.0", "1.53.0", "1.52.0", "1.51.0", "1.50.0", "1.49.0",
+        "1.48.0", "1.47.0", "1.46.0", "1.45.0", "1.44.0", "1.43.0", "1.42.0", "1.41.0",
+        "1.40.0", "1.39.0", "1.38.0", "1.37.0", "1.36.0", "1.35.0", "1.34.0", "1.33.0",
+        "1.32.0", "1.31.0", "1.30.0", "1.29.0", "1.28.0", "1.27.0", "1.26.0", "1.25.0",
+        "1.24.0", "1.23.0", "1.22.0", "1.21.0", "1.20.0", "1.19.0", "1.18.0", "1.17.0",
+        "1.16.0", "1.15.0", "1.14.0", "1.13.0", "1.12.0", "1.11.0", "1.10.0", "1.9.0",
+        "1.8.0", "1.7.0", "1.6.0", "1.5.0", "1.4.0", "1.3.0", "1.2.0", "1.1.0", "1.0.0"
+    ]
 
 
 def _find_actual_minimum_version(terraform_dir: str, available_versions: List[str], current_min_version: str) -> Optional[str]:
@@ -668,6 +841,23 @@ def get_rule_description() -> dict:
             "Use the suggested minimum version from the error message",
             "Verify the actual minimum required version by testing with different provider versions"
         ],
+        "github_api_handling": {
+            "rate_limit_solution": "Set GitHub authentication environment variables for higher rate limits",
+            "caching": "Versions are cached for 24 hours to reduce API calls",
+            "retry_logic": "Automatic retry with exponential backoff on rate limit errors",
+            "fallback": "Uses curated version list when GitHub API is unavailable",
+            "authentication": {
+                "personal_access_token": "GITHUB_TOKEN or GITHUB_PAT - Personal Access Token",
+                "github_app": "GITHUB_APP_TOKEN - GitHub App token (Bearer auth)",
+                "username": "GITHUB_USERNAME - Username for User-Agent identification",
+                "app_id": "GITHUB_APP_ID - GitHub App ID for identification"
+            },
+            "rate_limits": {
+                "unauthenticated": "60 requests per hour",
+                "personal_token": "5000 requests per hour",
+                "github_app": "5000 requests per hour"
+            }
+        },
         "terraform_commands": [
             "terraform init - initializes with specific provider version",
             "terraform validate - validates configuration with specific version"

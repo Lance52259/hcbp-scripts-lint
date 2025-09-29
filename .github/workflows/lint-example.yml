@@ -1,0 +1,135 @@
+name: Terraform Lint with SC.004
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  terraform-lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.0
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # 如果有requirements.txt，取消注释下面这行
+        # pip install -r requirements.txt
+        
+    - name: Configure GitHub Token for SC.004
+      # 方法1: 使用GitHub Actions内置的GITHUB_TOKEN
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "✅ GitHub Token已配置"
+        echo "✅ 用户名: $GITHUB_USERNAME"
+        echo "✅ Token前缀: ${GITHUB_TOKEN:0:8}..."
+        
+    - name: Run Terraform Lint
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "运行Terraform Lint检查..."
+        # 这里运行你的lint脚本
+        # python main.py --rules SC.004 examples/bad-examples/provider-version/
+        
+    - name: Test SC.004 Rule
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "测试SC.004规则..."
+        python3.10 test_github_ci.py
+
+  # 可选: 使用自定义Personal Access Token的示例
+  terraform-lint-with-pat:
+    runs-on: ubuntu-latest
+    if: false  # 默认禁用，需要时设置为true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.0
+        
+    - name: Configure Custom GitHub PAT
+      # 方法2: 使用自定义Personal Access Token
+      env:
+        GITHUB_PAT: ${{ secrets.GITHUB_PAT }}  # 需要在仓库secrets中配置
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "✅ 自定义GitHub PAT已配置"
+        echo "✅ 用户名: $GITHUB_USERNAME"
+        echo "✅ PAT前缀: ${GITHUB_PAT:0:8}..."
+        
+    - name: Run Terraform Lint with PAT
+      env:
+        GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "使用自定义PAT运行Terraform Lint检查..."
+        # python main.py --rules SC.004 examples/bad-examples/provider-version/
+
+  # 可选: 使用GitHub App的示例
+  terraform-lint-with-app:
+    runs-on: ubuntu-latest
+    if: false  # 默认禁用，需要时设置为true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.0
+        
+    - name: Configure GitHub App Token
+      # 方法3: 使用GitHub App Token
+      env:
+        GITHUB_APP_TOKEN: ${{ secrets.GITHUB_APP_TOKEN }}  # 需要在仓库secrets中配置
+        GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}        # 需要在仓库secrets中配置
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "✅ GitHub App Token已配置"
+        echo "✅ App ID: $GITHUB_APP_ID"
+        echo "✅ 用户名: $GITHUB_USERNAME"
+        echo "✅ Token前缀: ${GITHUB_APP_TOKEN:0:8}..."
+        
+    - name: Run Terraform Lint with App Token
+      env:
+        GITHUB_APP_TOKEN: ${{ secrets.GITHUB_APP_TOKEN }}
+        GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+        GITHUB_USERNAME: ${{ github.actor }}
+      run: |
+        echo "使用GitHub App Token运行Terraform Lint检查..."
+        # python main.py --rules SC.004 examples/bad-examples/provider-version/
