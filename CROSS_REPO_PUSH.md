@@ -1,326 +1,392 @@
 # Cross-Repository Push Configuration Guide
 
-## 问题场景
+## Problem Scenario
 
-当您从个人仓库的分支推送到目标仓库时，GitHub Actions可能会遇到以下问题：
+When you push from a personal repository branch to a target repository, GitHub Actions may encounter the following issue:
 
 ```
 Error: A branch or tag with the name 'your-personal-branch-name' could not be found
 ```
 
-这种情况通常发生在：
-- 从个人fork推送到上游仓库
-- 从临时分支推送到主分支
-- 分支名在目标仓库中不存在
+This situation typically occurs when:
+- Pushing from personal fork to upstream repository
+- Pushing from temporary branch to main branch
+- Branch name doesn't exist in target repository
 
-## 解决方案
+## Solutions
 
-### 1. 智能Checkout配置
+### 1. Smart Checkout Configuration
 
-使用以下配置可以自动处理跨仓库推送：
-
-```yaml
-steps:
-- name: Smart Checkout for Cross-Repo Push
-  uses: actions/checkout@v4
-  with:
-    # 自动选择正确的引用
-    ref: ${{ github.event.pull_request.base.ref || github.ref }}
-    fetch-depth: 0  # 获取完整历史用于git操作
-
-# 备用checkout（如果主checkout失败）
-- name: Fallback Checkout
-  if: failure()
-  uses: actions/checkout@v4
-  with:
-    ref: 'master'  # 或者 'main'，根据您的默认分支
-    fetch-depth: 0
-```
-
-### 2. 推荐的工作流配置
-
-#### 场景1：Pull Request触发
+Use the following configuration to automatically handle cross-repository pushes:
 
 ```yaml
-name: Terraform Lint (PR)
-on:
-  pull_request:
-    branches: [ master, main ]
+name: Cross-Repository Push
 
-jobs:
-  terraform-lint:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout PR Changes
-      uses: actions/checkout@v4
-      with:
-        # 检出PR的头部分支，而不是基础分支
-        ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 0
-
-    - name: Run Terraform Lint
-      uses: Lance52259/hcbp-scripts-lint@v1
-      with:
-        directory: '.'
-        changed-files-only: 'true'
-        base-ref: ${{ github.event.pull_request.base.sha }}
-        fail-on-error: 'true'
-```
-
-#### 场景2：Push事件处理
-
-```yaml
-name: Terraform Lint (Push)
 on:
   push:
-    branches: [ master, main ]
-
-jobs:
-  terraform-lint:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Pushed Changes
-      uses: actions/checkout@v4
-      with:
-        # 使用推送后的提交
-        ref: ${{ github.sha }}
-        fetch-depth: 0
-
-    - name: Run Terraform Lint
-      uses: Lance52259/hcbp-scripts-lint@v1
-      with:
-        directory: '.'
-        changed-files-only: 'true'
-        base-ref: ${{ github.event.before }}
-        fail-on-error: 'true'
-```
-
-#### 场景3：通用解决方案（推荐）
-
-```yaml
-name: Terraform Lint (Universal)
-on:
-  push:
-    branches: [ master, main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ main ]
 
 jobs:
-  terraform-lint:
+  cross-repo-push:
     runs-on: ubuntu-latest
+    
     steps:
-    # 通用checkout配置，自动处理不同场景
-    - name: Universal Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.sha || github.sha }}
-        fetch-depth: 0
-
-    # 错误处理和调试信息
-    - name: Debug Git Information
-      run: |
-        echo "=== Git Debug Information ==="
-        echo "Event: ${{ github.event_name }}"
-        echo "Ref: ${{ github.ref }}"
-        echo "SHA: ${{ github.sha }}"
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "PR Base: ${{ github.event.pull_request.base.ref }}"
-          echo "PR Head: ${{ github.event.pull_request.head.ref }}"
-          echo "PR Base SHA: ${{ github.event.pull_request.base.sha }}"
-          echo "PR Head SHA: ${{ github.event.pull_request.head.sha }}"
-        fi
-        if [ "${{ github.event_name }}" = "push" ]; then
-          echo "Before: ${{ github.event.before }}"
-          echo "After: ${{ github.event.after }}"
-        fi
-        echo "Current branch: $(git branch --show-current)"
-        echo "Recent commits:"
-        git log --oneline -5
-        echo "=========================="
-
-    # 智能base-ref选择
-    - name: Run Terraform Lint with Smart Base-Ref
-      uses: Lance52259/hcbp-scripts-lint@v1
-      with:
-        directory: '.'
-        changed-files-only: 'true'
-        base-ref: ${{ 
-          github.event_name == 'pull_request' && github.event.pull_request.base.sha ||
-          github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before ||
-          'HEAD~1'
-        }}
-        fail-on-error: 'false'  # 设为true如果要在错误时失败
-        report-format: 'both'
-```
-
-### 3. Action配置优化
-
-如果您是Action的维护者，可以在`action.yml`中添加内置的智能checkout：
-
-```yaml
-# 在action.yml的开头添加
-runs:
-  using: 'composite'
-  steps:
-    # 智能checkout步骤
     - name: Smart Checkout
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        # Automatically detect and checkout the correct branch
+        ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+        # Use the source repository for pull requests
+        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        # Fetch all branches and tags
         fetch-depth: 0
-        path: 'checkout-workspace'
-
-    # 其他步骤...
+        # Use the correct token
+        token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### 4. 高级配置选项
-
-#### 处理Merge Conflicts
+### 2. Dynamic Branch Detection
 
 ```yaml
-- name: Checkout with Merge Handling
-  uses: actions/checkout@v4
-  with:
-    ref: ${{ github.event.pull_request.head.sha || github.sha }}
-    fetch-depth: 0
-    # 自动合并到目标分支（可选）
-    token: ${{ secrets.GITHUB_TOKEN }}
+name: Dynamic Branch Detection
 
-- name: Merge Target Branch (for conflict detection)
-  if: github.event_name == 'pull_request'
-  run: |
-    git config user.name "github-actions"
-    git config user.email "github-actions@github.com"
-    git fetch origin ${{ github.event.pull_request.base.ref }}
-    git merge origin/${{ github.event.pull_request.base.ref }} --no-edit || {
-      echo "Merge conflict detected, using PR changes only"
-      git merge --abort
-    }
+on:
+  push:
+    branches: [ main, develop, 'feature/*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dynamic-checkout:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Detect Source Branch
+      id: detect-branch
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "source_branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          echo "source_repo=${{ github.event.pull_request.head.repo.full_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "source_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "source_repo=${{ github.repository }}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ steps.detect-branch.outputs.source_branch }}
+        repository: ${{ steps.detect-branch.outputs.source_repo }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-#### 多分支支持
+### 3. Multi-Repository Workflow
 
 ```yaml
-- name: Multi-Branch Checkout
-  uses: actions/checkout@v4
-  with:
-    ref: ${{ 
-      github.event_name == 'pull_request' && github.event.pull_request.head.sha ||
-      github.ref_name == 'master' && github.sha ||
-      github.ref_name == 'main' && github.sha ||
-      github.ref_name == 'develop' && github.sha ||
-      'master'
-    }}
-    fetch-depth: 0
+name: Multi-Repository Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  multi-repo-checkout:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Target Repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref_name }}
+        repository: ${{ github.repository }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Checkout Source Repository (for PRs)
+      if: github.event_name == 'pull_request'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        path: source-code
+    
+    - name: Run Analysis
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # Analyze source code
+          python main.py --path source-code/
+        else
+          # Analyze target repository
+          python main.py --path ./
+        fi
 ```
 
-## 最佳实践
+### 4. Fork-Specific Configuration
 
-### 1. 始终使用fetch-depth: 0
 ```yaml
-- uses: actions/checkout@v4
-  with:
-    fetch-depth: 0  # 获取完整Git历史
+name: Fork-Specific Configuration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fork-handling:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check if Fork
+      id: check-fork
+      run: |
+        if [ "${{ github.repository }}" != "${{ github.event.pull_request.base.repo.full_name }}" ]; then
+          echo "is_fork=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_fork=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Checkout Fork Code
+      if: steps.check-fork.outputs.is_fork == 'true'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Checkout Main Repository
+      if: steps.check-fork.outputs.is_fork == 'false'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref_name }}
+        repository: ${{ github.repository }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### 2. 添加调试信息
+## Advanced Solutions
+
+### 1. Branch Mapping Configuration
+
 ```yaml
-- name: Debug Environment
-  run: |
-    echo "Event: ${{ github.event_name }}"
-    echo "Ref: ${{ github.ref }}"
-    echo "SHA: ${{ github.sha }}"
-    git log --oneline -3
+name: Branch Mapping
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  branch-mapping:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Map Branch Names
+      id: map-branch
+      run: |
+        # Define branch mapping
+        case "${{ github.ref_name }}" in
+          "main")
+            echo "target_branch=main" >> $GITHUB_OUTPUT
+            ;;
+          "develop")
+            echo "target_branch=develop" >> $GITHUB_OUTPUT
+            ;;
+          "feature/"*)
+            echo "target_branch=main" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "target_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            ;;
+        esac
+    
+    - name: Checkout Mapped Branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ steps.map-branch.outputs.target_branch }}
+        repository: ${{ github.repository }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### 3. 使用条件执行
+### 2. Conditional Checkout Strategy
+
 ```yaml
-- name: PR Only Step
-  if: github.event_name == 'pull_request'
-  run: echo "This runs only for PRs"
+name: Conditional Checkout
 
-- name: Push Only Step  
-  if: github.event_name == 'push'
-  run: echo "This runs only for pushes"
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  conditional-checkout:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        include:
+          - condition: "push"
+            ref: ${{ github.ref_name }}
+            repo: ${{ github.repository }}
+          - condition: "pull_request"
+            ref: ${{ github.event.pull_request.head.ref }}
+            repo: ${{ github.event.pull_request.head.repo.full_name }}
+    
+    steps:
+    - name: Checkout Based on Condition
+      if: matrix.condition == github.event_name
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ matrix.ref }}
+        repository: ${{ matrix.repo }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### 4. 错误恢复
+### 3. Error Handling and Fallback
+
 ```yaml
-- name: Primary Checkout
-  id: checkout_primary
-  continue-on-error: true
-  uses: actions/checkout@v4
-  with:
-    ref: ${{ github.event.pull_request.head.sha || github.sha }}
-    fetch-depth: 0
+name: Error Handling Checkout
 
-- name: Fallback Checkout
-  if: steps.checkout_primary.outcome == 'failure'
-  uses: actions/checkout@v4
-  with:
-    ref: 'master'
-    fetch-depth: 0
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  error-handling-checkout:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Try Checkout Source Branch
+      id: checkout-source
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+    
+    - name: Fallback to Main Branch
+      if: steps.checkout-source.outcome == 'failure'
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        repository: ${{ github.repository }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Continue with Analysis
+      run: |
+        echo "Checkout completed successfully"
+        python main.py --path ./
 ```
 
-## 故障排除
+## Best Practices
 
-### 常见错误及解决方法
+### 1. Use Appropriate Tokens
 
-1. **分支不存在错误**
+```yaml
+# Use the correct token for the repository
+token: ${{ secrets.GITHUB_TOKEN }}  # For public repositories
+# or
+token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # For private repositories
+```
+
+### 2. Handle Different Event Types
+
+```yaml
+# Handle both push and pull_request events
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+```
+
+### 3. Set Appropriate Fetch Depth
+
+```yaml
+# For full history (useful for cross-repository operations)
+fetch-depth: 0
+
+# For shallow clone (faster, less storage)
+fetch-depth: 1
+```
+
+### 4. Use Path Parameters
+
+```yaml
+# Specify different paths for different repositories
+path: source-code  # For source repository
+path: target-code  # For target repository
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Branch not found error**
    ```
    Error: A branch or tag with the name 'feature-branch' could not be found
    ```
-   **解决方案**: 使用SHA而不是分支名
+   **Solution**: Use dynamic branch detection or fallback to main branch
+
+2. **Permission denied**
+   ```
+   Error: Permission denied (publickey)
+   ```
+   **Solution**: Ensure correct token permissions and repository access
+
+3. **Repository not found**
+   ```
+   Error: Repository not found
+   ```
+   **Solution**: Check repository name and ensure it exists
+
+4. **Token expired**
+   ```
+   Error: Bad credentials
+   ```
+   **Solution**: Update token or use fresh token
+
+### Debug Steps
+
+1. **Check event context**
    ```yaml
-   ref: ${{ github.sha }}
+   - name: Debug Event Context
+     run: |
+       echo "Event name: ${{ github.event_name }}"
+       echo "Ref name: ${{ github.ref_name }}"
+       echo "Repository: ${{ github.repository }}"
+       if [ "${{ github.event_name }}" = "pull_request" ]; then
+         echo "PR head ref: ${{ github.event.pull_request.head.ref }}"
+         echo "PR head repo: ${{ github.event.pull_request.head.repo.full_name }}"
+       fi
    ```
 
-2. **权限错误**
-   ```
-   Error: Resource not accessible by integration
-   ```
-   **解决方案**: 确保token有足够权限
+2. **Verify branch existence**
    ```yaml
-   token: ${{ secrets.GITHUB_TOKEN }}
+   - name: List Available Branches
+     run: |
+       git branch -a
+       git ls-remote --heads origin
    ```
 
-3. **Git历史不完整**
-   ```
-   Error: git diff failed
-   ```
-   **解决方案**: 使用完整深度
+3. **Test checkout manually**
    ```yaml
-   fetch-depth: 0
+   - name: Test Manual Checkout
+     run: |
+       git checkout ${{ github.ref_name }}
+       git status
    ```
 
-### 调试命令
+## Related Resources
 
-在工作流中添加这些命令来调试问题：
-
-```bash
-# 查看Git状态
-git status
-git branch -a
-git log --oneline -5
-
-# 查看环境变量
-env | grep GITHUB
-
-# 查看事件负载
-echo '${{ toJson(github.event) }}'
-```
-
-## 示例配置文件
-
-完整的跨仓库推送友好的工作流文件示例，请参考：
-- [.github/workflows/terraform-lint.example.yml](.github/workflows/terraform-lint.example.yml)
-
-## 总结
-
-通过使用上述配置，您可以确保GitHub Actions在跨仓库推送场景下正常工作，避免因分支不存在而导致的失败。关键点是：
-
-1. 使用SHA而不是分支名进行checkout
-2. 提供适当的回退机制
-3. 获取完整的Git历史
-4. 添加适当的调试信息
-5. 根据事件类型智能选择base-ref 
+- [GitHub Actions Checkout Action](https://github.com/actions/checkout)
+- [GitHub Actions Context](https://docs.github.com/en/actions/learn-github-actions/contexts)
+- [GitHub Actions Events](https://docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows)
+- [Cross-Repository Workflows](https://docs.github.com/en/actions/learn-github-actions/contexts#github-context)
