@@ -201,7 +201,7 @@ output:
 - **SC.002**: Provider version constraints
 - **SC.003**: Terraform version compatibility
 - **SC.004**: Provider version validation
-- **SC.005**: Sensitive data exposure
+- **SC.005**: Sensitive variable declaration check
 - **SC.006**: Access control validation
 
 ## 🔧 Advanced Configuration

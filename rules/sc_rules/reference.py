@@ -23,6 +23,7 @@ from .rule_001 import check_sc001_array_index_safety, get_rule_description as ge
 from .rule_002 import check_sc002_terraform_version_declaration, get_rule_description as get_sc002_description
 from .rule_003 import check_sc003_terraform_version_compatibility, get_rule_description as get_sc003_description
 from .rule_004 import check_sc004_provider_version_validity, get_rule_description as get_sc004_description
+from .rule_005 import check_sc005_sensitive_variable_declaration, get_rule_description as get_sc005_description
 
 
 class SCRules:
@@ -68,6 +69,12 @@ class SCRules:
                 "check_function": check_sc004_provider_version_validity,
                 "description_function": get_sc004_description,
                 "name": "Provider minimum version validity check",
+                "status": "modular"
+            },
+            "SC.005": {
+                "check_function": check_sc005_sensitive_variable_declaration,
+                "description_function": get_sc005_description,
+                "name": "Sensitive variable declaration check",
                 "status": "modular"
             }
         }
