@@ -13,10 +13,12 @@ Terraform Scripts Lint Tool, particularly for the SC.004 rule which requires Git
 
 ## Overview
 
-The SC.004 rule requires access to GitHub API to fetch HuaweiCloud Provider version information. This guide covers:
+The SC.004 rule requires access to GitHub API to fetch HuaweiCloud Provider version information and Terraform
+installation for validation. This guide covers:
 
 - GitHub API authentication setup
 - Required token permissions
+- Terraform installation requirements
 - CI/CD pipeline configuration
 - Rate limit management
 
@@ -96,8 +98,45 @@ For enterprise environments:
 ### Environment Requirements
 
 - **Python**: 3.10+
-- **Terraform**: 1.9.0+
+- **Terraform**: 1.9.0+ (Required for SC.004 rule)
 - **Operating System**: Ubuntu 20.04+ (GitHub Actions default)
+
+### Terraform Installation
+
+The SC.004 rule requires Terraform to be installed in the GitHub Actions environment to execute `terraform validate`
+commands. The action automatically installs Terraform 1.9.0, but you can also install it manually if needed.
+
+#### Automatic Installation (Recommended)
+
+The action.yml automatically installs Terraform:
+
+```yaml
+- name: Set up Terraform
+  uses: hashicorp/setup-terraform@v3
+  with:
+    terraform_version: '1.9.0'
+```
+
+#### Manual Installation (If Needed)
+
+If you need a different Terraform version or want to install it manually:
+
+```yaml
+- name: Set up Terraform
+  uses: hashicorp/setup-terraform@v3
+  with:
+    terraform_version: '1.10.0'  # Specify your preferred version
+```
+
+#### Common Terraform Installation Issues
+
+**Error**: `terraform command not found. Please ensure Terraform is installed and in PATH`
+
+**Solutions**:
+1. Ensure the Terraform setup step is included in your workflow
+2. Verify the Terraform version is compatible (1.9.0+)
+3. Check that the setup step runs before the linting step
+4. Ensure the action is using the latest version that includes Terraform installation
 
 ### Basic Workflow Configuration
 
