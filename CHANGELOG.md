@@ -5,6 +5,143 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2025-9-30
+
+### 🚀 New SC Rule - Security Code Enhancement
+
+#### 🛡️ SC.005 - Sensitive Variable Declaration Check
+- **New Rule**: Validates that sensitive variables are declared with `sensitive = true` to prevent data exposure
+- **Sensitive Variable Detection**:
+  - **Exact Match**: `email`, `age`, `access_key`, `secret_key`, `sex`, `signature`
+  - **Fuzzy Match**: `phone` (e.g., `phone_number`), `password` (e.g., `user_password`), `pwd` (e.g., `pwd_hash`)
+- **Features**:
+  - Prevents sensitive data exposure in Terraform state and logs
+  - Supports various spacing patterns around equals sign (`sensitive = true`, `sensitive=true`, `sensitive  =  true`)
+  - Intelligent detection of variable names with fuzzy matching
+  - Comprehensive error reporting with specific variable names and line numbers
+
+### 🔧 Rule Enhancements
+
+#### 📁 ST.013 & ST.014 - Enhanced File/Directory Naming Rules
+- **Enhanced Ignore Rules**: Added comprehensive ignore patterns for common Terraform files
+  - **ST.014 (File Naming)**: Now ignores `terraform.tfstate*` files and `*.log` files
+  - **ST.013 (Directory Naming)**: Already supported `terraform.tfstate.d` directories
+- **Benefits**:
+  - Eliminates false positives for Terraform state files and backup files
+  - Reduces noise in CI/CD pipelines for log files
+  - Maintains strict validation for actual Terraform configuration files
+
+### 🐛 Critical Bug Fixes
+
+#### 🔧 Categories Parameter Fix
+- **Fixed Issue**: `--categories` parameter was not working correctly due to parameter passing logic error
+- **Root Cause**: Main script was passing `"systems"` parameter but rules manager expected `"excluded_categories"`
+- **Solution**: 
+  - Fixed parameter name mismatch between main script and rules manager
+  - Corrected logic to properly calculate excluded categories from requested categories
+  - Now correctly filters rules based on specified categories (ST, IO, DC, SC)
+- **Impact**: 
+  - `--categories SC` now correctly executes only SC rules
+  - `--categories ST,IO` now correctly executes only ST and IO rules
+  - All category filtering now works as expected
+
+### 📚 Documentation Restructuring
+
+#### 🗂️ Comprehensive Documentation Reorganization
+- **New Structure**: Moved all Markdown documentation (except `README.md` and `CHANGELOG.md`) into `docs/` directory
+- **Directory Organization**:
+  ```
+  docs/
+  ├── README.md                    # Documentation index and navigation
+  ├── github/
+  │   └── setup.md                 # GitHub integration setup (merged 3 files)
+  ├── guides/
+  │   ├── introduction.md          # Technical introduction
+  │   ├── quickstart.md            # Quick start guide
+  │   └── troubleshooting.md       # Troubleshooting guide
+  ├── project/
+  │   ├── contributing.md          # Contributing guidelines
+  │   ├── cross-repo-push.md       # Cross-repository push configuration
+  │   ├── publishing.md            # Publishing guide
+  │   └── security.md              # Security policy
+  └── rules/
+      ├── overview.md              # Complete rules documentation (merged 2 files)
+      ├── dc-rules.md              # Documentation rules
+      ├── io-rules.md              # Input/Output rules
+      ├── sc-rules.md              # Security code rules
+      └── st-rules.md              # Style/Format rules
+  ```
+
+#### 📖 Documentation Consolidation
+- **Merged Files**: Consolidated related documentation to reduce clutter
+  - `GITHUB_CI_SETUP.md`, `GITHUB_API_SETUP.md`, `GITHUB_TOKEN_PERMISSIONS.md` → `docs/github/setup.md`
+  - `rules/README.md` + `rules/introduction.md` → `docs/rules/overview.md`
+  - `Introduction.md` → `docs/guides/introduction.md`
+  - `QUICKSTART.md` → `docs/guides/quickstart.md`
+- **Link Updates**: Updated all internal links to reflect new directory structure
+- **Navigation Enhancement**: Created comprehensive documentation index with clear navigation
+
+#### 🚀 Quick Start Enhancement
+- **README.md Enhancement**: Added prominent "Quick Start" section with:
+  - Systemic description of tool capabilities
+  - Key features overview
+  - Direct link to comprehensive guide
+  - Positioned early in README for better visibility
+- **User Experience**: Streamlined entry point for new users
+
+### 🔧 Technical Improvements
+
+#### ⚙️ Code Quality Enhancements
+- **SC.005 Implementation**: 
+  - Robust regex pattern matching for `sensitive = true` detection
+  - Support for various whitespace patterns around equals sign
+  - Intelligent comment filtering to avoid false positives
+  - Comprehensive variable name pattern matching (exact and fuzzy)
+- **Error Handling**: Enhanced error reporting with specific variable names and line numbers
+- **Performance**: Optimized pattern matching for better performance
+
+#### 🧪 Testing and Validation
+- **Comprehensive Testing**: 
+  - Validated SC.005 rule with various sensitive variable patterns
+  - Tested categories parameter fix with multiple category combinations
+  - Verified ST.013/ST.014 ignore rules with actual Terraform files
+- **Good Examples Update**: Updated `good-examples` to comply with SC.005 rule
+  - Added `sensitive = true` to `access_key` and `secret_key` variables
+  - Ensured proper alignment of equals signs
+
+### 📊 Impact Summary
+
+#### ✅ Backward Compatibility
+- **No Breaking Changes**: All existing functionality remains compatible
+- **Enhanced Functionality**: New features and fixes improve user experience
+- **Configuration Preserved**: All existing workflows continue to work unchanged
+
+#### 🎯 New Capabilities
+- **Enhanced Security**: SC.005 rule prevents sensitive data exposure
+- **Better Filtering**: Fixed categories parameter for precise rule control
+- **Cleaner Reports**: Reduced false positives with enhanced ignore rules
+- **Improved Documentation**: Better organized and more accessible documentation
+
+#### 📈 Rule Statistics Update
+- **Total Rules**: 29 rules across 4 categories (ST: 14, IO: 9, DC: 1, SC: 5)
+- **New Rule**: SC.005 added to security code category
+- **Enhanced Rules**: ST.013 and ST.014 with improved ignore patterns
+
+### 🎉 Summary
+
+This release delivers **significant enhancements** in security validation, bug fixes, and documentation organization. The new SC.005 rule provides crucial protection against sensitive data exposure, while the categories parameter fix ensures proper rule filtering. The comprehensive documentation restructuring makes the tool more accessible and maintainable.
+
+**Key Achievements**:
+- **Security Enhancement**: SC.005 rule prevents sensitive data exposure in Terraform state
+- **Critical Bug Fix**: Fixed categories parameter functionality
+- **Documentation Excellence**: Comprehensive reorganization and consolidation
+- **Rule Improvements**: Enhanced ignore patterns for common Terraform files
+- **User Experience**: Better organized documentation with clear navigation
+
+**Recommended for**: All users seeking enhanced security validation, proper rule filtering, and improved documentation accessibility.
+
+---
+
 ## [2.3.5] - 2025-09-5
 
 ### 🚀 New SC Rules Category - Security Code Checks
