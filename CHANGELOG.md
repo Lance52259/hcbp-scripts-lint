@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2025-9-30
+
+### 🐛 Critical Bug Fixes
+
+#### 🔧 Terraform Installation Fix
+- **Fixed Issue**: SC.004 rule failing with "terraform command not found" error in GitHub Actions
+- **Root Cause**: Action.yml was missing Terraform installation step required by SC.004 rule
+- **Solution**: 
+  - Added Terraform installation step using `hashicorp/setup-terraform@v3`
+  - Set default Terraform version to 1.9.0 (compatible with SC.004 requirements)
+  - Updated documentation with Terraform installation requirements
+- **Impact**: 
+  - SC.004 rule now works correctly in GitHub Actions environments
+  - Terraform validation commands execute successfully
+  - No additional configuration required for users
+
 ## [2.4.0] - 2025-9-30
 
 ### 🚀 New SC Rule - Security Code Enhancement
