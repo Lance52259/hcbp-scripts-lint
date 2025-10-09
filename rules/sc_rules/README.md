@@ -30,161 +30,6 @@ sc_rules/
 | SC.004 | HuaweiCloud provider version validity check | Validates huaweicloud provider version constraints by testing with current and previous versions | `rule_004.py` |
 | SC.005 | Sensitive variable declaration check | Validates that sensitive variables are properly declared with Sensitive=true | `rule_005.py` |
 
-## 🚀 Usage
-
-### Basic Usage
-
-```python
-from rules.sc_rules import SCRules
-
-# Initialize the rules coordinator
-sc_rules = SCRules()
-
-# Define error logging function (note the Optional[int] parameter for line number)
-def log_error(file_path, rule_id, message, line_number=None):
-    if line_number:
-        print(f"ERROR: {file_path} ({line_number}): [{rule_id}] {message}")
-    else:
-        print(f"ERROR: {file_path}: [{rule_id}] {message}")
-
-# Execute all SC rules on file content
-file_content = '''resource "aws_instance" "example" {
-  ami = data.aws_ami.ubuntu.images[0].image_id
-}'''
-sc_rules.execute_all_rules("main.tf", file_content, log_error)
-
-# Execute a specific rule
-sc_rules.execute_rule("SC.001", "main.tf", file_content, log_error)
-
-# For backward compatibility, you can also use the legacy method
-sc_rules.run_all_checks("main.tf", file_content, log_error)
-```
-
-### Advanced Usage
-
-```python
-from rules.sc_rules import SCRules
-
-sc_rules = SCRules()
-
-# Get rule information
-rule_info = sc_rules.get_rule_info("SC.001")
-if rule_info:
-    print(f"Rule name: {rule_info['name']}")
-    print(f"Description: {rule_info['description']}")
-    print(f"Category: {rule_info['category']}")
-
-# Get all available rules
-all_rules = sc_rules.get_available_rules()
-print(f"Available SC rules: {all_rules}")
-
-# Execute rules with exclusions
-excluded_rules = ["SC.001"]  # Example: skip array safety checks
-results = sc_rules.execute_all_rules("main.tf", file_content, log_error, excluded_rules)
-
-# Get rules summary
-summary = sc_rules.get_rules_summary()
-print(f"Total SC rules: {summary['total']}")
-print(f"Modular rules: {summary['modular']}")
-
-# Legacy methods (for backward compatibility)
-if sc_rules.is_rule_enabled("SC.001"):
-    print("SC.001 is available")
-
-# Note: enable_rule() and disable_rule() are legacy methods
-# Use excluded_rules parameter in execute_all_rules() instead
-```
-
-## 🔧 Adding New Rules
-
-To add a new SC rule, follow these steps:
-
-### 1. Create Rule Implementation File
-
-Create a new file `rule_XXX.py` in this directory:
-
-```python
-#!/usr/bin/env python3
-"""
-SC.XXX - Rule Name
-
-Detailed description of what this security rule validates.
-
-Author: Lance
-License: Apache 2.0
-"""
-
-from typing import Callable, Optional, Dict, Any
-
-def check_scXXX_rule_name(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
-    """
-    Validate according to SC.XXX rule specifications.
-
-    Args:
-        file_path (str): Path to the file being checked
-        content (str): Complete file content
-        log_error_func (Callable): Error logging function with signature:
-                                 (file_path, rule_id, message, line_number)
-    """
-    # Implementation here
-    pass
-
-def get_rule_description() -> Dict[str, Any]:
-    """
-    Get detailed rule information.
-
-    Returns:
-        Dict[str, Any]: Rule metadata and examples
-    """
-    return {
-        "id": "SC.XXX",
-        "name": "Rule Name",
-        "description": "Detailed description",
-        "category": "Security Code",
-        "severity": "error",
-        "examples": {
-            "valid": [],
-            "invalid": []
-        }
-    }
-```
-
-### 2. Update Reference Class
-
-Add the new rule to `reference.py`:
-
-```python
-# Import the new rule
-from .rule_XXX import check_scXXX_rule_name, get_rule_description as get_scXXX_description
-
-class SCRules:
-    def _build_rules_registry(self) -> Dict[str, Dict[str, Any]]:
-        return {
-            # Existing rules...
-            "SC.XXX": {
-                "check_function": check_scXXX_rule_name,
-                "description_function": get_scXXX_description,
-                "name": "Rule Name",
-                "status": "modular"
-            }
-        }
-```
-
-### 3. Update Documentation
-
-Update this README.md file to include the new rule in the Available Rules table.
-
-## 🧪 Testing
-
-The package includes comprehensive testing through the main linting system:
-
-```bash
-# Test exclude a SC rule
-python3 .github/scripts/terraform_lint.py examples/bad-example/basic --ignore-rules "SC.001"
-
-# Test all rules including SC
-python3 .github/scripts/terraform_lint.py examples/bad-example/basic
-```
 
 ## 📋 Rule Details
 
@@ -249,6 +94,94 @@ locals {
 - Use `for_each` instead of direct indexing when possible
 - Use `coalesce()` for multiple fallback options
 - Implement proper validation in variable definitions
+
+### SC.002 - Terraform Required Version Declaration Check
+
+**Purpose**: Validates that `providers.tf` files contain proper `terraform` block with `required_version` declaration.
+
+**Validation Criteria**:
+- Ensures consistent Terraform version usage across the project
+- Prevents version compatibility issues
+- Supports multiple version constraint formats (`>= 1.3.0`, `~> 1.0`, `>= 0.14.0, < 2.0.0`, etc.)
+- Intelligent detection of terraform block structure and required_version declaration
+
+**Examples**:
+
+**✅ Valid**:
+```hcl
+terraform {
+  required_version = ">= 1.3.0"
+  
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = ">= 1.72.1"
+    }
+  }
+}
+```
+
+**❌ Invalid**:
+```hcl
+# Missing required_version declaration
+terraform {
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = ">= 1.72.1"
+    }
+  }
+}
+```
+
+### SC.003 - Terraform Version Compatibility Check
+
+**Purpose**: Analyzes Terraform configuration to determine minimum required version and validates that declared `required_version` is compatible with used features.
+
+**Version Requirements Detection**:
+- `variable/output sensitive = "true"` requires >= 0.14.0
+- `variable nullable = "true"` requires >= 1.1.0
+- `variable type with optional()` requires >= 1.3.0
+- `resource lifecycle precondition` requires >= 1.2.0
+- `variable validation with other variable references` requires >= 1.9.0
+- `import block with for_each` requires >= 1.7.0
+- Default minimum version: 0.12.0
+
+**Examples**:
+
+**✅ Compatible Version**:
+```hcl
+terraform {
+  required_version = ">= 1.9.0"  # Compatible with validation.condition referencing other variables
+}
+
+variable "workspace_name" {
+  type        = string
+  description = "Workspace name"
+  
+  validation {
+    condition     = var.workspace_id != "" || var.workspace_name != ""
+    error_message = "At least one must be provided."
+  }
+}
+```
+
+**❌ Incompatible Version**:
+```hcl
+terraform {
+  required_version = ">= 1.0.0"  # Too low for validation.condition with other variable references
+}
+
+variable "workspace_name" {
+  type        = string
+  description = "Workspace name"
+  
+  validation {
+    condition     = var.workspace_id != "" || var.workspace_name != ""
+    error_message = "At least one must be provided."
+  }
+}
+```
 
 ### SC.004 - HuaweiCloud Provider Version Validity Check
 
