@@ -1,6 +1,6 @@
 # DC (Documentation/Comments) Rules Package
 
-> 📖 **For detailed DC rules documentation, see [docs/rules/dc-rules.md](../../docs/rules/dc-rules.md)**
+> 📖 **For detailed DC rules documentation, see [docs/rules/dc_rules.md](../../docs/rules/dc_rules.md)**
 
 This package contains all documentation and comment related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better

@@ -77,15 +77,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   │   └── troubleshooting.md       # Troubleshooting guide
   ├── project/
   │   ├── contributing.md          # Contributing guidelines
-  │   ├── cross-repo-push.md       # Cross-repository push configuration
+  │   ├── cross_repo_push.md       # Cross-repository push configuration
   │   ├── publishing.md            # Publishing guide
   │   └── security.md              # Security policy
   └── rules/
       ├── overview.md              # Complete rules documentation (merged 2 files)
-      ├── dc-rules.md              # Documentation rules
-      ├── io-rules.md              # Input/Output rules
-      ├── sc-rules.md              # Security code rules
-      └── st-rules.md              # Style/Format rules
+      ├── dc_rules.md              # Documentation rules
+      ├── io_rules.md              # Input/Output rules
+      ├── sc_rules.md              # Security code rules
+      └── st_rules.md              # Style/Format rules
   ```
 
 #### 📖 Documentation Consolidation

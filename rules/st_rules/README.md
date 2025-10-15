@@ -1,6 +1,6 @@
 # ST (Style/Format) Rules Package
 
-> 📖 **For detailed ST rules documentation, see [docs/rules/st-rules.md](../../docs/rules/st-rules.md)**
+> 📖 **For detailed ST rules documentation, see [docs/rules/st_rules.md](../../docs/rules/st_rules.md)**
 
 This package contains all style and format related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better

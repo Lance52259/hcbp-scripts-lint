@@ -47,7 +47,7 @@ Add the following step to your GitHub Actions workflow:
 ```
 
 > ⚠️ **Notes on cross-repository push**: If you push from a personal repository branch to a target repository, you may
-  encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](docs/project/cross-repo-push.md)
+  encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](docs/project/cross_repo_push.md)
   to learn how to correctly configure the checkout step.
 
 #### ⚙️ GitHub Actions Inputs
@@ -212,7 +212,7 @@ resource "huaweicloud_compute_instance" "test" {
 - **ST.013**: Directory naming convention check
 - **ST.014**: File naming convention check
 
-For more information, please refer to the [ST rules documentation](docs/rules/st-rules.md).
+For more information, please refer to the [ST rules documentation](docs/rules/st_rules.md).
 
 ### IO (Input/Output) Rules
 
@@ -226,12 +226,12 @@ For more information, please refer to the [ST rules documentation](docs/rules/st
 - **IO.008**: Variable type definition requirement
 - **IO.009**: Variable validation block check
 
-For more information, please refer to the [IO rules documentation](docs/rules/io-rules.md).
+For more information, please refer to the [IO rules documentation](docs/rules/io_rules.md).
 
 ### DC (Documentation/Comments) Rules
 - **DC.001**: Comment formatting standards
 
-For more information, please refer to the [DC rules documentation](docs/rules/dc-rules.md).
+For more information, please refer to the [DC rules documentation](docs/rules/dc_rules.md).
 
 ### SC (Security Code) Rules
 - **SC.001**: Unsafe array index access detection
@@ -240,7 +240,7 @@ For more information, please refer to the [DC rules documentation](docs/rules/dc
 - **SC.004**: HuaweiCloud provider version validity check
 - **SC.005**: Sensitive variable declaration check
 
-For more information, please refer to the [SC rules documentation](docs/rules/sc-rules.md).
+For more information, please refer to the [SC rules documentation](docs/rules/sc_rules.md).
 
 ## Performance
 

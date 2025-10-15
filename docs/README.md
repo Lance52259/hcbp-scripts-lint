@@ -15,16 +15,16 @@ resources for using and contributing to the project.
 
 ### 📋 Rules Reference
 - **[Rules Overview](rules/overview.md)** - Complete rules documentation
-- **[ST Rules](rules/st-rules.md)** - Style and Format rules
-- **[IO Rules](rules/io-rules.md)** - Input/Output rules
-- **[DC Rules](rules/dc-rules.md)** - Documentation and Comments rules
-- **[SC Rules](rules/sc-rules.md)** - Security Code rules
+- **[ST Rules](rules/st_rules.md)** - Style and Format rules
+- **[IO Rules](rules/io_rules.md)** - Input/Output rules
+- **[DC Rules](rules/dc_rules.md)** - Documentation and Comments rules
+- **[SC Rules](rules/sc_rules.md)** - Security Code rules
 
 ### 🏗️ Project Documentation
 - **[Security Policy](project/security.md)** - Security practices and vulnerability reporting
 - **[Contributing Guide](project/contributing.md)** - How to contribute to the project
 - **[Publishing Guide](project/publishing.md)** - Publishing to GitHub Marketplace
-- **[Cross-Repository Push](project/cross-repo-push.md)** - Cross-repo push configuration
+- **[Cross-Repository Push](project/cross_repo_push.md)** - Cross-repo push configuration
 
 ## 🎯 Quick Navigation
 
@@ -61,10 +61,10 @@ resources for using and contributing to the project.
 - **GitHub integration**: [GitHub Setup Guide](github/setup.md)
 
 ### By Rule Category
-- **Code formatting**: [ST Rules](rules/st-rules.md)
-- **Input/Output management**: [IO Rules](rules/io-rules.md)
-- **Documentation standards**: [DC Rules](rules/dc-rules.md)
-- **Security practices**: [SC Rules](rules/sc-rules.md)
+- **Code formatting**: [ST Rules](rules/st_rules.md)
+- **Input/Output management**: [IO Rules](rules/io_rules.md)
+- **Documentation standards**: [DC Rules](rules/dc_rules.md)
+- **Security practices**: [SC Rules](rules/sc_rules.md)
 
 ### By User Type
 - **New users**: Start with [Quick Start Guide](guides/quickstart.md)
