@@ -31,19 +31,40 @@ local development, we provide everything you need to ensure code quality and con
 Add the following step to your GitHub Actions workflow:
 
 ```yaml
-- name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.0.0
+- name: Lint Terraform Examples
+  id: terraform-lint
+  uses: Lance52259/hcbp-scripts-lint@v2
   with:
-    directory: './terraform'
-    rule-categories: 'ST,IO,DC,SC'
-    ignore-rules: 'ST.001,ST.003'
+    directory: 'examples'
     fail-on-error: 'true'
+    exclude-paths: '*.md,*.txt,*.json,*.yml,*.yaml'
+    changed-files-only: 'true'
+    base-ref: ${{ github.event.pull_request.base.sha }}
     performance-monitoring: 'true'
+    report-format: 'both'
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 > ⚠️ **Notes on cross-repository push**: If you push from a personal repository branch to a target repository, you may
   encounter an error that the branch does not exist. Please refer to the [Cross-repository push configuration guide](docs/project/cross-repo-push.md)
   to learn how to correctly configure the checkout step.
+
+#### ⚙️ GitHub Actions Inputs
+
+| Input | Description | Default | Required |
+|-------|-------------|---------|----------|
+| `directory` | Target directory to check | `.` | No |
+| `rule-categories` | Rule categories to execute (ST,IO,DC,SC) | `ST,IO,DC,SC` | No |
+| `ignore-rules` | Comma-separated list of rules to ignore | `` | No |
+| `include-paths` | Path patterns to include | `` | No |
+| `exclude-paths` | Path patterns to exclude | `` | No |
+| `changed-files-only` | Check only changed files | `false` | No |
+| `base-ref` | Base reference for git diff | `origin/main` | No |
+| `performance-monitoring` | Enable performance analytics (true/false, case-insensitive) | `true` | No |
+| `report-format` | Output format (text, json, or both) | `text` | No |
+| `detailed-summary` | Show detailed error information in GitHub Actions summary | `true` | No |
+| `fail-on-error` | Fail workflow on errors | `true` | No |
 
 ### Local Development
 
@@ -68,28 +89,34 @@ Add the following step to your GitHub Actions workflow:
      --performance-monitoring
    ```
 
-## ⚙️ Configuration Options
+#### 🎛️ Command Line Parameters
 
-### GitHub Actions Inputs
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--directory` | Directory to lint | Current directory |
+| `--ignore-rules` | Comma-separated list of rules to ignore | None |
+| `--include-paths` | Comma-separated list of paths to include | All .tf files |
+| `--exclude-paths` | Comma-separated list of paths to exclude | None |
+| `--changed-files-only` | Check only changed files | false |
+| `--base-ref` | Base reference for changed files | origin/main |
+| `--rule-categories` | Comma-separated list of rule categories | ST,IO,DC,SC |
+| `--report-format` | Output format (text, json, or both) | text |
+| `--performance-monitoring` | Enable performance monitoring | true |
+| `--fail-on-error` | Exit with error code on violations | true |
 
-| Input | Description | Default | Required |
-|-------|-------------|---------|----------|
-| `directory` | Target directory to check | `.` | No |
-| `rule-categories` | Rule categories to execute (ST,IO,DC,SC) | `ST,IO,DC,SC` | No |
-| `ignore-rules` | Comma-separated list of rules to ignore | `` | No |
-| `include-paths` | Path patterns to include | `` | No |
-| `exclude-paths` | Path patterns to exclude | `` | No |
-| `changed-files-only` | Check only changed files | `false` | No |
-| `base-ref` | Base reference for git diff | `origin/main` | No |
-| `performance-monitoring` | Enable performance analytics (true/false, case-insensitive) | `true` | No |
-| `report-format` | Output format (text, json, or both) | `text` | No |
-| `detailed-summary` | Show detailed error information in GitHub Actions summary | `true` | No |
-| `fail-on-error` | Fail workflow on errors | `true` | No |
+### Tool Usage
 
-### Command Line Options
+Download the tool to the local execution machine using a shell script.  
+You can then run the tool using the encapsulated `hcbp-lint` command. For more information, see `hcbp-lint --help`.
 
 ```bash
-python3 .github/scripts/terraform_lint.py [OPTIONS]
+curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
+```
+
+The command options are as follows:
+
+```bash
+hcbp-lint [OPTIONS]
 
 Options:
   -d, --directory TEXT          Target directory to check
@@ -137,17 +164,12 @@ resource "huaweicloud_vpc_route" "vpc_route" {
 
 ### Supported Comment Formats
 
+The tool supports modifying the detection behavior logic of specific rules in subsequent lines of the current file by
+commenting on them (the format is **# {Rule Type}.{Rule Number} Disable/Enable**).
+For example:
+
 - `# ST.001 Disable` - Disables ST.001 rule from this line onwards in the current file
 - `# ST.001 Enable` - Re-enables ST.001 rule from this line onwards in the current file
-
-### Features
-
-- **File-scoped control**: Comments only affect the current file
-- **Line-based control**: Rules are disabled/enabled from the comment line onwards
-- **Support for all rule categories**: ST, IO, DC, SC
-- **Multiple rule control**: You can disable/enable multiple rules with separate comments
-
-### Example Usage
 
 ```hcl
 # Disable naming convention check for this section
@@ -171,51 +193,10 @@ resource "huaweicloud_compute_instance" "test" {
 # ST.003 Enable
 ```
 
-## Quick Start
-
-### Local Usage
-
-```bash
-# Basic usage
-python3 .github/scripts/terraform_lint.py /path/to/terraform/files
-
-# With specific rules excluded
-python3 .github/scripts/terraform_lint.py /path/to/terraform/files --ignore-rules ST.001,ST.002
-
-# Check only changed files
-python3 .github/scripts/terraform_lint.py /path/to/terraform/files --changed-files-only
-```
-
-### GitHub Actions
-
-```yaml
-name: Terraform Lint
-
-on:
-  pull_request:
-    paths:
-      - '**.tf'
-      - '**.tfvars'
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Required for changed-files-only mode
-      
-      - name: Terraform Scripts Lint
-        uses: Lance52259/hcbp-scripts-lint@v2.3.3
-        with:
-          directory: '.'
-          changed-files-only: 'true'
-          fail-on-error: 'true'
-```
-
 ## Rule Categories
 
-### ST (Style/Format) Rules - 14 Rules
+### ST (Style/Format) Rules
+
 - **ST.001**: Resource and data source naming convention check
 - **ST.002**: Variable default value requirement for data sources
 - **ST.003**: Parameter alignment with equals signs
@@ -231,7 +212,10 @@ jobs:
 - **ST.013**: Directory naming convention check
 - **ST.014**: File naming convention check
 
-### IO (Input/Output) Rules - 9 Rules
+For more information, please refer to the [ST rules documentation](docs/rules/st-rules.md).
+
+### IO (Input/Output) Rules
+
 - **IO.001**: Variable definition file organization
 - **IO.002**: Output definition file organization
 - **IO.003**: Required variable declaration in tfvars
@@ -242,105 +226,21 @@ jobs:
 - **IO.008**: Variable type definition requirement
 - **IO.009**: Variable validation block check
 
-### DC (Documentation/Comments) Rules - 1 Rule
+For more information, please refer to the [IO rules documentation](docs/rules/io-rules.md).
+
+### DC (Documentation/Comments) Rules
 - **DC.001**: Comment formatting standards
 
-### SC (Security Code) Rules - 5 Rules
+For more information, please refer to the [DC rules documentation](docs/rules/dc-rules.md).
+
+### SC (Security Code) Rules
 - **SC.001**: Unsafe array index access detection
 - **SC.002**: Terraform required version declaration check
 - **SC.003**: Terraform version compatibility check
 - **SC.004**: HuaweiCloud provider version validity check
 - **SC.005**: Sensitive variable declaration check
 
-## Configuration Options
-
-### Command Line Parameters
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `--directory` | Directory to lint | Current directory |
-| `--ignore-rules` | Comma-separated list of rules to ignore | None |
-| `--include-paths` | Comma-separated list of paths to include | All .tf files |
-| `--exclude-paths` | Comma-separated list of paths to exclude | None |
-| `--changed-files-only` | Check only changed files | false |
-| `--base-ref` | Base reference for changed files | origin/main |
-| `--rule-categories` | Comma-separated list of rule categories | ST,IO,DC,SC |
-| `--report-format` | Output format (text, json, or both) | text |
-| `--performance-monitoring` | Enable performance monitoring | true |
-| `--fail-on-error` | Exit with error code on violations | true |
-
-### GitHub Actions Parameters
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `directory` | Directory to lint | . |
-| `ignore-rules` | Comma-separated list of rules to ignore | None |
-| `include-paths` | Comma-separated list of paths to include | All .tf files |
-| `exclude-paths` | Comma-separated list of paths to exclude | None |
-| `changed-files-only` | Check only changed files | false |
-| `base-ref` | Base reference for changed files | origin/main |
-| `rule-categories` | Comma-separated list of rule categories | ST,IO,DC,SC |
-| `report-format` | Output format (text, json, or both) | text |
-| `performance-monitoring` | Enable performance monitoring | true |
-| `fail-on-error` | Exit with error code on violations | true |
-
-## Examples
-
-### Basic Usage
-
-```bash
-# Lint current directory
-python3 .github/scripts/terraform_lint.py .
-
-# Lint specific directory
-python3 .github/scripts/terraform_lint.py /path/to/terraform
-
-# Exclude specific rules
-python3 .github/scripts/terraform_lint.py . --ignore-rules ST.001,ST.002
-
-# Check only changed files
-python3 .github/scripts/terraform_lint.py . --changed-files-only
-```
-
-### Advanced Configuration
-
-```bash
-# Include only specific paths
-python3 .github/scripts/terraform_lint.py . --include-paths "modules/**,examples/**"
-
-# Exclude specific paths
-python3 .github/scripts/terraform_lint.py . --exclude-paths "**/test/**"
-
-# Use specific rule categories
-python3 .github/scripts/terraform_lint.py . --rule-categories ST,IO
-
-# Generate JSON report
-python3 .github/scripts/terraform_lint.py . --report-format json
-```
-
-### GitHub Actions Examples
-
-```yaml
-# Basic workflow
-- name: Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.3.3
-  with:
-    directory: '.'
-    fail-on-error: 'true'
-
-# Advanced workflow with filtering
-- name: Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.3.3
-  with:
-    directory: '.'
-    changed-files-only: 'true'
-    ignore-rules: 'ST.001,ST.002'
-    include-paths: 'modules/**,examples/**'
-    exclude-paths: '**/test/**'
-    rule-categories: 'ST,IO'
-    report-format: 'both'
-    performance-monitoring: 'true'
-```
+For more information, please refer to the [SC rules documentation](docs/rules/sc-rules.md).
 
 ## Performance
 
