@@ -1,6 +1,6 @@
 # IO (Input/Output) Rules Package
 
-> 📖 **For detailed IO rules documentation, see [docs/rules/io-rules.md](../../docs/rules/io-rules.md)**
+> 📖 **For detailed IO rules documentation, see [docs/rules/io_rules.md](../../docs/rules/io_rules.md)**
 
 This package contains all input/output related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better

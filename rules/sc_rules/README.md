@@ -1,6 +1,6 @@
 # SC (Security Code) Rules Package
 
-> 📖 **For detailed SC rules documentation, see [docs/rules/sc-rules.md](../../docs/rules/sc-rules.md)**
+> 📖 **For detailed SC rules documentation, see [docs/rules/sc_rules.md](../../docs/rules/sc_rules.md)**
 
 This package contains all security-related checking rules for Terraform scripts.  
 The package has been refactored into a modular structure where each rule is implemented in a separate module for better
