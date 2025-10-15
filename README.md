@@ -119,16 +119,16 @@ The command options are as follows:
 hcbp-lint [OPTIONS]
 
 Options:
-  -d, --directory TEXT          Target directory to check
-  --categories TEXT             Rule categories (ST,IO,DC,SC)
-  --ignore-rules TEXT           Rules to ignore (comma-separated)
-  --include-paths TEXT          Paths to include (comma-separated)
-  --exclude-paths TEXT          Paths to exclude (comma-separated)
-  --changed-files-only          Check only changed files
-  --base-ref TEXT               Base reference for git diff
-  --performance-monitoring      Enable performance monitoring (true/false, case-insensitive)
+  -d, --directory TEXT               Target directory to check
+  --categories TEXT                  Rule categories (ST,IO,DC,SC)
+  --ignore-rules TEXT                Rules to ignore (comma-separated)
+  --include-paths TEXT               Paths to include (comma-separated)
+  --exclude-paths TEXT               Paths to exclude (comma-separated)
+  --changed-files-only               Check only changed files
+  --base-ref TEXT                    Base reference for git diff
+  --performance-monitoring           Enable performance monitoring (true/false, case-insensitive)
   --report-format [text|json|both]   Output report format
-  --help                        Show help message
+  --help                             Show help message
 ```
 
 ## 📊 Enhanced Summary Reports
