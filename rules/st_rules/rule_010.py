@@ -141,6 +141,17 @@ def check_st010_quote_usage(file_path: str, content: str, log_error_func: Callab
                     line_num
                 )
 
+        # Check for provider declarations
+        provider_match = re.match(r'^\s*provider\s+(.+?)\s*\{', line)
+        if provider_match:
+            declaration = provider_match.group(1).strip()
+            if not _is_properly_quoted_single_name(declaration):
+                log_error_func(
+                    file_path, "ST.010",
+                    f"Provider type must be enclosed in double quotes",
+                    line_num
+                )
+
 
 def _is_properly_quoted_declaration(declaration: str) -> bool:
     """
@@ -220,9 +231,9 @@ def get_rule_description() -> dict:
     """
     return {
         "id": "ST.010",
-        "name": "Resource, data source, variable, and output quote check",
+        "name": "Resource, data source, variable, output, and provider quote check",
         "description": (
-            "Validates that all data sources, resources, variables, and outputs use proper double quotes "
+            "Validates that all data sources, resources, variables, outputs, and providers use proper double quotes "
             "around their type and name declarations. This ensures consistent syntax "
             "and prevents parsing errors that could occur with improper quoting. "
             "The rule enforces the standard Terraform syntax format."
@@ -242,7 +253,9 @@ def get_rule_description() -> dict:
                 'resource "huaweicloud_networking_secgroup" "test" { ... }',
                 'resource "huaweicloud_compute_instance" "test" { ... }',
                 'variable "instance_name" { ... }',
-                'output "instance_id" { ... }'
+                'output "instance_id" { ... }',
+                'provider "huaweicloud" { ... }',
+                'provider "kubernetes" { ... }'
             ],
             "invalid": [
                 'data huaweicloud_availability_zones "test" { ... }',
@@ -250,7 +263,9 @@ def get_rule_description() -> dict:
                 "resource huaweicloud_networking_secgroup test { ... }",
                 'resource \'huaweicloud_compute_instance\' \'test\' { ... }',
                 'variable instance_name { ... }',
-                'output instance_id { ... }'
+                'output instance_id { ... }',
+                'provider huaweicloud { ... }',
+                'provider kubernetes { ... }'
             ]
         },
         "auto_fixable": True,

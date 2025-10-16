@@ -286,12 +286,14 @@ the longest parameter name.
 - Provider-related variables (access_key, secret_key, region_name) are excluded from ordering validation
 - Excludes authentication and region configuration variables to avoid interference with business logic ordering
 
-### ST.010 - Resource, Data Source, Variable, and Output Quote Check
+### ST.010 - Resource, Data Source, Variable, Output, and Provider Quote Check
 
-**Purpose**: Ensures double quotes around resource and data source names.
+**Purpose**: Ensures double quotes around resource, data source, variable, output, and provider names.
 
 **Validation Criteria**:
 - All resource and data source type and name identifiers must use double quotes
+- All variable and output names must use double quotes
+- All provider type names must use double quotes
 - Consistent quoting style across all Terraform files
 
 ### ST.011 - Trailing Whitespace Check
