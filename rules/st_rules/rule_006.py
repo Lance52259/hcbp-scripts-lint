@@ -106,8 +106,12 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
         data_match = re.match(r'data\s+"([^"]+)"\s+"([^"]+)"\s*\{', line)
         # Also match data blocks without quotes around type name (ST.010 violation)
         data_match_no_quotes = re.match(r'data\s+([a-zA-Z0-9_]+)\s+"([^"]+)"\s*\{', line)
+        # Also match data blocks with quotes around type but not name (ST.010 violation)
+        data_match_mixed_quotes = re.match(r'data\s+"([^"]+)"\s+([a-zA-Z0-9_]+)\s*\{', line)
         # Also match resource blocks without quotes around type name (ST.010 violation)
         resource_match_no_quotes = re.match(r'resource\s+([a-zA-Z0-9_]+)\s+"([^"]+)"\s*\{', line)
+        # Also match resource blocks with quotes around type but not name (ST.010 violation)
+        resource_match_mixed_quotes = re.match(r'resource\s+"([^"]+)"\s+([a-zA-Z0-9_]+)\s*\{', line)
         variable_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
         output_match = re.match(r'output\s+"([^"]+)"\s*\{', line)
         locals_match = re.match(r'locals\s*\{', line)
@@ -120,6 +124,10 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
             block_type = "resource"
             type_name = resource_match_no_quotes.group(1)
             instance_name = resource_match_no_quotes.group(2)
+        elif resource_match_mixed_quotes:
+            block_type = "resource"
+            type_name = resource_match_mixed_quotes.group(1)
+            instance_name = resource_match_mixed_quotes.group(2)
         elif data_match:
             block_type = "data source"
             type_name = data_match.group(1)
@@ -128,6 +136,10 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
             block_type = "data source"
             type_name = data_match_no_quotes.group(1)
             instance_name = data_match_no_quotes.group(2)
+        elif data_match_mixed_quotes:
+            block_type = "data source"
+            type_name = data_match_mixed_quotes.group(1)
+            instance_name = data_match_mixed_quotes.group(2)
         elif variable_match:
             block_type = "variable"
             type_name = ""
@@ -215,13 +227,12 @@ def _check_block_spacing_detailed(
     current_block_id = _format_block_identifier(current_type, current_type_name, current_instance)
     next_block_id = _format_block_identifier(next_type, next_type_name, next_instance)
     
-    # If there are only comment lines between blocks, that's acceptable
-    if comment_lines > 0 and blank_lines == 0:
-        return None  # Comments between blocks are acceptable
-    
-    if blank_lines == 0 and comment_lines == 0:
+    if blank_lines == 0:
         # Missing blank line - report at the start of next block
-        error_msg = f"Missing blank line between {current_block_id} and {next_block_id}, the number of blank line should be 1."
+        if comment_lines > 0:
+            error_msg = f"Missing blank line between {current_block_id} and {next_block_id}, the number of blank line should be 1."
+        else:
+            error_msg = f"Missing blank line between {current_block_id} and {next_block_id}, the number of blank line should be 1."
         return next_start, error_msg
     elif blank_lines > 1:
         # Too many blank lines - report at the first extra blank line

@@ -255,6 +255,8 @@ the longest parameter name.
 **Validation Criteria**:
 - Exactly 1 empty line required between different resource/data blocks
 - No excessive spacing between blocks
+- Comment lines between blocks do not count as spacing - blank lines are still required
+- Supports all quote format combinations (quoted/unquoted type and name)
 
 ### ST.007 - Same Parameter Block Spacing Check
 
