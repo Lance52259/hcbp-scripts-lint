@@ -252,10 +252,10 @@ the longest parameter name.
 
 ### ST.006 - Resource and Data Source Spacing Check
 
-**Purpose**: Ensures proper spacing between resource and data source blocks.
+**Purpose**: Ensures proper spacing between all Terraform blocks.
 
 **Validation Criteria**:
-- Exactly 1 empty line required between different resource/data blocks
+- Exactly 1 empty line required between different blocks (resource, data source, variable, output, locals, terraform, provider)
 - No excessive spacing between blocks
 - Comment lines between blocks do not count as spacing - blank lines are still required
 - Supports all quote format combinations (quoted/unquoted type and name)

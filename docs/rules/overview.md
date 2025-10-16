@@ -229,17 +229,16 @@ requirements. Error messages display the actual expected level based on context,
 - Provide accurate error reporting with correct level information
 - Skip tab character detection to avoid duplicate error reporting with ST.004 rule
 
-### ST.006 - Resource and Data Source Spacing Check
+### ST.006 - Block Spacing Check
 
-**Rule Description:** Validates that there is exactly one empty line between different resource, data source, variable,
-output, and locals blocks. Comment lines between blocks do not count as spacing - blank lines are still required even
-when comments are present.
+**Rule Description:** Validates that there is exactly one empty line between different Terraform blocks (resource, data source, variable, output, locals, terraform, provider). Comment lines between blocks do not count as spacing - blank lines are still required even when comments are present.
 
 **Purpose:**
 - Improve code readability
 - Create clear visual separation between blocks
 - Enforce consistent spacing standards
 - Require blank lines between blocks regardless of comment presence
+- Support all Terraform block types including terraform and provider blocks
 
 **Comment Line Handling:**
 - Comment lines (starting with '#') are ignored during block extraction
