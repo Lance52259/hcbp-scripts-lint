@@ -200,6 +200,10 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
                 )
             continue
         
+        # Skip comment lines for indentation stack updates
+        if line.strip().startswith('#'):
+            continue
+            
         # Validate proper nesting
         current_depth = indent_level // 2
         validation_errors = _validate_nesting_level(
