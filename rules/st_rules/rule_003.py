@@ -168,18 +168,26 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
             brace_count = 1
             i += 1
 
-            while i < len(lines) and brace_count > 0:
-                current_line = lines[i]
-                block_lines.append(current_line)
-                for char in current_line:
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
-                i += 1
+            # Check if the opening brace is on the same line as the declaration
+            if '{' in line and '}' in line:
+                # Single line block like: data "type" "name" { }
+                # No additional lines to process
+                pass
+            else:
+                # Multi-line block, process until we find the closing brace
+                while i < len(lines) and brace_count > 0:
+                    current_line = lines[i]
+                    block_lines.append(current_line)
+                    for char in current_line:
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                    i += 1
 
-            if block_lines and '}' in block_lines[-1]:
-                block_lines = block_lines[:-1]
+                # Remove the last line if it contains only the closing brace
+                if block_lines and block_lines[-1].strip() == '}':
+                    block_lines = block_lines[:-1]
 
             blocks.append((block_type, start_line, block_lines))
         else:
