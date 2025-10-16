@@ -162,12 +162,7 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         # Check if indentation is a multiple of 2
         if indent_level == -1:
             # Tab character detected (should be caught by ST.004)
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Tab character used for indentation. Use 2 spaces for consistent indentation",
-                line_num
-            )
+            # Skip ST.005 validation for tab characters to avoid duplicate error reporting
             continue
         elif indent_level % 2 != 0:
             # Determine the expected level based on context, not current incorrect indentation

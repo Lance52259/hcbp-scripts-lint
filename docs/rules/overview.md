@@ -227,7 +227,7 @@ requirements. Error messages display the actual expected level based on context,
 - Prevent indentation-related errors
 - Support various content types appropriately
 - Provide accurate error reporting with correct level information
-- Clearly identify tab character usage issues
+- Skip tab character detection to avoid duplicate error reporting with ST.004 rule
 
 ### ST.006 - Resource and Data Source Spacing Check
 
