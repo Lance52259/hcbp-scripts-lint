@@ -241,12 +241,14 @@ the longest parameter name.
 
 ### ST.005 - Indentation Level Check
 
-**Purpose**: Validates consistent 2-space indentation levels.
+**Purpose**: Validates consistent 2-space indentation levels with accurate error reporting.
 
 **Validation Criteria**:
 - Each indentation level must use exactly 2 spaces
 - Consistent indentation depth throughout the file
 - For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation
+- Error messages display the actual expected level based on context, not the incorrect indentation level
+- Tab characters are explicitly reported with clear error messages
 
 ### ST.006 - Resource and Data Source Spacing Check
 
