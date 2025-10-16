@@ -220,12 +220,14 @@ resource "huaweicloud_vpc_subnet" "test" {
 **Rule Description:** Validates that indentation levels follow the correct nesting pattern where each level uses exactly
 current_level * 2 spaces. Heredoc blocks (<<EOT, <<EOF, <<POLICY, etc.) are excluded from validation across all file
 types. Top-level variable declarations in terraform.tfvars files are properly recognized and excluded from indentation
-requirements.
+requirements. Error messages display the actual expected level based on context, not the incorrect indentation level.
 
 **Purpose:**
 - Enforce consistent indentation standards
 - Prevent indentation-related errors
 - Support various content types appropriately
+- Provide accurate error reporting with correct level information
+- Clearly identify tab character usage issues
 
 ### ST.006 - Resource and Data Source Spacing Check
 

@@ -170,14 +170,34 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
             )
             continue
         elif indent_level % 2 != 0:
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level {indent_level} is not a multiple of 2 spaces. "
-                f"Current indentation: {indent_level} spaces, "
-                f"Expected: multiple of 2",
-                line_num
-            )
+            # Determine the expected level based on context, not current incorrect indentation
+            if indentation_stack:
+                # The expected level should be based on the current context
+                # If we're deeper than the last level, we expect the next level
+                if indent_level > indentation_stack[-1] * 2:
+                    expected_level = indentation_stack[-1] + 1
+                else:
+                    # If we're at or shallower than the last level, we expect the same level
+                    expected_level = indentation_stack[-1]
+                expected_spaces = expected_level * 2
+                log_error_func(
+                    file_path,
+                    "ST.005",
+                    f"Indentation level {expected_level} is not a multiple of 2 spaces. "
+                    f"Current indentation: {indent_level} spaces, Expected: {expected_spaces} spaces",
+                    line_num
+                )
+            else:
+                # First indented line should be level 1 (2 spaces)
+                expected_level = 1
+                expected_spaces = 2
+                log_error_func(
+                    file_path,
+                    "ST.005",
+                    f"Indentation level {expected_level} is not a multiple of 2 spaces. "
+                    f"Current indentation: {indent_level} spaces, Expected: {expected_spaces} spaces",
+                    line_num
+                )
             continue
         
         # Validate proper nesting
