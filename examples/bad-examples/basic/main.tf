@@ -93,8 +93,8 @@ resource "huaweicloud_networking_secgroup_rule" "test" {
 
 resource "huaweicloud_compute_instance" "test" {
   # Indentation level 1 is not a multiple of 2 spaces, 2 spaces is expected
- name               = var.instance_name                                            # ST.005 Error: 2 space instead of 1
-    image_id        = try(data.huaweicloud_images_images.test.images[0].id, "")    # ST.005 Error: 2 space instead of 4
+ name               = var.instance_name                                            # ST.005 Error: 1 space found, not 2 spaces
+    image_id        = try(data.huaweicloud_images_images.test.images[0].id, "")    # ST.005 Error: 4 spaces found, not 2 spaces
   flavor_id         = data.huaweicloud_compute_flavors.test.flavors[0].id          # SC.001 Error: Array index access is unsafe
   security_groups   = [huaweicloud_security_group.test.name]
   availability_zone = local.queried_availability_zones[0]                          # SC.001 Error: Array index access is unsafe
@@ -106,8 +106,8 @@ resource "huaweicloud_compute_instance" "test" {
   # ST.008 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
   data_disks {
     # Indentation level 2 is not a multiple of 2 spaces, 4 spaces is expected
-     type = "SAS"    # ST.005 Error: 4 space instead of 5
-  size = "10"        # ST.005 Error: 4 space instead of 2
+     type = "SAS"    # ST.005 Error: 5 spaces found, not 4 spaces
+  size = "10"        # ST.005 Error: 2 spaces found, not 4 spaces
   }
 
 
