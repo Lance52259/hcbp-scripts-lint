@@ -102,6 +102,13 @@ the longest parameter name.
 **Validation Criteria**:
 - Exactly 1 empty line required between different resource/data blocks
 - No excessive spacing between blocks
+- Comment lines are ignored during block detection
+- Comment lines between blocks (without blank lines) are considered acceptable
+
+**Comment Line Handling**:
+- Comment lines (starting with '#') are skipped during block extraction
+- If only comment lines exist between blocks, this is acceptable
+- Comment lines do not count toward the required blank line count
 
 ### ST.007 - Same Parameter Block Spacing Check
 

@@ -230,12 +230,19 @@ requirements.
 ### ST.006 - Resource and Data Source Spacing Check
 
 **Rule Description:** Validates that there is exactly one empty line between different resource, data source, variable,
-output, and locals blocks.
+output, and locals blocks. Comment lines are ignored during block detection and are considered acceptable between blocks
+when no blank lines are present.
 
 **Purpose:**
 - Improve code readability
 - Create clear visual separation between blocks
 - Enforce consistent spacing standards
+- Allow comments between blocks without requiring blank lines
+
+**Comment Line Handling:**
+- Comment lines (starting with '#') are ignored during block extraction
+- If only comment lines exist between blocks (no blank lines), this is considered acceptable
+- Comment lines do not count toward the required blank line count
 
 ### ST.007 - Same Parameter Block Spacing Validation
 
