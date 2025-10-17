@@ -145,14 +145,16 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
     while i < len(lines):
         line = lines[i].strip()
         # Support quoted, single-quoted, and unquoted syntax
-        # Quoted: data "type" "name" { ... } or resource "type" "name" { ... } or provider "type" { ... }
-        # Single-quoted: data 'type' 'name' { ... } or resource 'type' 'name' { ... } or provider 'type' { ... }
-        # Unquoted: data type name { ... } or resource type name { ... } or provider type { ... }
+        # Quoted: data "type" "name" { ... } or resource "type" "name" { ... } or provider "type" { ... } or locals { ... }
+        # Single-quoted: data 'type' 'name' { ... } or resource 'type' 'name' { ... } or provider 'type' { ... } or locals { ... }
+        # Unquoted: data type name { ... } or resource type name { ... } or provider type { ... } or locals { ... }
         data_match = re.match(r'data\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
         resource_match = re.match(r'resource\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
         provider_match = re.match(r'provider\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
+        locals_match = re.match(r'locals\s*\{', line)
+        terraform_match = re.match(r'terraform\s*\{', line)
 
-        if data_match or resource_match or provider_match:
+        if data_match or resource_match or provider_match or locals_match or terraform_match:
             if data_match:
                 # Get data type and name from quoted, single-quoted, or unquoted groups
                 data_type = data_match.group(1) if data_match.group(1) else (data_match.group(2) if data_match.group(2) else data_match.group(3))
@@ -163,10 +165,14 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
                 resource_type = resource_match.group(1) if resource_match.group(1) else (resource_match.group(2) if resource_match.group(2) else resource_match.group(3))
                 resource_name = resource_match.group(4) if resource_match.group(4) else (resource_match.group(5) if resource_match.group(5) else resource_match.group(6))
                 block_type = f"resource.{resource_type}.{resource_name}"
-            else:  # provider_match
+            elif provider_match:
                 # Get provider type from quoted, single-quoted, or unquoted groups
                 provider_type = provider_match.group(1) if provider_match.group(1) else (provider_match.group(2) if provider_match.group(2) else provider_match.group(3))
                 block_type = f"provider.{provider_type}"
+            elif locals_match:
+                block_type = "locals"
+            else:  # terraform_match
+                block_type = "terraform"
                 
             start_line = i + 1
             block_lines = []
@@ -250,15 +256,24 @@ def _check_parameter_alignment_in_section(
         line = line_content.rstrip()
         if '=' in line and not line.strip().startswith('#'):
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
+                # Skip provider declarations in required_providers blocks
+                # These are provider names like "huaweicloud = {" not parameter assignments
+                if re.match(r'^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\{', line):
+                    continue
+                
                 # Calculate indentation level, treating tabs as equivalent to spaces
                 # Convert tabs to spaces for consistent indentation calculation
                 line_with_spaces = line.expandtabs(2)  # Convert tabs to 2 spaces
                 indent_level = len(line_with_spaces) - len(line_with_spaces.lstrip())
 
+                # Group parameters by indentation level
                 if base_indent is None:
                     base_indent = indent_level
                     parameter_lines.append((line, relative_line_idx))
                 elif indent_level == base_indent:
+                    parameter_lines.append((line, relative_line_idx))
+                # Also include parameters with deeper indentation (nested objects)
+                elif indent_level > base_indent:
                     parameter_lines.append((line, relative_line_idx))
 
     # Even with single parameter, we can check for basic spacing issues
@@ -307,13 +322,11 @@ def _check_parameter_alignment_in_section(
                 actual_line_num,
                 f"Parameter assignment should have exactly one space after '=' in {block_type}"
             ))
-            continue
         elif after_equals.startswith('  '):
             errors.append((
                 actual_line_num,
                 f"Parameter assignment should have exactly one space after '=' in {block_type}, found multiple spaces"
             ))
-            continue
 
         # Check if there's at least one space before equals sign
         if not before_equals.endswith(' '):
@@ -372,7 +385,7 @@ def get_rule_description() -> dict:
         "id": "ST.003",
         "name": "Parameter alignment check",
         "description": (
-            "Validates that parameter assignments in resource, data, and provider blocks "
+            "Validates that parameter assignments in resource, data, provider, locals, and terraform blocks "
             "have equals signs aligned, with aligned equals signs maintaining one space "
             "from the longest parameter name in the code block and one space "
             "between the equals sign and parameter value. This ensures code readability and "
@@ -407,6 +420,24 @@ provider "huaweicloud" {
   access_key = var.access_key
   secret_key = var.secret_key
 }
+
+locals {
+  is_available = true
+  environment = "dev"
+  tags        = {
+    "Environment" = "Development"
+  }
+}
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = ">= 1.0"
+    }
+  }
+}
 '''
             ],
             "invalid": [
@@ -426,9 +457,27 @@ resource "huaweicloud_compute_instance" "test" {
 }
 
 provider "huaweicloud" {
-  region = var.region_name      # Equals signs not aligned
-  access_key= var.access_key    # No space before equals
-  secret_key =var.secret_key    # No space after equals
+  region = var.region_name               # Equals signs not aligned
+  access_key= var.access_key             # No space before equals
+  secret_key =var.secret_key             # No space after equals
+}
+
+locals {
+  is_available=true                      # No space before equals
+  environment =  "dev"                   # Multiple spaces after equals
+  tags         =  {                      # Multiple spaces after equals
+    "Environment" = "Development"
+  }
+}
+
+terraform {
+  required_version= ">= 1.0"             # No space before equals
+  required_providers {
+    huaweicloud = {
+      source= "huaweicloud/huaweicloud"  # No space before equals
+      version =  ">= 1.0"                # Multiple spaces after equals
+    }
+  }
 }
 '''
             ]
