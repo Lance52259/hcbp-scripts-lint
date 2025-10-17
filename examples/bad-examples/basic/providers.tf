@@ -14,9 +14,14 @@ terraform {
 }
 # ST.006 Error: Missing blank line between provider block and terraform block
 provider "huaweicloud" {
-region       = var.region_name # ST.005 Error: 0 space found, not 2 spaces
-	access_key = var.access_key  # ST.004 Error: This line uses tab instead of spaces
-  secret_key = var.secret_key
+region           = var.region_name # ST.005 Error: 0 space found, not 2 spaces
+  # ST.003 Error: Multiple spaces after equals sign
+  # ST.004 Error: This line uses tab instead of spaces
+	access_key     =  var.access_key
+  # ST.003 Error: Missing space before equals sign
+  # ST.003 Error: Equals sign not aligned
+  secret_key= var.secret_key
+  security_token = var.security_token
 }
 
 

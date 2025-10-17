@@ -145,23 +145,28 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
     while i < len(lines):
         line = lines[i].strip()
         # Support quoted, single-quoted, and unquoted syntax
-        # Quoted: data "type" "name" { ... } or resource "type" "name" { ... }
-        # Single-quoted: data 'type' 'name' { ... } or resource 'type' 'name' { ... }
-        # Unquoted: data type name { ... } or resource type name { ... }
+        # Quoted: data "type" "name" { ... } or resource "type" "name" { ... } or provider "type" { ... }
+        # Single-quoted: data 'type' 'name' { ... } or resource 'type' 'name' { ... } or provider 'type' { ... }
+        # Unquoted: data type name { ... } or resource type name { ... } or provider type { ... }
         data_match = re.match(r'data\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
         resource_match = re.match(r'resource\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
+        provider_match = re.match(r'provider\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
 
-        if data_match or resource_match:
+        if data_match or resource_match or provider_match:
             if data_match:
                 # Get data type and name from quoted, single-quoted, or unquoted groups
                 data_type = data_match.group(1) if data_match.group(1) else (data_match.group(2) if data_match.group(2) else data_match.group(3))
                 data_name = data_match.group(4) if data_match.group(4) else (data_match.group(5) if data_match.group(5) else data_match.group(6))
                 block_type = f"data.{data_type}.{data_name}"
-            else:
+            elif resource_match:
                 # Get resource type and name from quoted, single-quoted, or unquoted groups
                 resource_type = resource_match.group(1) if resource_match.group(1) else (resource_match.group(2) if resource_match.group(2) else resource_match.group(3))
                 resource_name = resource_match.group(4) if resource_match.group(4) else (resource_match.group(5) if resource_match.group(5) else resource_match.group(6))
                 block_type = f"resource.{resource_type}.{resource_name}"
+            else:  # provider_match
+                # Get provider type from quoted, single-quoted, or unquoted groups
+                provider_type = provider_match.group(1) if provider_match.group(1) else (provider_match.group(2) if provider_match.group(2) else provider_match.group(3))
+                block_type = f"provider.{provider_type}"
                 
             start_line = i + 1
             block_lines = []
@@ -245,7 +250,10 @@ def _check_parameter_alignment_in_section(
         line = line_content.rstrip()
         if '=' in line and not line.strip().startswith('#'):
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
-                indent_level = len(line) - len(line.lstrip())
+                # Calculate indentation level, treating tabs as equivalent to spaces
+                # Convert tabs to spaces for consistent indentation calculation
+                line_with_spaces = line.expandtabs(2)  # Convert tabs to 2 spaces
+                indent_level = len(line_with_spaces) - len(line_with_spaces.lstrip())
 
                 if base_indent is None:
                     base_indent = indent_level
@@ -253,7 +261,8 @@ def _check_parameter_alignment_in_section(
                 elif indent_level == base_indent:
                     parameter_lines.append((line, relative_line_idx))
 
-    if len(parameter_lines) <= 1:
+    # Even with single parameter, we can check for basic spacing issues
+    if len(parameter_lines) == 0:
         return errors
 
     # First, find the longest parameter name and calculate expected equals position
@@ -306,31 +315,33 @@ def _check_parameter_alignment_in_section(
             ))
             continue
 
-        # Check if equals sign is at the expected position
-        if equals_pos != expected_equals_pos:
-            # Calculate how many spaces should be between parameter name and equals sign
-            required_spaces_before_equals = expected_equals_pos - base_indent - len(param_name)
-            
-            if equals_pos < expected_equals_pos:
-                errors.append((
-                    actual_line_num,
-                    f"Parameter assignment equals sign not aligned in {block_type}. "
-                    f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
-                    f"equals sign should be at column {expected_equals_pos + 1}"
-                ))
-            elif equals_pos > expected_equals_pos:
-                errors.append((
-                    actual_line_num,
-                    f"Parameter assignment equals sign not aligned in {block_type}. "
-                    f"Too many spaces before '=', equals sign should be at column {expected_equals_pos + 1}"
-                ))
-
         # Check if there's at least one space before equals sign
         if not before_equals.endswith(' '):
             errors.append((
                 actual_line_num,
                 f"Parameter assignment should have at least one space before '=' in {block_type}"
             ))
+
+        # Only check alignment if we have multiple parameters
+        if len(param_names) > 1:
+            # Check if equals sign is at the expected position
+            if equals_pos != expected_equals_pos:
+                # Calculate how many spaces should be between parameter name and equals sign
+                required_spaces_before_equals = expected_equals_pos - base_indent - len(param_name)
+                
+                if equals_pos < expected_equals_pos:
+                    errors.append((
+                        actual_line_num,
+                        f"Parameter assignment equals sign not aligned in {block_type}. "
+                        f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                        f"equals sign should be at column {expected_equals_pos + 1}"
+                    ))
+                elif equals_pos > expected_equals_pos:
+                    errors.append((
+                        actual_line_num,
+                        f"Parameter assignment equals sign not aligned in {block_type}. "
+                        f"Too many spaces before '=', equals sign should be at column {expected_equals_pos + 1}"
+                    ))
 
     return errors
 
@@ -361,7 +372,7 @@ def get_rule_description() -> dict:
         "id": "ST.003",
         "name": "Parameter alignment check",
         "description": (
-            "Validates that parameter assignments in resource and data blocks "
+            "Validates that parameter assignments in resource, data, and provider blocks "
             "have equals signs aligned, with aligned equals signs maintaining one space "
             "from the longest parameter name in the code block and one space "
             "between the equals sign and parameter value. This ensures code readability and "
@@ -390,6 +401,12 @@ resource "huaweicloud_compute_instance" "test" {
   security_group_ids = [huaweicloud_networking_secgroup.test.id]
   # ...
 }
+
+provider "huaweicloud" {
+  region     = var.region_name
+  access_key = var.access_key
+  secret_key = var.secret_key
+}
 '''
             ],
             "invalid": [
@@ -406,6 +423,12 @@ resource "huaweicloud_compute_instance" "test" {
   flavor_id = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.2xlarge.4")
   security_group_ids = [huaweicloud_networking_secgroup.test.id]
   # ...
+}
+
+provider "huaweicloud" {
+  region = var.region_name      # Equals signs not aligned
+  access_key= var.access_key    # No space before equals
+  secret_key =var.secret_key    # No space after equals
 }
 '''
             ]
