@@ -225,6 +225,7 @@ resource "huaweicloud_vpc_subnet" "test" {
 current_level * 2 spaces. Heredoc blocks (<<EOT, <<EOF, <<POLICY, etc.) are excluded from validation across all file
 types. Top-level variable declarations in terraform.tfvars files are properly recognized and excluded from indentation
 requirements. Error messages display the actual expected level based on context, not the incorrect indentation level.
+Properly handles complex data structures including arrays and objects in terraform.tfvars files.
 
 **Purpose:**
 - Enforce consistent indentation standards
@@ -232,6 +233,7 @@ requirements. Error messages display the actual expected level based on context,
 - Support various content types appropriately
 - Provide accurate error reporting with correct level information
 - Skip tab character detection to avoid duplicate error reporting with ST.004 rule
+- Detect missing indentation for block structure elements in complex data structures
 
 ### ST.006 - Block Spacing Check
 

@@ -253,6 +253,8 @@ the longest parameter name.
 - For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation
 - Error messages display the actual expected level based on context, not the incorrect indentation level
 - Tab characters are skipped to avoid duplicate error reporting with ST.004 rule
+- Properly handles complex data structures including arrays and objects in terraform.tfvars files
+- Detects missing indentation for block structure elements (e.g., `{` and `}` lines)
 
 ### ST.006 - Resource and Data Source Spacing Check
 

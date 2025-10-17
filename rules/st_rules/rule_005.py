@@ -120,7 +120,7 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
             if (indentation_stack and 
                 line.strip() and 
                 not line.strip().startswith('#') and
-                '=' in line.strip() and
+                ('=' in line.strip() or line.strip().startswith('{') or line.strip().startswith('}')) and
                 not line.strip().startswith('resource') and
                 not line.strip().startswith('data') and
                 not line.strip().startswith('variable') and
@@ -128,8 +128,6 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
                 not line.strip().startswith('locals') and
                 not line.strip().startswith('terraform') and
                 not line.strip().startswith('provider') and
-                not line.strip().startswith('}') and
-                not line.strip().startswith('{') and
                 len(indentation_stack) > 0 and
                 indentation_stack[-1] > 0 and
                 # For terraform.tfvars files, don't require indentation for top-level variable declarations
@@ -146,6 +144,9 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
             # Update indentation stack for lines with no indentation
             # If this line ends with '{', it starts a new block, so add depth 1
             if line.strip().endswith('{'):
+                indentation_stack = [1]
+            # For array/object assignments, start a new block level
+            elif '=' in line.strip() and ('[' in line.strip() or '{' in line.strip()):
                 indentation_stack = [1]
             # Reset stack for block starts/ends
             elif (line.strip().startswith('resource') or 
@@ -401,8 +402,9 @@ def _is_inside_block_structure(current_line: str, all_lines: List[str], current_
     Returns:
         bool: True if the line is inside a block structure, False otherwise
     """
-    # If this is a top-level variable declaration in terraform.tfvars, it's not inside a block
-    if '=' in current_line.strip() and not current_line.strip().startswith('#'):
+    # Check if this line is inside a block structure (including lines with =, {, or })
+    if (('=' in current_line.strip() or current_line.strip().startswith('{') or current_line.strip().startswith('}')) 
+        and not current_line.strip().startswith('#')):
         # Look backwards to see if we're inside a block structure
         brace_count = 0
         bracket_count = 0
@@ -475,7 +477,9 @@ def get_rule_description() -> dict:
             "For example, resource root parameters should use 1*2=2 spaces, nested blocks "
             "should use 2*2=4 spaces, and so on. This ensures consistent code structure "
             "and proper visual hierarchy. For terraform.tfvars files, heredoc blocks "
-            "(<<EOT, <<EOF, etc.) are excluded from validation to allow flexible content formatting."
+            "(<<EOT, <<EOF, etc.) are excluded from validation to allow flexible content formatting. "
+            "Properly handles complex data structures including arrays and objects, detecting "
+            "missing indentation for block structure elements like '{' and '}' lines."
         ),
         "category": "Style/Format",
         "severity": "error",
