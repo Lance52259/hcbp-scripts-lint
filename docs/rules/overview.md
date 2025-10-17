@@ -176,13 +176,14 @@ data "huaweicloud_compute_flavors" "test" {
 
 ### ST.003 - Parameter Alignment with Equals Signs
 
-**Rule Description:** Validates that parameter assignments within resource and data source blocks have properly aligned
+**Rule Description:** Validates that parameter assignments within resource, data source, and provider blocks have properly aligned
 equals signs. All equals signs must align at the same column position for optimal readability.
 
 **Purpose:**
 - Improve code visual consistency
 - Enhance readability of parameter assignments
 - Enforce professional formatting standards
+- Support all Terraform block types including provider blocks
 
 **Error Example:**
 ```hcl
@@ -229,17 +230,16 @@ requirements. Error messages display the actual expected level based on context,
 - Provide accurate error reporting with correct level information
 - Skip tab character detection to avoid duplicate error reporting with ST.004 rule
 
-### ST.006 - Resource and Data Source Spacing Check
+### ST.006 - Block Spacing Check
 
-**Rule Description:** Validates that there is exactly one empty line between different resource, data source, variable,
-output, and locals blocks. Comment lines between blocks do not count as spacing - blank lines are still required even
-when comments are present.
+**Rule Description:** Validates that there is exactly one empty line between different Terraform blocks (resource, data source, variable, output, locals, terraform, provider). Comment lines between blocks do not count as spacing - blank lines are still required even when comments are present.
 
 **Purpose:**
 - Improve code readability
 - Create clear visual separation between blocks
 - Enforce consistent spacing standards
 - Require blank lines between blocks regardless of comment presence
+- Support all Terraform block types including terraform and provider blocks
 
 **Comment Line Handling:**
 - Comment lines (starting with '#') are ignored during block extraction
@@ -277,15 +277,14 @@ avoid interference with authentication and region configuration patterns.
 - Improve code maintainability
 - Support provider configuration patterns
 
-### ST.010 - Quote Usage Consistency Check
+### ST.010 - Resource, Data Source, Variable, Output, and Provider Quote Check
 
-**Rule Description:** Validates that quote usage is consistent throughout the file (either all double quotes or all
-single quotes).
+**Rule Description:** Validates that all resource, data source, variable, output, and provider declarations use proper double quotes around their type and name declarations.
 
 **Purpose:**
-- Enforce consistent quote usage
-- Improve code readability
-- Prevent mixed quote style issues
+- Enforce proper double quote usage for all Terraform block declarations
+- Ensure consistent syntax and prevent parsing errors
+- Support all Terraform block types including provider blocks
 
 ### ST.011 - Trailing Whitespace Detection
 

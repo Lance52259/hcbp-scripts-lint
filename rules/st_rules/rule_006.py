@@ -115,6 +115,11 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
         variable_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
         output_match = re.match(r'output\s+"([^"]+)"\s*\{', line)
         locals_match = re.match(r'locals\s*\{', line)
+        terraform_match = re.match(r'terraform\s*\{', line)
+        # Match provider blocks with quotes around type name
+        provider_match = re.match(r'provider\s+"([^"]+)"\s*\{', line)
+        # Match provider blocks without quotes around type name (ST.010 violation)
+        provider_match_no_quotes = re.match(r'provider\s+([a-zA-Z0-9_]+)\s*\{', line)
         
         if resource_match:
             block_type = "resource"
@@ -151,6 +156,18 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
         elif locals_match:
             block_type = "locals"
             type_name = ""
+            instance_name = ""
+        elif terraform_match:
+            block_type = "terraform"
+            type_name = ""
+            instance_name = ""
+        elif provider_match:
+            block_type = "provider"
+            type_name = provider_match.group(1)
+            instance_name = ""
+        elif provider_match_no_quotes:
+            block_type = "provider"
+            type_name = provider_match_no_quotes.group(1)
             instance_name = ""
         else:
             i += 1
@@ -267,6 +284,10 @@ def _format_block_identifier(block_type: str, type_name: str, instance_name: str
         return f"output '{instance_name}'"
     elif block_type == "locals":
         return "locals"
+    elif block_type == "terraform":
+        return "terraform"
+    elif block_type == "provider":
+        return f"provider '{type_name}'"
     else:
         return f"{block_type} '{instance_name}'"
 

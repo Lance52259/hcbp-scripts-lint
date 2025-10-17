@@ -94,4 +94,7 @@ variable "BadVariableName" {
 }
 # ST.012 Error: This file has multiple empty lines after the last non-empty line
 
-
+variable "eip_address" {
+  description = "The address of the EIP"
+  type        = string
+}

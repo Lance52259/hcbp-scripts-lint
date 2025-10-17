@@ -230,6 +230,7 @@ the longest parameter name.
 - Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
 - Exactly one space after the equals sign and parameter value
 - Parameters within the same code block (not separated by blank lines) should follow alignment rules
+- Supports resource, data source, and provider blocks
 
 ### ST.004 - Indentation Character Check
 
@@ -252,10 +253,10 @@ the longest parameter name.
 
 ### ST.006 - Resource and Data Source Spacing Check
 
-**Purpose**: Ensures proper spacing between resource and data source blocks.
+**Purpose**: Ensures proper spacing between all Terraform blocks.
 
 **Validation Criteria**:
-- Exactly 1 empty line required between different resource/data blocks
+- Exactly 1 empty line required between different blocks (resource, data source, variable, output, locals, terraform, provider)
 - No excessive spacing between blocks
 - Comment lines between blocks do not count as spacing - blank lines are still required
 - Supports all quote format combinations (quoted/unquoted type and name)
@@ -286,12 +287,14 @@ the longest parameter name.
 - Provider-related variables (access_key, secret_key, region_name) are excluded from ordering validation
 - Excludes authentication and region configuration variables to avoid interference with business logic ordering
 
-### ST.010 - Resource, Data Source, Variable, and Output Quote Check
+### ST.010 - Resource, Data Source, Variable, Output, and Provider Quote Check
 
-**Purpose**: Ensures double quotes around resource and data source names.
+**Purpose**: Ensures double quotes around resource, data source, variable, output, and provider names.
 
 **Validation Criteria**:
 - All resource and data source type and name identifiers must use double quotes
+- All variable and output names must use double quotes
+- All provider type names must use double quotes
 - Consistent quoting style across all Terraform files
 
 ### ST.011 - Trailing Whitespace Check
