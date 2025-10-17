@@ -4,9 +4,18 @@
 # Terraform configuration example that violates the standards
 
 locals {
-  system_tags = {
+  is_instance_flavors_available = data.huaweicloud_compute_flavors.test.flavors[0].id != null
+  # ST.003 Error: Missing space before equals sign
+  # ST.003 Error: Multiple spaces after equals sign
+  # ST.003 Error: Equals sign not aligned
+  system_tags=  {
     "Environment" = "Development"
+    # ST.003 Error: Equals sign not aligned
+    "Usage"="Tool"             # ST.003 Error: Missing space after equals sign (high priority)
+    "Owner"       =  "DevOps"  # ST.003 Error: Multiple spaces after equals sign
+    "Project"     ="Terraform" # ST.003 Error: Missing space after equals sign
   }
+  sys_eps_id                   = "0" # ST.003 Error: Equals sign not aligned
 }
 # ST.001 Error: Data source name is not "test"
 # ST.006 Error: Missing blank line between local variable block and data source block

@@ -3,12 +3,12 @@ terraform {
 
   required_providers {
     huaweicloud = {
-      source  = "huaweicloud/huaweicloud"
-      version = ">= 1.57.0"
+      source = "huaweicloud/huaweicloud" # ST.003 Error: Equals sign not aligned
+      version =">= 1.57.0"               # ST.003 Error: Missing space after equals sign
     }
     kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = ">= 1.6.2"
+      source= "hashicorp/kubernetes" # ST.003 Error: Missing space before equals sign (high priority)
+      version =  ">= 1.6.2"          # ST.003 Error: Multiple spaces after equals sign
     }
   }
 }
