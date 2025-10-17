@@ -231,9 +231,11 @@ the longest parameter name.
 - Exactly one space after the equals sign and parameter value
 - Parameters within the same code block (not separated by blank lines) should follow alignment rules
 - Supports resource, data source, provider, locals, terraform, and variable blocks
+- Supports terraform.tfvars files for variable assignment alignment checking
 - Intelligently handles nested object structures (e.g., list(object({...}))) by grouping parameters within objects
 - Uses expandtabs(2) to properly handle tab characters in indentation calculation
 - Reports all alignment issues on a single line for comprehensive error reporting
+- Properly filters out comment lines in all supported file types
 
 ### ST.004 - Indentation Character Check
 

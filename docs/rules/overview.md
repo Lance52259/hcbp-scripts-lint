@@ -177,7 +177,7 @@ data "huaweicloud_compute_flavors" "test" {
 ### ST.003 - Parameter Alignment with Equals Signs
 
 **Rule Description:** Validates that parameter assignments within resource, data source, provider, locals, terraform, and variable
-blocks have properly aligned equals signs.
+blocks have properly aligned equals signs. Also supports terraform.tfvars files for variable assignment alignment checking.
 All equals signs must align at the same column position for optimal readability.
 
 **Purpose:**
@@ -185,8 +185,10 @@ All equals signs must align at the same column position for optimal readability.
 - Enhance readability of parameter assignments
 - Enforce professional formatting standards
 - Support all Terraform block types including provider, locals, terraform, and variable blocks
+- Support terraform.tfvars files for variable assignment alignment
 - Intelligently handle nested object structures for proper parameter grouping
 - Provide comprehensive error reporting for all alignment issues
+- Properly filter out comment lines in all supported file types
 
 **Error Example:**
 ```hcl
