@@ -230,7 +230,10 @@ the longest parameter name.
 - Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
 - Exactly one space after the equals sign and parameter value
 - Parameters within the same code block (not separated by blank lines) should follow alignment rules
-- Supports resource, data source, provider, locals, and terraform blocks
+- Supports resource, data source, provider, locals, terraform, and variable blocks
+- Intelligently handles nested object structures (e.g., list(object({...}))) by grouping parameters within objects
+- Uses expandtabs(2) to properly handle tab characters in indentation calculation
+- Reports all alignment issues on a single line for comprehensive error reporting
 
 ### ST.004 - Indentation Character Check
 

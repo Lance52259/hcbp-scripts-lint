@@ -74,6 +74,28 @@ variable "instance_name" {
   type        = string
 }
 
+variable "data_disk_configurations" {
+  description ="The data disk configurations for the ECS instance" # ST.003 Error: Missing space after equals sign
+  type       = list(object({                                       # ST.003 Error: Equals sign not aligned
+    type=optional(string, "SSD") # ST.003 Error: Missing space before and after equals sign, and is not aligned with the longest parameter name in the current code block
+    size =  optional(number, 40) # ST.003 Error: Too many spaces after equals sign
+  }))
+  default = [
+    {
+      type = "SSD"
+     size  = 40
+    },
+    {
+      type= "SAS" # ST.003 Error: Missing space before equals sign
+      size =80    # ST.003 Error: Missing space after equals sign
+    },
+    {
+      type = "SSD"
+      size  = 120 # ST.003 Error: Equals sign not aligned
+    }
+  ]
+}
+
 variable "custom_tags" {
   description = "The custom tags of the ECS instance"
   type        = map(string)

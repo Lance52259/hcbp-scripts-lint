@@ -153,8 +153,9 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
         provider_match = re.match(r'provider\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
         locals_match = re.match(r'locals\s*\{', line)
         terraform_match = re.match(r'terraform\s*\{', line)
+        variable_match = re.match(r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
 
-        if data_match or resource_match or provider_match or locals_match or terraform_match:
+        if data_match or resource_match or provider_match or locals_match or terraform_match or variable_match:
             if data_match:
                 # Get data type and name from quoted, single-quoted, or unquoted groups
                 data_type = data_match.group(1) if data_match.group(1) else (data_match.group(2) if data_match.group(2) else data_match.group(3))
@@ -171,8 +172,12 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
                 block_type = f"provider.{provider_type}"
             elif locals_match:
                 block_type = "locals"
-            else:  # terraform_match
+            elif terraform_match:
                 block_type = "terraform"
+            else:  # variable_match
+                # Get variable name from quoted, single-quoted, or unquoted groups
+                variable_name = variable_match.group(1) if variable_match.group(1) else (variable_match.group(2) if variable_match.group(2) else variable_match.group(3))
+                block_type = f"variable.{variable_name}"
                 
             start_line = i + 1
             block_lines = []
@@ -209,7 +214,7 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
 
 def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, int]]]:
     """
-    Split code block by empty lines into multiple sections.
+    Split code block by empty lines and object boundaries into multiple sections.
 
     Args:
         block_lines (List[str]): Lines within a code block
@@ -219,13 +224,66 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     """
     sections = []
     current_section = []
+    brace_level = 0
+    in_object_definition = False
 
     for line_idx, line in enumerate(block_lines):
-        if line.strip() == '':
+        stripped_line = line.strip()
+        
+        if stripped_line == '':
+            # Empty line - split section if we have content
             if current_section:
                 sections.append(current_section)
                 current_section = []
         else:
+            # Track brace levels
+            for char in line:
+                if char == '{':
+                    brace_level += 1
+                elif char == '}':
+                    brace_level -= 1
+            
+            # Check if we're entering an object definition (like list(object({...})))
+            if (brace_level == 1 and 
+                'object(' in stripped_line and 
+                stripped_line.endswith('{') and
+                current_section):
+                # We're entering an object definition - split current section
+                sections.append(current_section)
+                current_section = []
+                in_object_definition = True
+            
+            # Check if we're inside an object definition and have parameter assignments
+            elif (in_object_definition and 
+                  '=' in stripped_line and 
+                  not stripped_line.startswith('{') and
+                  not stripped_line.startswith('}') and
+                  current_section and
+                  any('object(' in prev_line for prev_line, _ in current_section)):
+                # We're inside object definition with parameters - split if current section has object definition line
+                if any('object(' in prev_line for prev_line, _ in current_section):
+                    sections.append(current_section)
+                    current_section = []
+            
+            # Check if we're exiting an object definition
+            elif (in_object_definition and 
+                  brace_level == 0 and 
+                  stripped_line == '})' and
+                  current_section):
+                # We're exiting the object definition - split current section
+                sections.append(current_section)
+                current_section = []
+                in_object_definition = False
+            
+            # Check if we're starting a new object in a list
+            elif (in_object_definition and 
+                  stripped_line == '{' and 
+                  current_section and
+                  any('=' in prev_line for prev_line, _ in current_section)):
+                # Start of a new object in the list - split current section
+                sections.append(current_section)
+                current_section = []
+            
             current_section.append((line, line_idx))
 
     if current_section:
@@ -385,7 +443,7 @@ def get_rule_description() -> dict:
         "id": "ST.003",
         "name": "Parameter alignment check",
         "description": (
-            "Validates that parameter assignments in resource, data, provider, locals, and terraform blocks "
+            "Validates that parameter assignments in resource, data, provider, locals, terraform, and variable blocks "
             "have equals signs aligned, with aligned equals signs maintaining one space "
             "from the longest parameter name in the code block and one space "
             "between the equals sign and parameter value. This ensures code readability and "
@@ -438,6 +496,12 @@ terraform {
     }
   }
 }
+
+variable "instance_name" {
+  description = "The name of the ECS instance"
+  type        = string
+  default     = "test-instance"
+}
 '''
             ],
             "invalid": [
@@ -478,6 +542,12 @@ terraform {
       version =  ">= 1.0"                # Multiple spaces after equals
     }
   }
+}
+
+variable "instance_name" {
+  description= "The name of the ECS instance"  # No space before equals
+  type =  string                              # Multiple spaces after equals
+  default = "test-instance"
 }
 '''
             ]
