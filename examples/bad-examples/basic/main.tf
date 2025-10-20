@@ -116,7 +116,7 @@ resource "huaweicloud_compute_instance" "test" {
   dynamic "data_disks" {
     for_each = var.data_disks_configurations
 
-  # Indentation level 2 is not a multiple of 2 spaces, 4 spaces is expected
+  # ST.005 Error: Indentation level 2 is not a multiple of 2 spaces, 4 spaces is expected
   content {
        type = data_disks.value.type # ST.005 Error: 7 spaces found, not 6 spaces
      size = data_disks.value.size # ST.005 Error: 5 spaces found, not 6 spaces

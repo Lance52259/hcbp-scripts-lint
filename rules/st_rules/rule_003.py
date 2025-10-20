@@ -321,7 +321,9 @@ def _check_parameter_alignment_in_section(
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
                 # Skip provider declarations in required_providers blocks
                 # These are provider names like "huaweicloud = {" not parameter assignments
-                if re.match(r'^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\{', line):
+                # But only skip if we're inside a required_providers block
+                if (re.match(r'^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*\{', line) and
+                    any('required_providers' in prev_line for prev_line, _ in section)):
                     continue
                 
                 # Calculate indentation level, treating tabs as equivalent to spaces
