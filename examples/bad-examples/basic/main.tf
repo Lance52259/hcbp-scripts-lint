@@ -114,7 +114,7 @@ resource "huaweicloud_compute_instance" "test" {
   system_disk_size = 40
   # ST.008 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
   dynamic "data_disks" {
-    for_each = var.data_disk_configurations
+    for_each = var.data_disks_configurations
 
   # Indentation level 2 is not a multiple of 2 spaces, 4 spaces is expected
   content {

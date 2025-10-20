@@ -86,14 +86,19 @@ def check_st003_parameter_alignment(file_path: str, content: str, log_error_func
         gracefully and reported through the logging mechanism.
     """
     clean_content = _remove_comments_for_parsing(content)
-    blocks = _extract_code_blocks(clean_content)
+    
+    # Check if this is a terraform.tfvars file
+    if file_path.endswith('.tfvars'):
+        _check_tfvars_parameter_alignment(file_path, clean_content, log_error_func)
+    else:
+        blocks = _extract_code_blocks(clean_content)
 
-    for block_type, start_line, block_lines in blocks:
-        sections = _split_into_code_sections(block_lines)
-        for section in sections:
-            errors = _check_parameter_alignment_in_section(section, block_type, start_line)
-            for line_num, error_msg in errors:
-                log_error_func(file_path, "ST.003", error_msg, line_num)
+        for block_type, start_line, block_lines in blocks:
+            sections = _split_into_code_sections(block_lines)
+            for section in sections:
+                errors = _check_parameter_alignment_in_section(section, block_type, start_line)
+                for line_num, error_msg in errors:
+                    log_error_func(file_path, "ST.003", error_msg, line_num)
 
 
 def _remove_comments_for_parsing(content: str) -> str:
@@ -446,8 +451,9 @@ def get_rule_description() -> dict:
             "Validates that parameter assignments in resource, data, provider, locals, terraform, and variable blocks "
             "have equals signs aligned, with aligned equals signs maintaining one space "
             "from the longest parameter name in the code block and one space "
-            "between the equals sign and parameter value. This ensures code readability and "
-            "follows Terraform formatting standards."
+            "between the equals sign and parameter value. Also supports terraform.tfvars files "
+            "for variable assignment alignment checking. This ensures code readability and "
+            "follows Terraform formatting standards across all supported file types."
         ),
         "category": "Style/Format",
         "severity": "error",
@@ -555,3 +561,166 @@ variable "instance_name" {
         "auto_fixable": True,
         "performance_impact": "minimal"
     }
+
+
+def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
+    """
+    Check parameter alignment in terraform.tfvars files.
+    
+    This function handles variable assignments in .tfvars files, which don't follow
+    the same block structure as .tf files. It groups consecutive variable assignments
+    and checks their alignment.
+    
+    Args:
+        file_path (str): Path to the file being checked
+        content (str): Cleaned file content (comments removed)
+        log_error_func (Callable): Error logging function
+    """
+    lines = content.split('\n')
+    
+    # Find all variable assignment lines
+    assignment_lines = []
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped and '=' in stripped:
+            # Include all assignment lines (comments already removed)
+            assignment_lines.append((i + 1, line))
+    
+    if not assignment_lines:
+        return
+    
+    # Group assignment lines by structural boundaries
+    # This handles nested structures like arrays and objects in tfvars files
+    sections = []
+    current_section = []
+    brace_level = 0
+    in_array = False
+    
+    for line_num, line in assignment_lines:
+        stripped_line = line.strip()
+        
+        # Track brace levels to detect nested structures
+        for char in stripped_line:
+            if char == '{':
+                brace_level += 1
+            elif char == '}':
+                brace_level -= 1
+        
+        # Check if we're entering an array (line ends with [)
+        if stripped_line.endswith('[') and not in_array:
+            # We're entering an array - split current section if it exists
+            if current_section:
+                sections.append(current_section)
+                current_section = []
+            in_array = True
+        
+        # Check if we're exiting an array (line is just ])
+        elif stripped_line == ']' and in_array:
+            # We're exiting the array - split current section if it exists
+            if current_section:
+                sections.append(current_section)
+                current_section = []
+            in_array = False
+        
+        # Check if we're starting a new object in an array (line is just {)
+        elif (in_array and 
+              stripped_line == '{' and 
+              current_section and
+              any('=' in prev_line for prev_line, _ in current_section)):
+            # Start of a new object in the array - split current section
+            sections.append(current_section)
+            current_section = []
+        
+        # Check if we're ending an object in an array (line is just })
+        elif (in_array and 
+              stripped_line == '}' and 
+              current_section):
+            # End of an object in the array - split current section
+            sections.append(current_section)
+            current_section = []
+        
+        # Regular grouping for non-array assignments
+        elif not in_array:
+            if not current_section:
+                # First line
+                current_section.append((line_num, line))
+            elif line_num - current_section[-1][0] <= 3:
+                # Within 3 lines of previous assignment - same section
+                current_section.append((line_num, line))
+            else:
+                # More than 3 lines away - start new section
+                if current_section:
+                    sections.append(current_section)
+                current_section = [(line_num, line)]
+        else:
+            # Inside array structure - add to current section
+            current_section.append((line_num, line))
+    
+    if current_section:
+        sections.append(current_section)
+    
+    # Check alignment in each section
+    for section in sections:
+        # Convert (line_num, line) to (line, relative_line_idx) format
+        converted_section = [(line, i) for i, (line_num, line) in enumerate(section)]
+        # Use the first line number minus 1 as the base line number
+        # because _check_parameter_alignment_in_section adds 1 to the line number
+        base_line_num = section[0][0] - 1
+        errors = _check_parameter_alignment_in_section(converted_section, "tfvars", base_line_num)
+        for line_num, error_msg in errors:
+            log_error_func(file_path, "ST.003", error_msg, line_num)
+
+
+def _is_inside_block_structure_tfvars(current_line: str, all_lines: List[str], current_line_num: int) -> bool:
+    """
+    Check if the current line is inside a block structure in terraform.tfvars files.
+    
+    This is similar to the function in rule_005.py but adapted for .tfvars files.
+    
+    Args:
+        current_line (str): The current line being checked
+        all_lines (List[str]): All lines in the file
+        current_line_num (int): Current line number (1-indexed)
+        
+    Returns:
+        bool: True if the line is inside a block structure, False otherwise
+    """
+    # Check if this line is inside a block structure (including lines with =, {, or })
+    if (('=' in current_line.strip() or current_line.strip().startswith('{') or current_line.strip().startswith('}')) 
+        and not current_line.strip().startswith('#')):
+        # Look backwards to see if we're inside a block structure
+        brace_count = 0
+        bracket_count = 0
+        
+        for i in range(current_line_num - 2, -1, -1):  # Start from 2 lines before current
+            if i >= len(all_lines):
+                continue
+                
+            line = all_lines[i].strip()
+            if not line:
+                continue
+                
+            # Count braces and brackets to track block structure
+            for char in line:
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                elif char == '[':
+                    bracket_count += 1
+                elif char == ']':
+                    bracket_count -= 1
+            
+            # If we have unmatched opening braces/brackets, we're inside a block
+            if brace_count > 0 or bracket_count > 0:
+                return True
+                
+            # If we find a line that ends with { or [, check if it's part of a block structure
+            if line.endswith('{') or line.endswith('['):
+                # Check if this is a block structure (not just a simple assignment)
+                if '=' in line and ('{' in line or '[' in line):
+                    return True
+                break
+        return False
+    else:
+        return False

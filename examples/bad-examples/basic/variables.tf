@@ -74,7 +74,7 @@ variable "instance_name" {
   type        = string
 }
 
-variable "data_disk_configurations" {
+variable "data_disks_configurations" {
   description ="The data disk configurations for the ECS instance" # ST.003 Error: Missing space after equals sign
   type       = list(object({                                       # ST.003 Error: Equals sign not aligned
     type=optional(string, "SSD") # ST.003 Error: Missing space before and after equals sign, and is not aligned with the longest parameter name in the current code block

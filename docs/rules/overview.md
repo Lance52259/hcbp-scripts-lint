@@ -177,7 +177,7 @@ data "huaweicloud_compute_flavors" "test" {
 ### ST.003 - Parameter Alignment with Equals Signs
 
 **Rule Description:** Validates that parameter assignments within resource, data source, provider, locals, terraform, and variable
-blocks have properly aligned equals signs.
+blocks have properly aligned equals signs. Also supports terraform.tfvars files for variable assignment alignment checking.
 All equals signs must align at the same column position for optimal readability.
 
 **Purpose:**
@@ -185,8 +185,10 @@ All equals signs must align at the same column position for optimal readability.
 - Enhance readability of parameter assignments
 - Enforce professional formatting standards
 - Support all Terraform block types including provider, locals, terraform, and variable blocks
+- Support terraform.tfvars files for variable assignment alignment
 - Intelligently handle nested object structures for proper parameter grouping
 - Provide comprehensive error reporting for all alignment issues
+- Properly filter out comment lines in all supported file types
 
 **Error Example:**
 ```hcl
@@ -225,6 +227,7 @@ resource "huaweicloud_vpc_subnet" "test" {
 current_level * 2 spaces. Heredoc blocks (<<EOT, <<EOF, <<POLICY, etc.) are excluded from validation across all file
 types. Top-level variable declarations in terraform.tfvars files are properly recognized and excluded from indentation
 requirements. Error messages display the actual expected level based on context, not the incorrect indentation level.
+Properly handles complex data structures including arrays and objects in terraform.tfvars files.
 
 **Purpose:**
 - Enforce consistent indentation standards
@@ -232,6 +235,7 @@ requirements. Error messages display the actual expected level based on context,
 - Support various content types appropriately
 - Provide accurate error reporting with correct level information
 - Skip tab character detection to avoid duplicate error reporting with ST.004 rule
+- Detect missing indentation for block structure elements in complex data structures
 
 ### ST.006 - Block Spacing Check
 
