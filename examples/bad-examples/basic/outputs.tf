@@ -32,7 +32,7 @@ output "_output_start_with_underscore" {
 
 # IO.005 Error: Output name contains uppercase letters
 output "BadOutputName" {
-  description = "Output with uppercase letters in name"
+	description = "Output with uppercase letters in name"
   value       = "incorrect_output_naming"
 }
 # ST.012 Error: This file has multiple empty lines after the last non-empty line
