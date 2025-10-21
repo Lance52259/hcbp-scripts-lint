@@ -50,8 +50,7 @@ The tool implements a modular rule system organized into four distinct categorie
 - **ST.004**: Indentation character validation (spaces only)
 - **ST.005**: Indentation level consistency (2 spaces per level, excludes heredoc blocks in .tfvars files)
 - **ST.006**: Resource and data source block spacing (exactly 1 empty line)
-- **ST.007**: Same parameter block spacing (≤1 empty line)
-- **ST.008**: Different parameter type spacing (exactly 1 empty line between basic parameters and parameter blocks)
+- **ST.007**: Parameter block spacing check
 - **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in
   `main.tf`)
 - **ST.010**: Resource, data source, variable, and output quote check (double quotes around names)

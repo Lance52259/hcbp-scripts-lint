@@ -1,50 +1,73 @@
 #!/usr/bin/env python3
 """
-ST.007 - Same Parameter Block Spacing Check
+ST.007 - Parameter Block Spacing Check
 
-This module implements the ST.007 rule which validates that blank lines
-between same-name nested parameter blocks within the same resource
-are less than or equal to 1.
+This module implements the ST.007 rule which validates parameter block spacing
+within Terraform resource and data source blocks. This rule combines the functionality
+of the original ST.007 and ST.008 rules.
 
 Rule Specification:
-- Same-name nested parameter blocks within a single resource must have ≤1 blank line between them
-- This applies to repeated nested blocks like multiple "data_disks", "nic", "security_group" blocks
-- Ensures consistent spacing without excessive whitespace within resource definitions
-- Maintains readability while keeping related nested blocks visually grouped
+1. Different parameter blocks (basic parameters, structure blocks, dynamic blocks) 
+   must have exactly 1 blank line between them
+2. Same-name structure blocks must have 0-1 blank lines between them (compact or single spacing)
+3. Adjacent dynamic blocks must have exactly 1 blank line between them
+
+Parameter Types:
+- a. Basic parameter definitions (e.g., name = "value")
+- b. Structure parameter blocks (e.g., data_disks { ... }, network { ... })
+- c. Dynamic code blocks (e.g., dynamic "data_disks" { ... })
 
 Examples:
-    Valid same parameter block spacing (≤1 blank line):
+    Valid spacing:
         resource "huaweicloud_compute_instance" "test" {
-          name      = "tf_test_instance"
-          flavor_id = "c6.2xlarge.4"
-          image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
-
-          data_disks {
-            type = "SAS"
-            size = 100
-          }
+          name = var.instance_name
+          flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
 
           data_disks {
             type = "SSD"
-            size = 200
+            size = 20
           }
+
+          data_disks {
+            type = "SAS"
+            size = 40
+          }
+
+          dynamic "data_disks" {
+            for_each = var.data_disks_configurations
+            content {
+              type = data_disks.value.type
+              size = data_disks.value.size
+            }
+          }
+
+          network {
+            uuid = huaweicloud_vpc_subnet.test.id
+          }
+
+          tags = merge(local.system_tags, var.custom_tags)
         }
 
-    Invalid same parameter block spacing (>1 blank line):
+    Invalid spacing:
         resource "huaweicloud_compute_instance" "test" {
-          name      = "tf_test_instance"
-          flavor_id = "c6.2xlarge.4"
-          image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
-
-          data_disks {
-            type = "SAS"
-            size = 100
+          name = var.instance_name
+          flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+          data_disks {  # Missing blank line between basic parameter and structure block
+            type = "SSD"
+            size = 20
           }
 
+          data_disks {  # Too many blank lines between same-name structure blocks
+            type = "SAS"
+            size = 40
+          }
 
-          data_disks {
-            type = "SSD"
-            size = 200
+          dynamic "data_disks" {  # Missing blank line between structure and dynamic blocks
+            for_each = var.data_disks_configurations
+            content {
+              type = data_disks.value.type
+              size = data_disks.value.size
+            }
           }
         }
 
@@ -56,71 +79,57 @@ import re
 from typing import Callable, List, Tuple, Dict, Optional
 
 
-def check_st007_same_parameter_block_spacing(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
+def check_st007_parameter_block_spacing(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate same parameter block spacing according to ST.007 rule specifications.
+    Validate parameter block spacing according to ST.007 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    that blank lines between same-name nested parameter blocks within the same
-    resource are less than or equal to 1.
+    parameter block spacing within resource and data source blocks.
 
     The validation process:
     1. Parse content to identify all resource and data source blocks
-    2. Within each block, identify nested parameter blocks (like data_disks, nic, etc.)
-    3. Group nested blocks by their parameter name
-    4. Check spacing between consecutive blocks of the same parameter name
-    5. Report violations through the error logging function
+    2. Within each block, identify different types of parameters:
+       - Basic parameters (name = value)
+       - Structure blocks (name { ... })
+       - Dynamic blocks (dynamic "name" { ... })
+    3. Check spacing rules:
+       - Different parameter types: exactly 1 blank line
+       - Same-name structure blocks: 0-1 blank lines
+       - Adjacent dynamic blocks: exactly 1 blank line
+    4. Report violations through the error logging function
 
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
-        content (str): The complete content of the Terraform file as a string.
-                      This includes all resource and data source definitions.
-
-        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
-                      to report rule violations. The function should accept four
-                      parameters: file_path, rule_id, error_message, and optional line_number.
+        file_path (str): The path to the file being checked
+        content (str): The complete content of the Terraform file
+        log_error_func (Callable): Function to report rule violations
 
     Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
-    Raises:
-        No exceptions are raised by this function. All errors are handled
-        gracefully and reported through the logging mechanism.
+        None: Reports errors through the log_error_func callback
     """
-    resource_blocks = _extract_resource_blocks_with_nested_params(content)
+    resource_blocks = _extract_resource_blocks_with_parameters(content)
     
     for resource_info in resource_blocks:
         resource_name = resource_info['name']
-        nested_blocks = resource_info['nested_blocks']
+        parameters = resource_info['parameters']
         
-        # Group nested blocks by parameter name
-        grouped_blocks = _group_nested_blocks_by_name(nested_blocks)
+        # Check spacing between consecutive parameters
+        spacing_errors = _check_parameter_spacing_rules(
+            parameters, resource_name, content
+        )
         
-        # Check spacing for each group of same-name blocks
-        for param_name, blocks in grouped_blocks.items():
-            if len(blocks) < 2:
-                continue
-                
-            spacing_errors = _check_nested_block_spacing(
-                blocks, param_name, resource_name, content
-            )
-            
-            for error_msg, line_num in spacing_errors:
-                log_error_func(file_path, "ST.007", error_msg, line_num)
+        for error_msg, line_num in spacing_errors:
+            log_error_func(file_path, "ST.007", error_msg, line_num)
 
 
-def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
+def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     """
-    Extract all resource and data source blocks with their nested parameter blocks.
+    Extract all resource and data source blocks with their parameters.
 
     Args:
         content (str): The Terraform file content
 
     Returns:
-        List[Dict]: List of resource information with nested blocks
+        List[Dict]: List of resource information with parameters
     """
     lines = content.split('\n')
     resources = []
@@ -155,8 +164,8 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
                 if brace_count > 0:
                     resource_end = i
             
-            # Extract nested parameter blocks within this resource
-            nested_blocks = _extract_nested_blocks_from_resource(
+            # Extract parameters within this resource
+            parameters = _extract_parameters_from_resource(
                 lines[resource_start-1:resource_end], resource_start
             )
             
@@ -164,7 +173,7 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
                 'name': full_name,
                 'start_line': resource_start,
                 'end_line': resource_end,
-                'nested_blocks': nested_blocks
+                'parameters': parameters
             })
         else:
             i += 1
@@ -172,18 +181,18 @@ def _extract_resource_blocks_with_nested_params(content: str) -> List[Dict]:
     return resources
 
 
-def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_start_line: int) -> List[Dict]:
+def _extract_parameters_from_resource(resource_lines: List[str], resource_start_line: int) -> List[Dict]:
     """
-    Extract nested parameter blocks from within a resource.
+    Extract all types of parameters from within a resource.
 
     Args:
         resource_lines (List[str]): Lines of the resource block
         resource_start_line (int): Starting line number of the resource
 
     Returns:
-        List[Dict]: List of nested block information
+        List[Dict]: List of parameter information
     """
-    nested_blocks = []
+    parameters = []
     i = 1  # Skip the resource declaration line
     nesting_level = 0
     
@@ -194,14 +203,14 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
             i += 1
             continue
         
-        # Look for nested parameter blocks (parameter_name {)
-        nested_match = re.match(r'(\w+)\s*\{', line)
+        # Look for dynamic blocks first (dynamic "name" { ... })
+        dynamic_match = re.match(r'dynamic\s+"([^"]+)"\s*\{', line)
         
-        if nested_match and nesting_level == 0:
-            param_name = nested_match.group(1)
+        if dynamic_match and nesting_level == 0:
+            param_name = dynamic_match.group(1)
             block_start = resource_start_line + i
             
-            # Find the end of this nested block
+            # Find the end of this dynamic block
             brace_count = 1
             j = i + 1
             
@@ -216,15 +225,69 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
             
             block_end = resource_start_line + j - 1
             
-            nested_blocks.append({
-                'param_name': param_name,
+            parameters.append({
+                'type': 'dynamic',
+                'name': param_name,
                 'start_line': block_start,
                 'end_line': block_end
             })
             
             i = j
+        elif nesting_level == 0:
+            # Look for structure blocks (parameter_name { ... })
+            block_match = re.match(r'(\w+)\s*\{', line)
+            
+            if block_match:
+                param_name = block_match.group(1)
+                block_start = resource_start_line + i
+                
+                # Find the end of this structure block
+                brace_count = 1
+                j = i + 1
+                
+                while j < len(resource_lines) and brace_count > 0:
+                    current_line = resource_lines[j]
+                    for char in current_line:
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                    j += 1
+                
+                block_end = resource_start_line + j - 1
+                
+                parameters.append({
+                    'type': 'structure',
+                    'name': param_name,
+                    'start_line': block_start,
+                    'end_line': block_end
+                })
+                
+                i = j
+            else:
+                # Look for basic parameter assignments (parameter_name = value)
+                param_match = re.match(r'(\w+)\s*=', line)
+                
+                if param_match:
+                    param_name = param_match.group(1)
+                    param_line = resource_start_line + i
+                    
+                    parameters.append({
+                        'type': 'basic',
+                        'name': param_name,
+                        'start_line': param_line,
+                        'end_line': param_line
+                    })
+                
+                # Track nesting level for other constructs
+                for char in line:
+                    if char == '{':
+                        nesting_level += 1
+                    elif char == '}':
+                        nesting_level -= 1
+                i += 1
         else:
-            # Track nesting level for other blocks
+            # Track nesting level for nested constructs
             for char in line:
                 if char == '{':
                     nesting_level += 1
@@ -232,42 +295,16 @@ def _extract_nested_blocks_from_resource(resource_lines: List[str], resource_sta
                     nesting_level -= 1
             i += 1
     
-    return nested_blocks
+    return parameters
 
 
-def _group_nested_blocks_by_name(nested_blocks: List[Dict]) -> Dict[str, List[Dict]]:
+def _check_parameter_spacing_rules(parameters: List[Dict], resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
     """
-    Group nested blocks by their parameter name.
+    Check spacing rules between consecutive parameters.
 
     Args:
-        nested_blocks (List[Dict]): List of nested block information
-
-    Returns:
-        Dict[str, List[Dict]]: Blocks grouped by parameter name
-    """
-    grouped = {}
-    
-    for block in nested_blocks:
-        param_name = block['param_name']
-        if param_name not in grouped:
-            grouped[param_name] = []
-        grouped[param_name].append(block)
-    
-    # Sort blocks within each group by their start line
-    for param_name in grouped:
-        grouped[param_name].sort(key=lambda x: x['start_line'])
-    
-    return grouped
-
-
-def _check_nested_block_spacing(blocks: List[Dict], param_name: str, resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
-    """
-    Check spacing between consecutive nested blocks of the same parameter name.
-
-    Args:
-        blocks (List[Dict]): List of nested blocks with the same parameter name
-        param_name (str): The parameter name being checked
-        resource_name (str): The resource containing these blocks
+        parameters (List[Dict]): List of parameters in order
+        resource_name (str): The resource containing these parameters
         content (str): The full file content
 
     Returns:
@@ -276,171 +313,228 @@ def _check_nested_block_spacing(blocks: List[Dict], param_name: str, resource_na
     errors = []
     lines = content.split('\n')
     
-    for i in range(len(blocks) - 1):
-        current_block = blocks[i]
-        next_block = blocks[i + 1]
+    # Sort parameters by their start line to check consecutive parameters
+    sorted_params = sorted(parameters, key=lambda x: x['start_line'])
+    
+    for i in range(len(sorted_params) - 1):
+        current_param = sorted_params[i]
+        next_param = sorted_params[i + 1]
         
-        # Calculate blank lines between blocks
-        current_end = current_block['end_line'] - 1  # Convert to 0-based indexing
-        next_start = next_block['start_line'] - 1    # Convert to 0-based indexing
+        # Calculate blank lines between parameters
+        current_end = current_param['end_line'] - 1  # Convert to 0-based indexing
+        next_start = next_param['start_line'] - 1    # Convert to 0-based indexing
         
-        # Count blank lines between the blocks
+        # Count blank lines between the parameters (excluding comment lines)
         blank_lines = 0
-        for line_idx in range(current_end, next_start):
-            if line_idx < len(lines) and lines[line_idx].strip() == '':
-                blank_lines += 1
+        for line_idx in range(current_end + 1, next_start):
+            if line_idx < len(lines):
+                line_content = lines[line_idx].strip()
+                if line_content == '':
+                    blank_lines += 1
+                elif line_content.startswith('#'):
+                    # Comment lines don't count as blank lines but also don't reset the count
+                    continue
+                else:
+                    # If there's any non-comment, non-blank content, reset blank line count
+                    blank_lines = 0
         
-        # Check if blank lines exceed 1
-        if blank_lines > 1:
-            errors.append((
-                f"Lines {current_block['end_line']}-{next_block['start_line']}: "
-                f"Found {blank_lines} blank lines between same-name parameter blocks "
-                f"'{param_name}' within {resource_name}. "
-                f"Use ≤1 blank line between same parameter blocks",
-                current_end if blank_lines > 1 else None
-            ))
+        # Apply spacing rules based on parameter types
+        error_msg = _check_spacing_rule(current_param, next_param, blank_lines, resource_name)
+        if error_msg:
+            # Find the first non-empty non-comment line after the problem for error reporting
+            error_line = _find_error_reporting_line(lines, current_end, next_start)
+            errors.append((error_msg, error_line))
     
     return errors
 
 
-def _analyze_nested_block_spacing_patterns(content: str) -> dict:
+def _check_spacing_rule(param1: Dict, param2: Dict, blank_lines: int, resource_name: str) -> Optional[str]:
     """
-    Analyze spacing patterns between same-name nested blocks throughout the file.
+    Check specific spacing rules based on parameter types.
 
     Args:
-        content (str): The file content to analyze
+        param1 (Dict): First parameter
+        param2 (Dict): Second parameter
+        blank_lines (int): Number of blank lines between parameters
+        resource_name (str): The resource name
 
     Returns:
-        dict: Analysis results including spacing statistics
+        Optional[str]: Error message if violation found, None otherwise
     """
-    resource_blocks = _extract_resource_blocks_with_nested_params(content)
+    # Rule 1: Structure block and dynamic block with same name must have exactly 1 blank line
+    if ((param1['type'] == 'structure' and param2['type'] == 'dynamic' and param1['name'] == param2['name']) or
+        (param1['type'] == 'dynamic' and param2['type'] == 'structure' and param1['name'] == param2['name'])):
+        if blank_lines != 1:
+            if blank_lines == 0:
+                return f"Missing blank line between structure block and dynamic block '{param1['name']}' in {resource_name} (1 blank line is expected)"
+            else:
+                return f"Found {blank_lines} blank lines between structure block and dynamic block '{param1['name']}' in {resource_name}. Use exactly one blank line between structure and dynamic blocks"
     
-    total_block_pairs = 0
-    pairs_with_violations = 0
-    spacing_violations = []
+    # Rule 2: Same-name structure blocks must have 0-1 blank lines
+    elif param1['type'] == 'structure' and param2['type'] == 'structure' and param1['name'] == param2['name']:
+        if blank_lines > 1:
+            return f"Found {blank_lines} blank lines between same-name structure blocks '{param1['name']}' in {resource_name}. Use 0-1 blank lines between same-name structure blocks (Maximum 1 blank line)"
     
-    for resource_info in resource_blocks:
-        resource_name = resource_info['name']
-        nested_blocks = resource_info['nested_blocks']
-        grouped_blocks = _group_nested_blocks_by_name(nested_blocks)
-        
-        for param_name, blocks in grouped_blocks.items():
-            if len(blocks) < 2:
-                continue
-                
-            for i in range(len(blocks) - 1):
-                current_block = blocks[i]
-                next_block = blocks[i + 1]
-                total_block_pairs += 1
-                
-                # Calculate spacing
-                lines = content.split('\n')
-                current_end = current_block['end_line'] - 1
-                next_start = next_block['start_line'] - 1
-                
-                blank_lines = 0
-                for line_idx in range(current_end, next_start):
-                    if line_idx < len(lines) and lines[line_idx].strip() == '':
-                        blank_lines += 1
-                
-                if blank_lines > 1:
-                    pairs_with_violations += 1
-                    spacing_violations.append({
-                        'resource_name': resource_name,
-                        'param_name': param_name,
-                        'blank_lines': blank_lines,
-                        'line_range': f"{current_block['end_line']}-{next_block['start_line']}"
-                    })
+    # Rule 3: Adjacent dynamic blocks must have exactly 1 blank line
+    elif param1['type'] == 'dynamic' and param2['type'] == 'dynamic':
+        if blank_lines != 1:
+            if blank_lines == 0:
+                return f"Missing blank line between dynamic blocks '{param1['name']}' and '{param2['name']}' in {resource_name} (1 blank line is expected)"
+            else:
+                return f"Found {blank_lines} blank lines between dynamic blocks '{param1['name']}' and '{param2['name']}' in {resource_name}. Use exactly one blank line between dynamic blocks"
     
-    compliance_percentage = (
-        ((total_block_pairs - pairs_with_violations) / total_block_pairs * 100)
-        if total_block_pairs > 0 else 100
-    )
+    # Rule 4: Different-named structure blocks must have exactly 1 blank line
+    elif param1['type'] == 'structure' and param2['type'] == 'structure' and param1['name'] != param2['name']:
+        if blank_lines != 1:
+            if blank_lines == 0:
+                return f"Missing blank line between different-named structure blocks '{param1['name']}' and '{param2['name']}' in {resource_name} (1 blank line is expected)"
+            else:
+                return f"Found {blank_lines} blank lines between different-named structure blocks '{param1['name']}' and '{param2['name']}' in {resource_name}. Use exactly one blank line between different-named structure blocks"
     
-    return {
-        'total_block_pairs': total_block_pairs,
-        'pairs_with_violations': pairs_with_violations,
-        'compliance_percentage': compliance_percentage,
-        'spacing_violations': spacing_violations,
-        'total_resources': len(resource_blocks)
+    # Rule 5: Different parameter types must have exactly 1 blank line
+    elif param1['type'] != param2['type']:
+        if blank_lines != 1:
+            type_desc = _get_parameter_type_description(param1, param2)
+            if blank_lines == 0:
+                return f"Missing blank line between {type_desc} '{param1['name']}' and '{param2['name']}' in {resource_name} (1 blank line is expected)"
+            else:
+                return f"Found {blank_lines} blank lines between {type_desc} '{param1['name']}' and '{param2['name']}' in {resource_name}. Use exactly one blank line between different parameter types"
+    
+    # Rule 6: Same-type basic parameters should not have excessive blank lines (max 1)
+    elif param1['type'] == 'basic' and param2['type'] == 'basic':
+        if blank_lines > 1:
+            return f"Found {blank_lines} blank lines between basic parameters '{param1['name']}' and '{param2['name']}' in {resource_name}. Use at most 1 blank line between basic parameters"
+    
+    return None
+
+
+def _get_parameter_type_description(param1: Dict, param2: Dict) -> str:
+    """
+    Get a description of the parameter types for error messages.
+
+    Args:
+        param1 (Dict): First parameter
+        param2 (Dict): Second parameter
+
+    Returns:
+        str: Description of parameter types
+    """
+    type_map = {
+        'basic': 'basic parameter',
+        'structure': 'structure block',
+        'dynamic': 'dynamic block'
     }
+    
+    type1_desc = type_map.get(param1['type'], param1['type'])
+    type2_desc = type_map.get(param2['type'], param2['type'])
+    
+    if param1['type'] != param2['type']:
+        return f"{type1_desc} and {type2_desc}"
+    else:
+        return f"{type1_desc}s"
+
+
+def _find_error_reporting_line(lines: List[str], current_end: int, next_start: int) -> Optional[int]:
+    """
+    Find the first non-empty non-comment line after the problem for error reporting.
+
+    Args:
+        lines (List[str]): File lines
+        current_end (int): End line of current parameter (0-based)
+        next_start (int): Start line of next parameter (0-based)
+
+    Returns:
+        Optional[int]: Line number for error reporting (1-based)
+    """
+    for line_idx in range(current_end + 1, next_start):
+        if line_idx < len(lines):
+            line = lines[line_idx].strip()
+            # Skip empty lines and comment lines
+            if line and not line.startswith('#'):
+                return line_idx + 1  # Convert to 1-based indexing
+    
+    # If no non-empty non-comment line found, use the start of next parameter
+    return next_start + 1 if next_start < len(lines) else None
 
 
 def get_rule_description() -> dict:
     """
     Retrieve detailed information about the ST.007 rule.
 
-    This function provides metadata about the rule including its purpose,
-    validation criteria, and examples. This information can be used for
-    documentation generation, help systems, or configuration interfaces.
-
     Returns:
-        dict: A dictionary containing comprehensive rule information including:
-            - id: The unique rule identifier
-            - name: Human-readable rule name
-            - description: Detailed explanation of what the rule validates
-            - category: The rule category (Style/Format)
-            - severity: The severity level of violations
-            - examples: Dictionary with valid and invalid examples
-
-    Example:
-        >>> info = get_rule_description()
-        >>> print(info['name'])
-        Same parameter block spacing check
+        dict: A dictionary containing comprehensive rule information
     """
     return {
         "id": "ST.007",
-        "name": "Same parameter block spacing check",
+        "name": "Parameter block spacing check",
         "description": (
-            "Validates that blank lines between same-name nested parameter blocks "
-            "within the same resource (such as multiple 'data_disks' blocks) "
-            "are less than or equal to 1. This ensures consistent spacing without "
-            "excessive whitespace within resource definitions."
+            "Validates parameter block spacing within Terraform resource and data source blocks. "
+            "This rule combines functionality from the original ST.007 and ST.008 rules to ensure "
+            "consistent spacing between different types of parameters: basic parameters, structure "
+            "blocks, and dynamic blocks."
         ),
         "category": "Style/Format",
         "severity": "error",
         "rationale": (
-            "Limiting blank lines between same-name nested blocks to ≤1 maintains "
-            "readability while preventing excessive whitespace within resources. "
-            "This creates consistent visual grouping of related nested parameters "
-            "and keeps resource definitions compact and easy to scan."
+            "Proper spacing between different parameter types improves code readability by creating "
+            "clear visual separation between basic parameter definitions, structure blocks, and "
+            "dynamic blocks. This makes it easier to scan through resource definitions and "
+            "understand the logical organization of configuration parameters."
         ),
         "examples": {
             "valid": [
                 '''
 resource "huaweicloud_compute_instance" "test" {
-  name      = "tf_test_instance"
-  flavor_id = "c6.2xlarge.4"
-  image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
-
-  data_disks {
-    type = "SAS"
-    size = 100
-  }
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
 
   data_disks {
     type = "SSD"
-    size = 200
+    size = 20
   }
+
+  data_disks {
+    type = "SAS"
+    size = 40
+  }
+
+  dynamic "data_disks" {
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
+  }
+
+  network {
+    uuid = huaweicloud_vpc_subnet.test.id
+  }
+
+  tags = merge(local.system_tags, var.custom_tags)
 }
 '''
             ],
             "invalid": [
                 '''
 resource "huaweicloud_compute_instance" "test" {
-  name      = "tf_test_instance"
-  flavor_id = "c6.2xlarge.4"
-  image_id  = "57818f98-06dd-2bc0-b41c-2b33144a76f0"
-
-  data_disks {
-    type = "SAS"
-    size = 100
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+  data_disks {  # Missing blank line between basic parameter and structure block
+    type = "SSD"
+    size = 20
   }
 
+  data_disks {  # Too many blank lines between same-name structure blocks
+    type = "SAS"
+    size = 40
+  }
 
-  data_disks {
-    type = "SSD"
-    size = 200
+  dynamic "data_disks" {  # Missing blank line between structure and dynamic blocks
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
   }
 }
 '''
@@ -448,9 +542,10 @@ resource "huaweicloud_compute_instance" "test" {
         },
         "auto_fixable": True,
         "performance_impact": "minimal",
-        "related_rules": ["ST.006", "ST.008"],
+        "related_rules": ["ST.006"],
         "configuration": {
-            "max_blank_lines_between_same_nested_blocks": 1,
-            "strict_nested_block_grouping": True
+            "required_blank_lines_between_different_types": 1,
+            "max_blank_lines_between_same_structure_blocks": 1,
+            "required_blank_lines_between_dynamic_blocks": 1
         }
     }

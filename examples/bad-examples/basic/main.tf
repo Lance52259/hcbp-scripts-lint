@@ -114,10 +114,10 @@ resource "huaweicloud_compute_instance" "test" {
   availability_zone = local.queried_availability_zones[0]                          # SC.001 Error: Array index access is unsafe
 
 
-  # ST.008 Error: Too many empty lines between different parameter blocks
+  # ST.007 Error: Too many empty lines between different parameter blocks
   system_disk_type = "SSD"
   system_disk_size = 40
-  # ST.008 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
+  # ST.007 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
   dynamic "data_disks" {
     for_each = var.data_disks_configurations
 
@@ -143,7 +143,7 @@ resource "huaweicloud_compute_instance" "test" {
   }
 
 
-  # ST.008 Error: Too many empty lines between different parameter blocks
+  # ST.007 Error: Too many empty lines between different parameter blocks
   tags = merge(local.system_tags, var.custom_tags)
 }
 

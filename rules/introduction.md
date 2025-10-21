@@ -16,7 +16,9 @@ These rules check comment formatting and quality to ensure code has good documen
 These rules check variable and output definition and usage standards to ensure module interface clarity and consistency.
 
 ### SC (Security Code) - Security Best Practices Rules
-These rules enforce security best practices and prevent common security vulnerabilities in Terraform code. They focus on preventing runtime errors and ensuring safe handling of potentially empty arrays, lists, and other data structures.
+These rules enforce security best practices and prevent common security vulnerabilities in Terraform code.
+They focus on preventing runtime errors and ensuring safe handling of potentially empty arrays, lists, and other data
+structures.
 
 ---
 
@@ -82,7 +84,8 @@ resource "huaweicloud_compute_instance" "test" {
 
 ### ST.002 - Data Source Variable Default Value Check
 
-**Rule Description:** All input variables used in data source blocks must be designed as optional parameters (with default values).
+**Rule Description:** All input variables used in data source blocks must be designed as optional parameters (with
+default values).
 
 **Purpose:**
 - Ensure data sources can work properly with minimal configuration
@@ -177,18 +180,18 @@ aligned to maintain one space from the longest parameter name.
 ```hcl
 # ❌ Error: Improper alignment
 resource "huaweicloud_vpc" "test" {
-  name                   = "test-vpc"
-  cidr                   = "192.168.0.0/16" # The equal sign is not aligned to the longest parameter name in the current code block
-  enterprise_project_id  = "0"
+  name                   = "test-vpc"        # The equal sign is not aligned
+  cidr                   = "192.168.0.0/16"  # The equal sign is not aligned
+  enterprise_project_id  = "0"               # The equal sign is not aligned
 }
 
 # ❌ Error: Improper alignment and formatting
 resource "huaweicloud_compute_instance" "test" {
-  name="test-instance"                    # No spaces around equals
-  flavor_id =c6.large.2                  # No space after equals, not aligned
+  name="test-instance"                                           # No spaces around equals
+  flavor_id =c6.large.2                                          # No space after equals, not aligned
   image_id            =  "ba10b6e8-de5d-4d96-b8c0-4d8e1d6c7890"  # Multiple spaces after equals, not aligned
-  vpc_id        =    huaweicloud_vpc.test.id         # Inconsistent spacing, not aligned
-  availability_zone="cn-north-1a"        # No spaces around equals, not aligned
+  vpc_id        =    huaweicloud_vpc.test.id                     # Inconsistent spacing, not aligned
+  availability_zone="cn-north-1a"                                # No spaces around equals, not aligned
 }
 ```
 
@@ -350,119 +353,96 @@ resource "huaweicloud_vpc_subnet" "test" {  # Too many empty lines
 
 ---
 
-### ST.007 - Same Parameter Block Spacing Convention
+### ST.007 - Parameter Block Spacing Check
 
-**Rule Description:** Empty lines between same-name parameter blocks should be less than or equal to 1.
+**Rule Description:** Validates parameter block spacing within Terraform resource and data source blocks.
+This rule combines functionality from the original ST.007 and ST.008 rules to ensure consistent spacing between
+different types of parameters: basic parameters, structure blocks, and dynamic blocks.
+
+**Validation Criteria:**
+- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic
+  blocks
+- **Same-name structure blocks**: 0-1 blank lines allowed between blocks with the same name (compact or single spacing)
+- **Adjacent dynamic blocks**: Exactly 1 blank line required between dynamic blocks
+- **Same-type basic parameters**: At most 1 blank line between basic parameters
+- **Structure and dynamic blocks with same name**: Exactly 1 blank line required
+
+**Parameter Types:**
+- **Basic Parameters**: Simple key-value assignments (e.g., `name = "value"`, `flavor_id = "c6.large.2"`)
+- **Structure Blocks**: Nested parameter blocks (e.g., `data_disks { ... }`, `network { ... }`)
+- **Dynamic Blocks**: Dynamic parameter blocks (e.g., `dynamic "data_disks" { ... }`)
 
 **Purpose:**
-- Prevents excessive whitespace in parameter definitions
-- Maintains clean and readable parameter organization
-- Ensures consistent formatting within blocks
+- Improve code readability by creating clear visual separation between different parameter types
+- Maintain logical grouping of related parameters
+- Enforce consistent spacing standards within resource definitions
+- Support all parameter types including basic parameters, structure blocks, and dynamic blocks
 
 **Good Example:**
 ```hcl
 resource "huaweicloud_compute_instance" "test" {
-  name = "test-instance"
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+
+  data_disks {
+    type = "SSD"
+    size = 20
+  }
+
+  data_disks {
+    type = "SAS"
+    size = 40
+  }
+
+  dynamic "data_disks" {
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
+  }
 
   network {
     uuid = huaweicloud_vpc_subnet.test.id
   }
 
-  network {
-    uuid = huaweicloud_vpc_subnet.test2.id
-  }
+  tags = merge(local.system_tags, var.custom_tags)
 }
 ```
 
 **Bad Example:**
 ```hcl
 resource "huaweicloud_compute_instance" "test" {
-  name = "test-instance"
-
-  network {
-    uuid = huaweicloud_vpc_subnet.test.id
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+  data_disks {  # Missing blank line between basic parameter and structure block
+    type = "SSD"
+    size = 20
   }
 
+  data_disks {  # Too many blank lines between same-name structure blocks
+    type = "SAS"
+    size = 40
+  }
 
-  network {  # Too many empty lines between same parameter blocks
-    uuid = huaweicloud_vpc_subnet.test2.id
+  dynamic "data_disks" {  # Missing blank line between structure and dynamic blocks
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
   }
 }
 ```
 
 **Best Practices:**
-- Use at most one empty line between same-name parameter blocks
-- Consider grouping related parameters together
-- Maintain consistent spacing patterns
+- Use exactly one blank line between different parameter types
+- Use 0-1 blank lines between same-name structure blocks
+- Use exactly one blank line between dynamic blocks
+- Use at most one blank line between basic parameters
+- Maintain consistent spacing patterns throughout resource definitions
 
 ---
-
-### ST.008 - Different Parameter Type Spacing Convention
-
-**Rule Description:** There must be exactly one empty line between different types of parameters within the same resource or data source block.
-
-**Purpose:**
-- Provides clear visual separation between different parameter types
-- Improves code structure and readability
-- Maintains consistent parameter organization
-- Ensures proper spacing between basic parameters and parameter blocks
-- Ensures proper spacing between different-named parameter blocks
-
-**Parameter Types:**
-- **Basic Parameters**: Simple key-value assignments (e.g., `name = "value"`, `flavor_id = "c6.large.2"`)
-- **Parameter Blocks**: Nested structures with braces (e.g., `data_disks { ... }`, `tags { ... }`)
-
-**Spacing Requirements:**
-1. Exactly one empty line between basic parameters and parameter blocks
-2. Exactly one empty line between parameter blocks and basic parameters
-3. Exactly one empty line between different-named parameter blocks
-4. Comment lines do not count as empty lines
-
-**Good Example:**
-```hcl
-resource "huaweicloud_compute_instance" "test" {
-  name              = "test-instance"
-  flavor_id         = "c6.large.2"
-  image_id          = "image-123"
-  system_disk_size  = 40
-
-  data_disks {
-    size = 40
-    type = "SAS"
-  }
-
-  network {
-    uuid = huaweicloud_vpc_subnet.test.id
-  }
-
-  tags = {
-    Environment = "test"
-  }
-}
-```
-
-**Bad Example:**
-```hcl
-resource "huaweicloud_compute_instance" "test" {
-  name              = "test-instance"
-  flavor_id         = "c6.large.2"
-  image_id          = "image-123"
-  system_disk_size  = 40
-  data_disks {      # Missing blank line between basic parameter and parameter block
-    size = 40
-    type = "SAS"
-  }
-
-  network {
-    uuid = huaweicloud_vpc_subnet.test.id
-  }
-  tags = {          # Missing blank line between parameter block and basic parameter
-    Environment = "test"
-  }
-}
-```
-
-**Additional Examples:**
 
 *Missing blank line between basic parameters and parameter blocks:*
 ```hcl
@@ -810,7 +790,8 @@ variable "region" {
 
 ### ST.012 - File Header and Footer Whitespace Check
 
-**Rule Description:** Terraform files should not have empty lines before the first non-empty line and should have exactly one empty line after the last non-empty line.
+**Rule Description:** Terraform files should not have empty lines before the first non-empty line and should have
+exactly one empty line after the last non-empty line.
 
 **Purpose:**
 - Ensures consistent file formatting across all Terraform files
@@ -862,7 +843,7 @@ resource "huaweicloud_vpc" "test" {
 ### DC.001 - Comment Format Convention
 
 **Rule Description:** All comments must start with `#` character and maintain one English space between the `#` and the
-                      comment text. Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation.
+comment text. Comments within HCL heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation.
 
 **Purpose:**
 - Ensure comment format consistency and readability
@@ -1460,7 +1441,8 @@ variable "subnet_count" {
 
 ### IO.009 - Unused Variable Detection
 
-**Rule Description:** Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory.
+**Rule Description:** Detects variables defined in variables.tf but not referenced in any Terraform files within the
+same directory.
 
 **Purpose:**
 - Identifies dead code and unused variable definitions
@@ -1545,7 +1527,8 @@ resource "aws_instance" "web" {
 ```
 
 **Smart Exclusions:**
-The rule automatically excludes common provider-related variables that may be used by the provider but not explicitly referenced in configuration files:
+The rule automatically excludes common provider-related variables that may be used by the provider but not explicitly
+referenced in configuration files:
 - Provider configuration variables (e.g., `region`, `access_key`, `secret_key`)
 - Authentication-related variables (e.g., `token`, `key_file`, `tenant_id`)
 - Environment-specific variables (e.g., `endpoint`, `domain_id`, `project_id`)
@@ -1568,7 +1551,8 @@ ERROR: variables.tf (15): [IO.009] Variable 'unused_variable' is defined but not
 
 ### SC.001 - Array Index Access Safety Check
 
-**Rule Description:** Validates that array index access operations use try() function to prevent index out of bounds errors in specific scenarios.
+**Rule Description:** Validates that array index access operations use try() function to prevent index out of bounds
+errors in specific scenarios.
 
 **Purpose:**
 - Prevent runtime errors from array index out of bounds
@@ -1604,9 +1588,9 @@ locals {
 
 resource "huaweicloud_compute_instance" "test" {
   name              = "test-instance"
-  flavor_id         = data.huaweicloud_compute_flavors.test.flavors[0].id          # Unsafe: might be empty
-  subnet_id         = var.subnet_ids[0]                                            # Unsafe: variable might be empty
-  availability_zone = local.queried_availability_zones[0]                          # Unsafe: for expression might be empty
+  flavor_id         = data.huaweicloud_compute_flavors.test.flavors[0].id  # Unsafe: might be empty
+  subnet_id         = var.subnet_ids[0]                                    # Unsafe: variable might be empty
+  availability_zone = local.queried_availability_zones[0]                  # Unsafe: for expression might be empty
 }
 ```
 
@@ -1638,9 +1622,9 @@ locals {
 
 resource "huaweicloud_compute_instance" "test" {
   name              = "test-instance"
-  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.large.2")          # Safe with fallback
-  subnet_id         = try(var.subnet_ids[0], var.default_subnet_id)                                   # Safe with fallback
-  availability_zone = try(local.queried_availability_zones[0], "cn-north-1a")                         # Safe with fallback
+  flavor_id         = try(data.huaweicloud_compute_flavors.test.flavors[0].id, "c6.large.2")  # Safe with fallback
+  subnet_id         = try(var.subnet_ids[0], var.default_subnet_id)                           # Safe with fallback
+  availability_zone = try(local.queried_availability_zones[0], "cn-north-1a")                 # Safe with fallback
 }
 ```
 

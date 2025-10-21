@@ -96,8 +96,7 @@ Each rule package follows a consistent design pattern:
 | ST.004 | Indentation Character | Use spaces only, not tabs | ✅ Modular |
 | ST.005 | Indentation Level | Follow 2-space indentation rule (excludes heredoc blocks in .tfvars files) | ✅ Modular |
 | ST.006 | Resource Spacing | One empty line between resource blocks | ✅ Modular |
-| ST.007 | Same Parameter Spacing | ≤1 empty line between same parameter blocks | ✅ Modular |
-| ST.008 | Different Parameter Type Spacing | Exactly 1 empty line between basic parameters and parameter blocks | ✅ Modular |
+| ST.007 | Parameter Block Spacing | Validates spacing between different types of parameters within resource blocks | ✅ Modular |
 | ST.009 | Variable Order | Variable definition order matches usage order | ✅ Modular |
 | ST.010 | Quote Usage | Double quotes around resource, data source, variable, and output names | ✅ Modular |
 | ST.011 | Trailing Whitespace | No trailing spaces or tabs at line ends | ✅ Modular |
