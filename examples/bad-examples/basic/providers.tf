@@ -7,7 +7,7 @@ terraform {
       version =">= 1.57.0"               # ST.003 Error: Missing space after equals sign
     }
     kubernetes = {
-      source= "hashicorp/kubernetes" # ST.003 Error: Missing space before equals sign (high priority)
+      source= "hashicorp/kubernetes" # ST.003 Error: Missing space before equals sign and missing space before equals sign
       version =  ">= 1.6.2"          # ST.003 Error: Multiple spaces after equals sign
     }
   }
