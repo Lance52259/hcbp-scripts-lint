@@ -77,6 +77,21 @@ the longest parameter name.
 - Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
 - Exactly one space after the equals sign and parameter value
 - Parameters within the same code block (not separated by blank lines) should follow alignment rules
+- Supports resource, data source, provider, locals, terraform, and variable blocks
+- Supports terraform.tfvars files for variable assignment alignment checking
+- Intelligently handles nested object structures by grouping parameters within objects
+- Uses expandtabs(2) to properly handle tab characters in indentation calculation
+- Lines containing tab characters are excluded from alignment calculations
+- Parameters with quotes (e.g., "Environment") are handled correctly
+- Nested objects maintain their own alignment groups
+
+**Alignment Calculation Formula**:
+- Expected equals location = indent_spaces + param_name_length + quote_chars + 1
+- Where:
+  - indent_spaces = indent_level * 2 (Terraform uses 2 spaces per indent level)
+  - param_name_length = length of parameter name without quotes
+  - quote_chars = 2 if parameter name is quoted, 0 otherwise
+  - 1 = standard space before equals sign
 
 ### ST.004 - Indentation Character Check
 

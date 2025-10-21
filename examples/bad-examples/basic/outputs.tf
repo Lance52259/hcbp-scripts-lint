@@ -15,6 +15,13 @@ output 'instance_id' {
   value       = huaweicloud_compute_instance.test.id
 }
 
+output "instance_flavors" {
+  # ST.003 Error: Missing space after equals sign
+  description ="The flavors of the instance"
+  # ST.003 Error: Missing space before equals sign
+  # ST.003 Error: Equals signs not aligned
+  value= try(data.huaweicloud_compute_flavors.test[0].flavors, [])
+}
 
 # ST.006 Error: Too many blank lines between output blocks
 # IO.005 Error: Output name starts with underscore

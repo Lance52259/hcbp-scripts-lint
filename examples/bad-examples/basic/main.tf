@@ -7,15 +7,18 @@ locals {
   is_instance_flavors_available = data.huaweicloud_compute_flavors.test.flavors[0].id != null
   # ST.003 Error: Missing space before equals sign
   # ST.003 Error: Multiple spaces after equals sign
-  # ST.003 Error: Equals sign not aligned
+  # ST.003 Error: Equals sign not aligned (with line 7)
   system_tags=  {
-    "Environment" = "Development"
+    "Environment" = "Development" # The alignment of this line is correct
     # ST.003 Error: Equals sign not aligned
-    "Usage"="Tool"             # ST.003 Error: Missing space after equals sign (high priority)
-    "Owner"       =  "DevOps"  # ST.003 Error: Multiple spaces after equals sign
-    "Project"     ="Terraform" # ST.003 Error: Missing space after equals sign
+    # ST.003 Error: Missing space before equals sign
+    # ST.003 Error: Missing space after equals sign
+    "Usage"="Tool"
+    "Owner"       =  "DevOps"  # ST.003 Error: Multiple spaces after equals sign and the alignment of this line is correct (already aligned with line 12)
+    "Project"     ="Terraform" # ST.003 Error: Missing space after equals sign and the alignment of this line is correct (already aligned with line 12)
   }
-  sys_eps_id                   = "0" # ST.003 Error: Equals sign not aligned
+
+  sys_eps_id                   = "0" # ST.003 Error: Equals sign not aligned (should be aligned by itself (new section) and shouldn't be aligned with line 7)
 }
 # ST.001 Error: Data source name is not "test"
 # ST.006 Error: Missing blank line between local variable block and data source block
@@ -29,7 +32,6 @@ data "huaweicloud_availability_zones" test {}
 data "huaweicloud_compute_flavors" test {
   count = var.instance_flavor_id == "" ? 1 : 0
 
-  # ST.003 Error: Equals signs not aligned
   performance_type = var.instance_flavor_performance_type
   cpu_core_count   = var.instance_flavor_cpu_core_number
   memory_size      = var.instance_flavor_memory_size
@@ -39,6 +41,7 @@ data "huaweicloud_images_images" "test" {
   count = var.instance_image_id == "" ? 1 : 0
 
   # ST.003 Error: Missing space before equals sign
+  # ST.003 Error: Equals signs not aligned (with line 46)
   flavor_id= var.instance_flavor_id == "" ? try(data.huaweicloud_compute_flavors.test.flavors[0].id, null) : var.instance_flavor_id
   visibility =var.instance_image_visibility    # ST.003 Error: No space after equals sign
   os         =   var.instance_image_os         # ST.003 Error: Multiple spaces after equals sign
@@ -73,6 +76,7 @@ resource "huaweicloud_vpc_subnet" test {
 # ST.006 Error: Too many blank lines between resource block and data source block
 data "huaweicloud_vpc_subnets" "test" {
   name = var.subnet_name
+
   depends_on = [huaweicloud_vpc_subnet.test]
 }
 
@@ -92,12 +96,12 @@ resource "huaweicloud_networking_secgroup" "test" {
 #  The security group rule resource definition and open the SSH port 22 access from anywhere (DC.001 Error: Incorrect comment format, Too many spaces
 #  after # character)
 resource "huaweicloud_networking_secgroup_rule" "test" {
-  security_group_id  = huaweicloud_networking_secgroup.test.id    # ST.003 Error: # The equal sign is not aligned to the longest parameter name in the current code block
-  direction          = "ingress"
-  ethertype          = "IPv4"
-  protocol           = "tcp"
-  ports              = "22"
-  remote_ip_prefix   = "0.0.0.0/0"
+  security_group_id  = huaweicloud_networking_secgroup.test.id # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
+  direction          = "ingress"                               # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
+  ethertype          = "IPv4"                                  # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
+  protocol           = "tcp"                                   # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
+  ports              = "22"                                    # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
+  remote_ip_prefix   = "0.0.0.0/0"                             # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
 }
 
 resource "huaweicloud_compute_instance" "test" {

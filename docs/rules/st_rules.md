@@ -237,6 +237,26 @@ the longest parameter name.
 - Reports all alignment issues on a single line for comprehensive error reporting
 - Properly filters out comment lines in all supported file types
 
+**Alignment Calculation Formula**:
+- Expected equals location = indent_spaces + param_name_length + quote_chars + 1
+- Where:
+  - indent_spaces = indent_level * 2 (Terraform uses 2 spaces per indent level)
+  - param_name_length = length of parameter name without quotes
+  - quote_chars = 2 if parameter name is quoted, 0 otherwise
+  - 1 = standard space before equals sign
+
+**Code Block Sectioning Rules**:
+- Sections are split on empty lines
+- Comment lines are ignored for sectioning (do not split sections)
+- Object boundaries ({ and }) create new sections
+- Parameters within the same section must align with each other
+
+**Special Cases**:
+- Lines containing tab characters are excluded from alignment calculations
+- If all lines in a group contain tabs, no alignment errors are reported
+- Parameters with quotes (e.g., "Environment") are handled correctly
+- Nested objects maintain their own alignment groups
+
 ### ST.004 - Indentation Character Check
 
 **Purpose**: Ensures only spaces are used for indentation.
