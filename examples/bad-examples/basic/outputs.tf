@@ -12,7 +12,8 @@ output subnet_id {
 # ST.010 Error: Output name with single quotes
 output 'instance_id' {
   description = ""    # IO.007 Error: Output with empty description
-  value       = huaweicloud_compute_instance.test.id
+  # ST.005 Error: 3 spaces found, not 2 spaces
+   value      = huaweicloud_compute_instance.test.id
 }
 
 output "instance_flavors" {

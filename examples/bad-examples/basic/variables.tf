@@ -92,7 +92,7 @@ variable "data_disks_configurations" {
   default = [
     {
       type = "SSD"
-     size  = 40
+     size  = 40 # ST.005 Error: 5 spaces found, not 6 spaces
     },
     {
       type= "SAS" # ST.003 Error: Missing space before equals sign
