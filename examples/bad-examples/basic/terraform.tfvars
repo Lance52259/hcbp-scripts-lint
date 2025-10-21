@@ -14,6 +14,11 @@ data_disks_configurations = [
   {
     type= "SSD"   # ST.003 Error: Missing space before equals sign and equals sign not aligned
     size = 100
+  },
+  {
+    # ST.004 Error: This line uses tab instead of spaces
+		type = "SAS"
+    size = 120
   }
 ]
 

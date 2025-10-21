@@ -79,7 +79,8 @@ variable "security_group_name" {
 
 variable "instance_name" {
   description = "The name of the ECS instance"
-  type        = string
+  # ST.004 Error: This line uses tab instead of spaces
+	type        = string
 }
 
 variable "data_disks_configurations" {

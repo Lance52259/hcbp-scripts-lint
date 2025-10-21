@@ -67,7 +67,8 @@ resource huaweicloud_vpc "test" {
 resource "huaweicloud_vpc_subnet" test {
 	vpc_id     = huaweicloud_vpc.incorrect_resource_name.id    # ST.004 Error: This line uses tab instead of spaces
   name       = var.subnet_name                               # IO.003 Error: Using required variable and the value is not declared in tfvars file
-  cidr       = cidrsubnet(var.vpc_cidr, 4, 1)	               # ST.011 Error: Tab exist in the end of line
+  # ST.011 Error: Tab exist in the end of line
+  cidr       = cidrsubnet(var.vpc_cidr, 4, 1)	
   # ST.011 Error: White spaces exist in the end of line
   gateway_ip = cidrhost(cidrsubnet(var.vpc_cidr, 4, 1), 1)  
 }
