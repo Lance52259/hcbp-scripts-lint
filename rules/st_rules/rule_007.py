@@ -3,8 +3,7 @@
 ST.007 - Parameter Block Spacing Check
 
 This module implements the ST.007 rule which validates parameter block spacing
-within Terraform resource and data source blocks. This rule combines the functionality
-of the original ST.007 and ST.008 rules.
+within Terraform resource and data source blocks.
 
 Rule Specification:
 1. Different parameter blocks (basic parameters, structure blocks, dynamic blocks) 
@@ -469,8 +468,7 @@ def get_rule_description() -> dict:
         "name": "Parameter block spacing check",
         "description": (
             "Validates parameter block spacing within Terraform resource and data source blocks. "
-            "This rule combines functionality from the original ST.007 and ST.008 rules to ensure "
-            "consistent spacing between different types of parameters: basic parameters, structure "
+            "This ensure consistent spacing between different types of parameters: basic parameters, structure "
             "blocks, and dynamic blocks."
         ),
         "category": "Style/Format",

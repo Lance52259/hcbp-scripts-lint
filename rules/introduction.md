@@ -356,8 +356,8 @@ resource "huaweicloud_vpc_subnet" "test" {  # Too many empty lines
 ### ST.007 - Parameter Block Spacing Check
 
 **Rule Description:** Validates parameter block spacing within Terraform resource and data source blocks.
-This rule combines functionality from the original ST.007 and ST.008 rules to ensure consistent spacing between
-different types of parameters: basic parameters, structure blocks, and dynamic blocks.
+This rule ensure consistent spacing between different types of parameters: basic parameters, structure blocks, and
+dynamic blocks.
 
 **Validation Criteria:**
 - **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic

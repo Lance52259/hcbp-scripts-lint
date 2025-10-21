@@ -106,10 +106,10 @@ resource huaweicloud_compute_instance test {
   availability_zone = local.queried_availability_zones[0]                          # SC.001 Error: Array index access is unsafe
 
 
-  # ST.008 Error: Too many empty lines between different parameter blocks
+  # ST.007 Error: Too many empty lines between different parameter blocks
   system_disk_type = "SSD"
   system_disk_size = 40
-  # ST.008 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
+  # ST.007 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
   data_disks {
     # Indentation level 2 is not a multiple of 2 spaces, 4 spaces is expected
      type = "SAS"    # ST.005 Error: 4 space instead of 5
@@ -124,7 +124,7 @@ resource huaweicloud_compute_instance test {
   }
 
 
-  # ST.008 Error: Too many empty lines between different parameter blocks
+  # ST.007 Error: Too many empty lines between different parameter blocks
   network {
     uuid        = huaweicloud_vpc_subnet.test.id
     fixed_ip_v4 = "10.0.1.100"
@@ -134,7 +134,7 @@ resource huaweicloud_compute_instance test {
     group = "group_name"
   }
 
-  # ST.008 Error: Too many empty lines between different parameter blocks
+  # ST.007 Error: Too many empty lines between different parameter blocks
   tags = merge(local.system_tags, var.custom_tags)
 }
 

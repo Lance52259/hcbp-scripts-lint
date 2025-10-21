@@ -174,7 +174,6 @@ output:
 - **ST.005**: Output naming standards
 - **ST.006**: Data source naming
 - **ST.007**: Module naming conventions
-- **ST.008**: Provider configuration standards
 - **ST.009**: Locals naming conventions
 - **ST.010**: Terraform block validation
 - **ST.011**: Comment formatting standards

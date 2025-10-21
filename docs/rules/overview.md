@@ -41,7 +41,6 @@ rules/
 │   ├── rule_005.py             # ST.005 - Indentation level check
 │   ├── rule_006.py             # ST.006 - Resource spacing check
 │   ├── rule_007.py             # ST.007 - Same parameter block spacing
-│   ├── rule_008.py             # ST.008 - Different parameter block spacing
 │   ├── rule_009.py             # ST.009 - Variable definition order check
 │   ├── rule_010.py             # ST.010 - Quote usage consistency check
 │   ├── rule_011.py             # ST.011 - Trailing whitespace check
@@ -260,8 +259,8 @@ spacing - blank lines are still required even when comments are present.
 ### ST.007 - Parameter Block Spacing Check
 
 **Rule Description:** Validates parameter block spacing within Terraform resource and data source blocks.  
-This rule combines functionality from the original ST.007 and ST.008 rules to ensure consistent spacing between
-different types of parameters: basic parameters, structure blocks, and dynamic blocks.
+This rule ensure consistent spacing between different types of parameters: basic parameters, structure blocks, and
+dynamic blocks.
 
 **Validation Criteria:**
 - **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic
