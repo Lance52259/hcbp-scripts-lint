@@ -113,7 +113,15 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
         # Also match resource blocks with quotes around type but not name (ST.010 violation)
         resource_match_mixed_quotes = re.match(r'resource\s+"([^"]+)"\s+([a-zA-Z0-9_]+)\s*\{', line)
         variable_match = re.match(r'variable\s+"([^"]+)"\s*\{', line)
+        # Also match variable blocks without quotes around name (ST.010 violation)
+        variable_match_no_quotes = re.match(r'variable\s+([a-zA-Z0-9_]+)\s*\{', line)
+        # Also match variable blocks with single quotes around name (ST.010 violation)
+        variable_match_single_quotes = re.match(r'variable\s+\'([^\']+)\'\s*\{', line)
         output_match = re.match(r'output\s+"([^"]+)"\s*\{', line)
+        # Also match output blocks without quotes around name (ST.010 violation)
+        output_match_no_quotes = re.match(r'output\s+([a-zA-Z0-9_]+)\s*\{', line)
+        # Also match output blocks with single quotes around name (ST.010 violation)
+        output_match_single_quotes = re.match(r'output\s+\'([^\']+)\'\s*\{', line)
         locals_match = re.match(r'locals\s*\{', line)
         terraform_match = re.match(r'terraform\s*\{', line)
         # Match provider blocks with quotes around type name
@@ -149,10 +157,26 @@ def _extract_all_blocks(content: str) -> List[Tuple[str, int, int, str, str]]:
             block_type = "variable"
             type_name = ""
             instance_name = variable_match.group(1)
+        elif variable_match_no_quotes:
+            block_type = "variable"
+            type_name = ""
+            instance_name = variable_match_no_quotes.group(1)
+        elif variable_match_single_quotes:
+            block_type = "variable"
+            type_name = ""
+            instance_name = variable_match_single_quotes.group(1)
         elif output_match:
             block_type = "output"
             type_name = ""
             instance_name = output_match.group(1)
+        elif output_match_no_quotes:
+            block_type = "output"
+            type_name = ""
+            instance_name = output_match_no_quotes.group(1)
+        elif output_match_single_quotes:
+            block_type = "output"
+            type_name = ""
+            instance_name = output_match_single_quotes.group(1)
         elif locals_match:
             block_type = "locals"
             type_name = ""
@@ -252,10 +276,22 @@ def _check_block_spacing_detailed(
             error_msg = f"Missing blank line between {current_block_id} and {next_block_id}, the number of blank line should be 1."
         return next_start, error_msg
     elif blank_lines > 1:
-        # Too many blank lines - report at the first extra blank line
+        # Too many blank lines - report at the first non-empty non-comment line after the problem
         if first_blank_line is not None:
-            # Find the line after the first required blank line
-            error_line = current_end + 2  # current_end + 1 (first blank line) + 1 (second blank line)
+            # Find the first non-empty non-comment line after the current block
+            error_line = None
+            for line_idx in range(current_end, next_start - 1):
+                if line_idx < len(lines):
+                    line = lines[line_idx].strip()
+                    # Skip empty lines and comment lines
+                    if line and not line.startswith('#'):
+                        error_line = line_idx + 1
+                        break
+            
+            # If no non-empty non-comment line found, use the start of next block
+            if error_line is None:
+                error_line = next_start
+                
             error_msg = f"Too many blank lines between {current_block_id} and {next_block_id}, the number of blank line should be 1."
             return error_line, error_msg
     
