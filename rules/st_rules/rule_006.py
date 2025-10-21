@@ -388,6 +388,5 @@ variable "vpc_name" {    # Too many blank lines
             ]
         },
         "auto_fixable": True,
-        "performance_impact": "minimal",
-        "related_rules": ["ST.007", "ST.008"]
+        "performance_impact": "minimal"
     }
