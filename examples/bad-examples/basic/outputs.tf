@@ -24,6 +24,7 @@ output "instance_flavors" {
   value= try(data.huaweicloud_compute_flavors.test[0].flavors, [])
 }
 
+
 # ST.006 Error: Too many blank lines between output blocks
 # IO.005 Error: Output name starts with underscore
 output "_output_start_with_underscore" {
