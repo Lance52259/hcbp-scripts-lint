@@ -87,7 +87,7 @@ git push origin v1
 - ✅ Support for multiple Terraform file types (.tf, .tfvars)
 
 ### Supported Rules
-- **ST (Style/Format)**: ST.001, ST.002, ST.003, ST.004, ST.005, ST.006, ST.007, ST.008, ST.009, ST.010, ST.011
+- **ST (Style/Format)**: ST.001, ST.002, ST.003, ST.004, ST.005, ST.006, ST.007, ST.009, ST.010, ST.011
 - **DC (Documentation/Comments)**: DC.001
 - **IO (Input/Output)**: IO.001, IO.002, IO.003, IO.004, IO.005, IO.006, IO.007, IO.008, IO.009
 - **SC (Security Code)**: SC.001
@@ -99,8 +99,7 @@ git push origin v1
 - ST.004: Indentation character check (spaces only, no tabs)
 - ST.005: Indentation level check (2 spaces per level, excludes heredoc blocks in .tfvars files)
 - ST.006: Resource and data source spacing check (exactly 1 empty line between blocks)
-- ST.007: Same parameter block spacing check (≤1 empty line between same-name blocks)
-- ST.008: Different parameter type spacing check (exactly 1 empty line between basic parameters and parameter blocks)
+- ST.007: Parameter block spacing check
 - ST.009: Variable definition order check (variable definition order in `variables.tf` must match usage order in
   `main.tf`)
 - ST.010: Resource, data source, variable, and output quote check (double quotes around names)

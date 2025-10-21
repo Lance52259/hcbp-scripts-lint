@@ -176,8 +176,9 @@ data "huaweicloud_compute_flavors" "test" {
 
 ### ST.003 - Parameter Alignment with Equals Signs
 
-**Rule Description:** Validates that parameter assignments within resource, data source, provider, locals, terraform, and variable
-blocks have properly aligned equals signs. Also supports terraform.tfvars files for variable assignment alignment checking.
+**Rule Description:** Validates that parameter assignments within resource, data source, provider, locals, terraform,
+and variable blocks have properly aligned equals signs. Also supports terraform.tfvars files for variable assignment
+alignment checking.  
 All equals signs must align at the same column position for optimal readability.
 
 **Purpose:**
@@ -239,7 +240,9 @@ Properly handles complex data structures including arrays and objects in terrafo
 
 ### ST.006 - Block Spacing Check
 
-**Rule Description:** Validates that there is exactly one empty line between different Terraform blocks (resource, data source, variable, output, locals, terraform, provider). Comment lines between blocks do not count as spacing - blank lines are still required even when comments are present.
+**Rule Description:** Validates that there is exactly one empty line between different Terraform blocks (resource,
+data source, variable, output, locals, terraform, provider). Comment lines between blocks do not count as
+spacing - blank lines are still required even when comments are present.
 
 **Purpose:**
 - Improve code readability
@@ -254,24 +257,30 @@ Properly handles complex data structures including arrays and objects in terrafo
 - Supports all quote format combinations (quoted/unquoted type and name)
 - Comment lines do not count toward the required blank line count
 
-### ST.007 - Same Parameter Block Spacing Validation
+### ST.007 - Parameter Block Spacing Check
 
-**Rule Description:** Validates that there is at most one empty line between parameter blocks with the same name.
+**Rule Description:** Validates parameter block spacing within Terraform resource and data source blocks.  
+This rule combines functionality from the original ST.007 and ST.008 rules to ensure consistent spacing between
+different types of parameters: basic parameters, structure blocks, and dynamic blocks.
+
+**Validation Criteria:**
+- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic
+  blocks
+- **Same-name structure blocks**: 0-1 blank lines allowed between blocks with the same name (compact or single spacing)
+- **Adjacent dynamic blocks**: Exactly 1 blank line required between dynamic blocks
+- **Same-type basic parameters**: At most 1 blank line between basic parameters
+- **Structure and dynamic blocks with same name**: Exactly 1 blank line required
+
+**Parameter Types:**
+- **Basic parameters**: Simple key-value assignments (e.g., `name = "value"`)
+- **Structure blocks**: Nested parameter blocks (e.g., `data_disks { ... }`)
+- **Dynamic blocks**: Dynamic parameter blocks (e.g., `dynamic "data_disks" { ... }`)
 
 **Purpose:**
+- Improve code readability by creating clear visual separation between different parameter types
 - Maintain logical grouping of related parameters
-- Prevent excessive spacing between related blocks
-- Improve code organization
-
-### ST.008 - Different Parameter Type Spacing Validation
-
-**Rule Description:** Validates that there is exactly one empty line between different parameter types (basic parameters
-vs parameter blocks, different-named parameter blocks).
-
-**Purpose:**
-- Create clear visual separation between different parameter types
-- Improve code organization and readability
-- Enforce consistent spacing standards
+- Enforce consistent spacing standards within resource definitions
+- Support all parameter types including basic parameters, structure blocks, and dynamic blocks
 
 ### ST.009 - Variable Definition Order Validation
 
@@ -286,7 +295,8 @@ avoid interference with authentication and region configuration patterns.
 
 ### ST.010 - Resource, Data Source, Variable, Output, and Provider Quote Check
 
-**Rule Description:** Validates that all resource, data source, variable, output, and provider declarations use proper double quotes around their type and name declarations.
+**Rule Description:** Validates that all resource, data source, variable, output, and provider declarations use proper
+double quotes around their type and name declarations.
 
 **Purpose:**
 - Enforce proper double quote usage for all Terraform block declarations

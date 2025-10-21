@@ -19,8 +19,7 @@ st_rules/
 ├── rule_004.py   # ST.004 - Indentation character check
 ├── rule_005.py   # ST.005 - Indentation level check
 ├── rule_006.py   # ST.006 - Resource and data source spacing check
-├── rule_007.py   # ST.007 - Same parameter block spacing check
-├── rule_008.py   # ST.008 - Different parameter block spacing check
+├── rule_007.py   # ST.007 - Parameter block spacing check
 ├── rule_009.py   # ST.009 - Variable definition order check
 ├── rule_010.py   # ST.010 - Resource, data source, variable, and output quote check
 ├── rule_011.py   # ST.011 - Trailing whitespace check
@@ -39,8 +38,7 @@ st_rules/
 | ST.004 | Indentation character check | Ensures only spaces are used for indentation (no tabs) | `rule_004.py` |
 | ST.005 | Indentation level check | Validates consistent 2-space indentation levels. For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
-| ST.007 | Same parameter block spacing check | Validates spacing between same-named parameter blocks | `rule_007.py` |
-| ST.008 | Different parameter block spacing check | Ensures proper spacing between different parameter types | `rule_008.py` |
+| ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource blocks | `rule_007.py` |
 | ST.009 | Variable definition order check | Validates variable order consistency between files | `rule_009.py` |
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
@@ -125,21 +123,54 @@ the longest parameter name.
 - If only comment lines exist between blocks, this is acceptable
 - Comment lines do not count toward the required blank line count
 
-### ST.007 - Same Parameter Block Spacing Check
+### ST.007 - Parameter Block Spacing Check
 
-**Purpose**: Validates spacing between same-named parameter blocks.
-
-**Validation Criteria**:
-- Allows 0 or 1 empty line between same-named parameter blocks
-- Prevents excessive spacing within similar parameter groups
-
-### ST.008 - Different Parameter Block Spacing Check
-
-**Purpose**: Ensures proper spacing between different parameter types.
+**Purpose**: Validates parameter block spacing within Terraform resource and data source blocks.
 
 **Validation Criteria**:
-- Exactly 1 empty line required between basic parameters and parameter blocks
-- Consistent spacing between different parameter type combinations
+- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic blocks
+- **Same-name structure blocks**: 0-1 blank lines allowed between blocks with the same name (compact or single spacing)
+- **Adjacent dynamic blocks**: Exactly 1 blank line required between dynamic blocks
+- **Same-type basic parameters**: At most 1 blank line between basic parameters
+- **Structure and dynamic blocks with same name**: Exactly 1 blank line required
+
+**Parameter Types**:
+- **Basic parameters**: Simple key-value assignments (e.g., `name = "value"`)
+- **Structure blocks**: Nested parameter blocks (e.g., `data_disks { ... }`)
+- **Dynamic blocks**: Dynamic parameter blocks (e.g., `dynamic "data_disks" { ... }`)
+
+**Examples**:
+```hcl
+# Valid spacing
+resource "huaweicloud_compute_instance" "test" {
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+
+  data_disks {
+    type = "SSD"
+    size = 20
+  }
+
+  data_disks {
+    type = "SAS"
+    size = 40
+  }
+
+  dynamic "data_disks" {
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
+  }
+
+  network {
+    uuid = huaweicloud_vpc_subnet.test.id
+  }
+
+  tags = merge(local.system_tags, var.custom_tags)
+}
+```
 
 ### ST.009 - Variable Definition Order Check
 

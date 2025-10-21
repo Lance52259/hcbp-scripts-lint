@@ -36,7 +36,7 @@ GitHub Action shows exit code 1, indicating that the linting check found code er
   uses: ./
   with:
     directory: 'path/to/your/terraform'
-    ignore-rules: 'ST.008,ST.001'  # Ignore specific rules
+    ignore-rules: 'ST.001,ST.002'  # Ignore specific rules
 ```
 
 ### 2. "Provided artifact name input during validation is empty" Error

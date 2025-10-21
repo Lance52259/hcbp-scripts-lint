@@ -203,8 +203,7 @@ resource "huaweicloud_compute_instance" "test" {
 - **ST.004**: Indentation character validation (spaces only)
 - **ST.005**: Indentation level validation (2 spaces per level)
 - **ST.006**: Resource and data source spacing check
-- **ST.007**: Same parameter block spacing validation
-- **ST.008**: Different parameter block spacing validation
+- **ST.007**: Parameter block spacing check
 - **ST.009**: Variable definition order validation
 - **ST.010**: Quote usage consistency check
 - **ST.011**: Trailing whitespace detection
