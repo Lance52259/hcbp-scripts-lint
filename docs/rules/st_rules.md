@@ -37,7 +37,7 @@ st_rules/
 | ST.004 | Indentation character check | Ensures only spaces are used for indentation (no tabs) | `rule_004.py` |
 | ST.005 | Indentation level check | Validates consistent 2-space indentation levels. For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
-| ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource blocks | `rule_007.py` |
+| ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource, data source, provider, and terraform blocks | `rule_007.py` |
 | ST.008 | Meta-parameter spacing check | Validates spacing around meta-parameters (count, for_each, provider, lifecycle, depends_on) | `rule_008.py` |
 | ST.009 | Variable definition order check | Validates variable order consistency between files | `rule_009.py` |
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
@@ -291,7 +291,7 @@ the longest parameter name.
 
 ### ST.007 - Parameter Block Spacing Check
 
-**Purpose**: Validates parameter block spacing within Terraform resource and data source blocks.
+**Purpose**: Validates parameter block spacing within Terraform resource, data source, provider, and terraform blocks.
 
 **Validation Criteria**:
 - **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic
