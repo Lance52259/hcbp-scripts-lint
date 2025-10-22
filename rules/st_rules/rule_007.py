@@ -83,10 +83,10 @@ def check_st007_parameter_block_spacing(file_path: str, content: str, log_error_
     Validate parameter block spacing according to ST.007 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    parameter block spacing within resource and data source blocks.
+    parameter block spacing within resource, data source, provider, and terraform blocks.
 
     The validation process:
-    1. Parse content to identify all resource and data source blocks
+    1. Parse content to identify all resource, data source, provider, and terraform blocks
     2. Within each block, identify different types of parameters:
        - Basic parameters (name = value)
        - Structure blocks (name { ... })
@@ -105,15 +105,15 @@ def check_st007_parameter_block_spacing(file_path: str, content: str, log_error_
     Returns:
         None: Reports errors through the log_error_func callback
     """
-    resource_blocks = _extract_resource_blocks_with_parameters(content)
+    block_list = _extract_resource_blocks_with_parameters(content)
     
-    for resource_info in resource_blocks:
-        resource_name = resource_info['name']
-        parameters = resource_info['parameters']
+    for block_info in block_list:
+        block_name = block_info['name']
+        parameters = block_info['parameters']
         
         # Check spacing between consecutive parameters
         spacing_errors = _check_parameter_spacing_rules(
-            parameters, resource_name, content
+            parameters, block_name, content
         )
         
         for error_msg, line_num in spacing_errors:
@@ -122,13 +122,13 @@ def check_st007_parameter_block_spacing(file_path: str, content: str, log_error_
 
 def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     """
-    Extract all resource and data source blocks with their parameters.
+    Extract all resource, data source, provider, and terraform blocks with their parameters.
 
     Args:
         content (str): The Terraform file content
 
     Returns:
-        List[Dict]: List of resource information with parameters
+        List[Dict]: List of block information with parameters
     """
     lines = content.split('\n')
     resources = []
@@ -137,16 +137,24 @@ def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     while i < len(lines):
         line = lines[i].strip()
         
-        # Match resource or data blocks (support quoted, single-quoted, and unquoted syntax)
-        resource_match = re.match(r'(resource|data)\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{', line)
+        # Match resource, data, provider, or terraform blocks (support quoted, single-quoted, and unquoted syntax)
+        resource_match = re.match(r'(resource|data|provider|terraform)\s*(?:(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))(?:\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*)))?)?\s*\{', line)
         
         if resource_match:
             block_type = resource_match.group(1)
-            # Extract resource type (quoted, single-quoted, or unquoted)
-            resource_type = resource_match.group(2) if resource_match.group(2) else (resource_match.group(3) if resource_match.group(3) else resource_match.group(4))
-            # Extract resource name (quoted, single-quoted, or unquoted)
-            resource_name = resource_match.group(5) if resource_match.group(5) else (resource_match.group(6) if resource_match.group(6) else resource_match.group(7))
-            full_name = f'{block_type} "{resource_type}" "{resource_name}"'
+            
+            if block_type == 'provider':
+                # Provider blocks have only one name (no separate type and name)
+                provider_name = resource_match.group(2) if resource_match.group(2) else (resource_match.group(3) if resource_match.group(3) else resource_match.group(4))
+                full_name = f'{block_type} "{provider_name}"'
+            elif block_type == 'terraform':
+                # Terraform blocks have no name
+                full_name = f'{block_type}'
+            else:
+                # Resource and data blocks have both type and name
+                resource_type = resource_match.group(2) if resource_match.group(2) else (resource_match.group(3) if resource_match.group(3) else resource_match.group(4))
+                resource_name = resource_match.group(5) if resource_match.group(5) else (resource_match.group(6) if resource_match.group(6) else resource_match.group(7))
+                full_name = f'{block_type} "{resource_type}" "{resource_name}"'
             
             resource_start = i + 1
             
@@ -167,6 +175,12 @@ def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
             parameters = _extract_parameters_from_resource(
                 lines[resource_start-1:resource_end], resource_start
             )
+            
+            # Also extract parameters from nested structure blocks
+            nested_parameters = _extract_nested_parameters(
+                lines[resource_start-1:resource_end], resource_start
+            )
+            parameters.extend(nested_parameters)
             
             resources.append({
                 'name': full_name,
@@ -232,8 +246,8 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
             })
             
             i = j
-        elif nesting_level == 0:
-            # Look for structure blocks (parameter_name { ... })
+        else:
+            # Look for structure blocks (parameter_name { ... }) at any nesting level
             block_match = re.match(r'(\w+)\s*\{', line)
             
             if block_match:
@@ -264,19 +278,51 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                 
                 i = j
             else:
-                # Look for basic parameter assignments (parameter_name = value)
-                param_match = re.match(r'(\w+)\s*=', line)
+                # Look for structure block assignments (parameter_name = { ... }) first
+                structure_assignment_match = re.match(r'(\w+)\s*=\s*\{', line)
                 
-                if param_match:
-                    param_name = param_match.group(1)
+                if structure_assignment_match:
+                    # This is a structure block assignment
+                    param_name = structure_assignment_match.group(1)
                     param_line = resource_start_line + i
                     
+                    # Find the end of this structure block
+                    brace_count = 1
+                    j = i + 1
+                    
+                    while j < len(resource_lines) and brace_count > 0:
+                        current_line = resource_lines[j]
+                        for char in current_line:
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                        j += 1
+                    
+                    block_end = resource_start_line + j - 1
+                    
                     parameters.append({
-                        'type': 'basic',
+                        'type': 'structure',
                         'name': param_name,
                         'start_line': param_line,
-                        'end_line': param_line
+                        'end_line': block_end
                     })
+                    
+                    i = j
+                else:
+                    # Look for basic parameter assignments (parameter_name = value)
+                    param_match = re.match(r'(\w+)\s*=', line)
+                    
+                    if param_match:
+                        param_name = param_match.group(1)
+                        param_line = resource_start_line + i
+                        
+                        parameters.append({
+                            'type': 'basic',
+                            'name': param_name,
+                            'start_line': param_line,
+                            'end_line': param_line
+                        })
                 
                 # Track nesting level for other constructs
                 for char in line:
@@ -285,25 +331,86 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                     elif char == '}':
                         nesting_level -= 1
                 i += 1
-        else:
-            # Track nesting level for nested constructs
-            for char in line:
-                if char == '{':
-                    nesting_level += 1
-                elif char == '}':
-                    nesting_level -= 1
-            i += 1
     
     return parameters
 
 
-def _check_parameter_spacing_rules(parameters: List[Dict], resource_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
+def _extract_nested_parameters(resource_lines: List[str], resource_start_line: int) -> List[Dict]:
+    """
+    Extract parameters from nested structure blocks like required_providers.
+    
+    Args:
+        resource_lines (List[str]): Lines of the resource block
+        resource_start_line (int): Starting line number of the resource
+        
+    Returns:
+        List[Dict]: List of nested parameter information
+    """
+    nested_parameters = []
+    i = 1  # Skip the resource declaration line
+    
+    while i < len(resource_lines):
+        line = resource_lines[i].strip()
+        
+        if not line or line.startswith('#'):
+            i += 1
+            continue
+        
+        # Look for structure blocks (parameter_name { ... })
+        block_match = re.match(r'(\w+)\s*\{', line)
+        
+        if block_match:
+            param_name = block_match.group(1)
+            block_start = resource_start_line + i
+            
+            # Find the end of this structure block
+            brace_count = 1
+            j = i + 1
+            
+            while j < len(resource_lines) and brace_count > 0:
+                current_line = resource_lines[j]
+                for char in current_line:
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                j += 1
+            
+            block_end = resource_start_line + j - 1
+            
+            # Extract parameters from within this structure block
+            structure_parameters = _extract_parameters_from_resource(
+                resource_lines[i:j], block_start
+            )
+            
+            # Add the structure block itself as a parameter
+            nested_parameters.append({
+                'type': 'structure',
+                'name': param_name,
+                'start_line': block_start,
+                'end_line': block_end
+            })
+            
+            # Add parameters from within the structure block with proper nesting context
+            for structure_param in structure_parameters:
+                # Mark these parameters as belonging to the structure block
+                structure_param['parent_block'] = param_name
+                nested_parameters.append(structure_param)
+            
+            i = j
+        else:
+            i += 1
+    
+    return nested_parameters
+
+
+def _check_parameter_spacing_rules(parameters: List[Dict], block_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
     """
     Check spacing rules between consecutive parameters.
 
     Args:
         parameters (List[Dict]): List of parameters in order
-        resource_name (str): The resource containing these parameters
+        block_name (str): The block containing these parameters
         content (str): The full file content
 
     Returns:
@@ -338,7 +445,22 @@ def _check_parameter_spacing_rules(parameters: List[Dict], resource_name: str, c
                     blank_lines = 0
         
         # Apply spacing rules based on parameter types
-        error_msg = _check_spacing_rule(current_param, next_param, blank_lines, resource_name)
+        # Skip spacing check if one parameter is inside a structure block and the other is the structure block itself
+        if (current_param.get('parent_block') and next_param['name'] == current_param['parent_block']) or \
+           (next_param.get('parent_block') and current_param['name'] == next_param['parent_block']):
+            continue
+            
+        # Skip spacing check for meta-parameters (these are handled by ST.008)
+        meta_parameters = {'count', 'for_each', 'provider', 'lifecycle', 'depends_on'}
+        if current_param['name'] in meta_parameters or next_param['name'] in meta_parameters:
+            continue
+            
+        # Skip spacing check for dynamic blocks and their content (these are handled by ST.008)
+        if (current_param['type'] == 'dynamic' and next_param['type'] == 'structure') or \
+           (current_param['type'] == 'structure' and next_param['type'] == 'dynamic'):
+            continue
+            
+        error_msg = _check_spacing_rule(current_param, next_param, blank_lines, block_name)
         if error_msg:
             # Find the first non-empty non-comment line after the problem for error reporting
             error_line = _find_error_reporting_line(lines, current_end, next_start)
@@ -347,7 +469,7 @@ def _check_parameter_spacing_rules(parameters: List[Dict], resource_name: str, c
     return errors
 
 
-def _check_spacing_rule(param1: Dict, param2: Dict, blank_lines: int, resource_name: str) -> Optional[str]:
+def _check_spacing_rule(param1: Dict, param2: Dict, blank_lines: int, block_name: str) -> Optional[str]:
     """
     Check specific spacing rules based on parameter types.
 
@@ -355,7 +477,7 @@ def _check_spacing_rule(param1: Dict, param2: Dict, blank_lines: int, resource_n
         param1 (Dict): First parameter
         param2 (Dict): Second parameter
         blank_lines (int): Number of blank lines between parameters
-        resource_name (str): The resource name
+        block_name (str): The block name
 
     Returns:
         Optional[str]: Error message if violation found, None otherwise
@@ -365,44 +487,44 @@ def _check_spacing_rule(param1: Dict, param2: Dict, blank_lines: int, resource_n
         (param1['type'] == 'dynamic' and param2['type'] == 'structure' and param1['name'] == param2['name'])):
         if blank_lines != 1:
             if blank_lines == 0:
-                return f"Missing blank line between structure block and dynamic block '{param1['name']}' in {resource_name} (1 blank line is expected)"
+                return f"Missing blank line between structure block and dynamic block '{param1['name']}' in {block_name} (1 blank line is expected)"
             else:
-                return f"Found {blank_lines} blank lines between structure block and dynamic block '{param1['name']}' in {resource_name}. Use exactly one blank line between structure and dynamic blocks"
+                return f"Found {blank_lines} blank lines between structure block and dynamic block '{param1['name']}' in {block_name}. Use exactly one blank line between structure and dynamic blocks"
     
     # Rule 2: Same-name structure blocks must have 0-1 blank lines
     elif param1['type'] == 'structure' and param2['type'] == 'structure' and param1['name'] == param2['name']:
         if blank_lines > 1:
-            return f"Found {blank_lines} blank lines between same-name structure blocks '{param1['name']}' in {resource_name}. Use 0-1 blank lines between same-name structure blocks (Maximum 1 blank line)"
+            return f"Found {blank_lines} blank lines between same-name structure blocks '{param1['name']}' in {block_name}. Use 0-1 blank lines between same-name structure blocks (Maximum 1 blank line)"
     
     # Rule 3: Adjacent dynamic blocks must have exactly 1 blank line
     elif param1['type'] == 'dynamic' and param2['type'] == 'dynamic':
         if blank_lines != 1:
             if blank_lines == 0:
-                return f"Missing blank line between dynamic blocks '{param1['name']}' and '{param2['name']}' in {resource_name} (1 blank line is expected)"
+                return f"Missing blank line between dynamic blocks '{param1['name']}' and '{param2['name']}' in {block_name} (1 blank line is expected)"
             else:
-                return f"Found {blank_lines} blank lines between dynamic blocks '{param1['name']}' and '{param2['name']}' in {resource_name}. Use exactly one blank line between dynamic blocks"
+                return f"Found {blank_lines} blank lines between dynamic blocks '{param1['name']}' and '{param2['name']}' in {block_name}. Use exactly one blank line between dynamic blocks"
     
     # Rule 4: Different-named structure blocks must have exactly 1 blank line
     elif param1['type'] == 'structure' and param2['type'] == 'structure' and param1['name'] != param2['name']:
         if blank_lines != 1:
             if blank_lines == 0:
-                return f"Missing blank line between different-named structure blocks '{param1['name']}' and '{param2['name']}' in {resource_name} (1 blank line is expected)"
+                return f"Missing blank line between different-named structure blocks '{param1['name']}' and '{param2['name']}' in {block_name} (1 blank line is expected)"
             else:
-                return f"Found {blank_lines} blank lines between different-named structure blocks '{param1['name']}' and '{param2['name']}' in {resource_name}. Use exactly one blank line between different-named structure blocks"
+                return f"Found {blank_lines} blank lines between different-named structure blocks '{param1['name']}' and '{param2['name']}' in {block_name}. Use exactly one blank line between different-named structure blocks"
     
     # Rule 5: Different parameter types must have exactly 1 blank line
     elif param1['type'] != param2['type']:
         if blank_lines != 1:
             type_desc = _get_parameter_type_description(param1, param2)
             if blank_lines == 0:
-                return f"Missing blank line between {type_desc} '{param1['name']}' and '{param2['name']}' in {resource_name} (1 blank line is expected)"
+                return f"Missing blank line between {type_desc} '{param1['name']}' and '{param2['name']}' in {block_name} (1 blank line is expected)"
             else:
-                return f"Found {blank_lines} blank lines between {type_desc} '{param1['name']}' and '{param2['name']}' in {resource_name}. Use exactly one blank line between different parameter types"
+                return f"Found {blank_lines} blank lines between {type_desc} '{param1['name']}' and '{param2['name']}' in {block_name}. Use exactly one blank line between different parameter types"
     
     # Rule 6: Same-type basic parameters should not have excessive blank lines (max 1)
     elif param1['type'] == 'basic' and param2['type'] == 'basic':
         if blank_lines > 1:
-            return f"Found {blank_lines} blank lines between basic parameters '{param1['name']}' and '{param2['name']}' in {resource_name}. Use at most 1 blank line between basic parameters"
+            return f"Found {blank_lines} blank lines between basic parameters '{param1['name']}' and '{param2['name']}' in {block_name}. Use at most 1 blank line between basic parameters"
     
     return None
 
@@ -467,7 +589,7 @@ def get_rule_description() -> dict:
         "id": "ST.007",
         "name": "Parameter block spacing check",
         "description": (
-            "Validates parameter block spacing within Terraform resource and data source blocks. "
+            "Validates parameter block spacing within Terraform resource, data source, provider, and terraform blocks. "
             "This ensure consistent spacing between different types of parameters: basic parameters, structure "
             "blocks, and dynamic blocks."
         ),
@@ -476,8 +598,8 @@ def get_rule_description() -> dict:
         "rationale": (
             "Proper spacing between different parameter types improves code readability by creating "
             "clear visual separation between basic parameter definitions, structure blocks, and "
-            "dynamic blocks. This makes it easier to scan through resource definitions and "
-            "understand the logical organization of configuration parameters."
+            "dynamic blocks. This makes it easier to scan through resource, data source, provider, "
+            "and terraform definitions and understand the logical organization of configuration parameters."
         ),
         "examples": {
             "valid": [
