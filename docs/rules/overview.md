@@ -41,6 +41,7 @@ rules/
 │   ├── rule_005.py             # ST.005 - Indentation level check
 │   ├── rule_006.py             # ST.006 - Resource spacing check
 │   ├── rule_007.py             # ST.007 - Same parameter block spacing
+│   ├── rule_008.py             # ST.008 - Meta-parameter spacing check
 │   ├── rule_009.py             # ST.009 - Variable definition order check
 │   ├── rule_010.py             # ST.010 - Quote usage consistency check
 │   ├── rule_011.py             # ST.011 - Trailing whitespace check
@@ -280,6 +281,76 @@ dynamic blocks.
 - Maintain logical grouping of related parameters
 - Enforce consistent spacing standards within resource definitions
 - Support all parameter types including basic parameters, structure blocks, and dynamic blocks
+
+### ST.008 - Meta-parameter Spacing Check
+
+**Rule Description:** Validates proper spacing around meta-parameters within Terraform resource and data source blocks.  
+This rule ensures consistent spacing between meta-parameters (count, for_each, provider, lifecycle, depends_on) and
+other parameters.
+
+**Validation Criteria:**
+- **Meta-parameters**: count, for_each, provider, lifecycle, depends_on
+- **Meta-parameter to meta-parameter**: Exactly 1 blank line required between different meta-parameters
+- **Meta-parameter to non-meta-parameter**: Exactly 1 blank line required between meta-parameters and other parameters
+  (only when no other meta-parameters are present between them)
+- **First meta-parameter**: No blank lines allowed before the first meta-parameter in a block
+- **Dynamic block for_each**: for_each inside dynamic blocks should be tightly coupled with the dynamic keyword (no
+  blank line)
+
+**Special Cases:**
+- When meta-parameters are adjacent to other meta-parameters, only check spacing between these meta-parameters
+- When meta-parameters are followed by non-meta-parameters, check spacing only if there are no other meta-parameters
+  between them
+- for_each inside dynamic blocks is treated as a special case and should be tightly coupled with the dynamic keyword
+
+**Purpose:**
+- Improve code readability by creating clear visual separation between meta-parameters and other parameters
+- Maintain logical grouping of related parameters
+- Enforce consistent spacing standards for meta-parameters
+- Support all meta-parameter types including count, for_each, provider, lifecycle, and depends_on
+
+**Error Example:**
+```hcl
+# ❌ Error: Incorrect meta-parameter spacing
+resource "huaweicloud_compute_instance" "test" {
+  # ST.008 Error: There is a blank line definition ahead of the count meta-parameter
+  count = var.instance_count > 0 ? 1 : 0
+
+  # ST.008 Error: There is no blank line between the count meta-parameter and other parameters
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+
+  # ST.008 Error: There are too many blank lines between the depends_on meta-parameter and other parameters
+
+
+  depends_on = [huaweicloud_vpc.test]
+}
+```
+
+**Correct Example:**
+```hcl
+# ✅ Correct: Proper meta-parameter spacing
+resource "huaweicloud_compute_instance" "test" {
+  count = var.instance_count > 0 ? 1 : 0
+
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+
+  depends_on = [huaweicloud_vpc.test]
+
+  dynamic "data_disks" {
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+```
 
 ### ST.009 - Variable Definition Order Validation
 

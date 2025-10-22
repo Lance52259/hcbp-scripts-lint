@@ -1,6 +1,17 @@
 
 # ST.012 Error: This file has a empty line before the first non-empty line
 # Variables definition
+variable "availability_zone" {
+  description = "The availability zone where the resources will be created"
+  type        = string
+  default     = ""
+}
+
+variable "instance_flavor_id" {
+  description = "The ID of the flavor that ECS instance will use"
+  type        = string
+  default     = ""
+}
 
 # ST.010 Error: Variable name is without quotes
 variable instance_flavor_performance_type {
@@ -51,6 +62,12 @@ variable "instance_image_visibility" {
   description = "The visibility of the image that ECS instance will use"
   type        = string
   default     = "public"
+}
+
+variable "vpc_id" {
+  description = "The ID of the VPC"
+  type        = string
+  default     = ""
 }
 
 variable "vpc_name" {
@@ -108,6 +125,14 @@ variable "data_disks_configurations" {
 variable "custom_tags" {
   description = "The custom tags of the ECS instance"
   type        = map(string)
+}
+
+variable "volumes_configurations" {
+  description = "The volumes configurations for the ECS instance"
+  type        = list(object({
+    type = string
+    size = number
+  }))
 }
 
 # IO.004 Error: Variable name starts with underscore

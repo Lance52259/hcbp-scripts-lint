@@ -26,6 +26,14 @@ region           = var.region_name # ST.005 Error: 0 space found, not 2 spaces
 
 
 # ST.006 Error: Too many empty lines between provider blocks
+provider "huaweicloud" {
+  alias          = "test"
+  region         = var.region_name
+  access_key     = var.access_key
+  secret_key     = var.secret_key
+  security_token = var.security_token
+}
+# ST.006 Error: Missing blank line between two provider blocks
 # ST.010 Error: Missing quotes around provider type
 provider kubernetes {
   host = "https://${var.eip_address}:5443"
