@@ -18,6 +18,7 @@ st_rules/
 ├── rule_005.py   # ST.005 - Indentation level check
 ├── rule_006.py   # ST.006 - Resource and data source spacing check
 ├── rule_007.py   # ST.007 - Parameter block spacing check
+├── rule_008.py   # ST.008 - Meta-parameter spacing check
 ├── rule_009.py   # ST.009 - Variable definition order check
 ├── rule_010.py   # ST.010 - Resource, data source, variable, and output quote check
 ├── rule_011.py   # ST.011 - Trailing whitespace check
@@ -37,6 +38,7 @@ st_rules/
 | ST.005 | Indentation level check | Validates consistent 2-space indentation levels. For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
 | ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource blocks | `rule_007.py` |
+| ST.008 | Meta-parameter spacing check | Validates spacing around meta-parameters (count, for_each, provider, lifecycle, depends_on) | `rule_008.py` |
 | ST.009 | Variable definition order check | Validates variable order consistency between files | `rule_009.py` |
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
@@ -281,7 +283,8 @@ the longest parameter name.
 **Purpose**: Ensures proper spacing between all Terraform blocks.
 
 **Validation Criteria**:
-- Exactly 1 empty line required between different blocks (resource, data source, variable, output, locals, terraform, provider)
+- Exactly 1 empty line required between different blocks (resource, data source, variable, output, locals, terraform,
+  provider)
 - No excessive spacing between blocks
 - Comment lines between blocks do not count as spacing - blank lines are still required
 - Supports all quote format combinations (quoted/unquoted type and name)
@@ -291,7 +294,8 @@ the longest parameter name.
 **Purpose**: Validates parameter block spacing within Terraform resource and data source blocks.
 
 **Validation Criteria**:
-- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic blocks
+- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic
+  blocks
 - **Same-name structure blocks**: 0-1 blank lines allowed between blocks with the same name (compact or single spacing)
 - **Adjacent dynamic blocks**: Exactly 1 blank line required between dynamic blocks
 - **Same-type basic parameters**: At most 1 blank line between basic parameters
@@ -332,6 +336,65 @@ resource "huaweicloud_compute_instance" "test" {
   }
 
   tags = merge(local.system_tags, var.custom_tags)
+}
+```
+
+### ST.008 - Meta-parameter Spacing Check
+
+**Purpose**: Validates proper spacing around meta-parameters within Terraform resource and data source blocks.
+
+**Validation Criteria**:
+- **Meta-parameters**: count, for_each, provider, lifecycle, depends_on
+- **Meta-parameter to meta-parameter**: Exactly 1 blank line required between different meta-parameters
+- **Meta-parameter to non-meta-parameter**: Exactly 1 blank line required between meta-parameters and other parameters
+  (only when no other meta-parameters are present between them)
+- **First meta-parameter**: No blank lines allowed before the first meta-parameter in a block
+- **Dynamic block for_each**: for_each inside dynamic blocks should be tightly coupled with the dynamic keyword (no
+  blank line)
+
+**Special Cases**:
+- When meta-parameters are adjacent to other meta-parameters, only check spacing between these meta-parameters
+- When meta-parameters are followed by non-meta-parameters, check spacing only if there are no other meta-parameters
+  between them
+- for_each inside dynamic blocks is treated as a special case and should be tightly coupled with the dynamic keyword
+
+**Examples**:
+```hcl
+# Valid spacing
+resource "huaweicloud_compute_instance" "test" {
+  count = var.instance_count > 0 ? 1 : 0
+
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+
+  depends_on = [huaweicloud_vpc.test]
+
+  dynamic "data_disks" {
+    for_each = var.data_disks_configurations
+    content {
+      type = data_disks.value.type
+      size = data_disks.value.size
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Invalid spacing examples
+resource "huaweicloud_compute_instance" "invalid" {
+  # ST.008 Error: There is a blank line definition ahead of the count meta-parameter
+  count = var.instance_count > 0 ? 1 : 0
+
+  # ST.008 Error: There is no blank line between the count meta-parameter and other parameters
+  name = var.instance_name
+  flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
+
+  # ST.008 Error: There are too many blank lines between the depends_on meta-parameter and other parameters
+
+
+  depends_on = [huaweicloud_vpc.test]
 }
 ```
 

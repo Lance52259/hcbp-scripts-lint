@@ -16,6 +16,7 @@ resources for using and contributing to the project.
 ### 📋 Rules Reference
 - **[Rules Overview](rules/overview.md)** - Complete rules documentation
 - **[ST Rules](rules/st_rules.md)** - Style and Format rules
+- **[ST.008 Meta-parameter Spacing](rules/st008_meta_parameter_spacing.md)** - Detailed ST.008 rule documentation
 - **[IO Rules](rules/io_rules.md)** - Input/Output rules
 - **[DC Rules](rules/dc_rules.md)** - Documentation and Comments rules
 - **[SC Rules](rules/sc_rules.md)** - Security Code rules

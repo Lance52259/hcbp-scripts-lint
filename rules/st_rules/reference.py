@@ -26,6 +26,7 @@ from .rule_004 import check_st004_indentation_character, get_rule_description as
 from .rule_005 import check_st005_indentation_level, get_rule_description as get_st005_description
 from .rule_006 import check_st006_resource_spacing, get_rule_description as get_st006_description
 from .rule_007 import check_st007_parameter_block_spacing, get_rule_description as get_st007_description
+from .rule_008 import check_st008_count_depends_on_spacing, get_rule_description as get_st008_description
 from .rule_009 import check_st009_variable_order, get_rule_description as get_st009_description
 from .rule_010 import check_st010_quote_usage, get_rule_description as get_st010_description
 from .rule_011 import check_st011_trailing_whitespace, get_rule_description as get_st011_description
@@ -95,6 +96,12 @@ class STRules:
                 "check_function": check_st007_parameter_block_spacing,
                 "description_function": get_st007_description,
                 "name": "Parameter block spacing check",
+                "status": "modular"
+            },
+            "ST.008": {
+                "check_function": check_st008_count_depends_on_spacing,
+                "description_function": get_st008_description,
+                "name": "Count and depends_on spacing check",
                 "status": "modular"
             },
             "ST.009": {

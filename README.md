@@ -14,7 +14,7 @@ Get up and running in 5 minutes with our comprehensive Terraform linting tool. W
 local development, we provide everything you need to ensure code quality and consistency across your Terraform projects.
 
 **Key Features:**
-- 29 Linting Rules across 4 categories (ST, IO, DC, SC)
+- 30 Linting Rules across 4 categories (ST, IO, DC, SC)
 - GitHub Actions Integration with artifact support
 - Performance Monitoring and detailed reporting
 - Flexible Configuration with rule filtering and path exclusion
@@ -204,6 +204,7 @@ resource "huaweicloud_compute_instance" "test" {
 - **ST.005**: Indentation level validation (2 spaces per level)
 - **ST.006**: Resource and data source spacing check
 - **ST.007**: Parameter block spacing check
+- **ST.008**: Meta-parameter spacing check
 - **ST.009**: Variable definition order validation
 - **ST.010**: Quote usage consistency check
 - **ST.011**: Trailing whitespace detection
