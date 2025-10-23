@@ -355,28 +355,43 @@ resource "huaweicloud_vpc_subnet" "test" {  # Too many empty lines
 
 ### ST.007 - Parameter Block Spacing Check
 
-**Rule Description:** Validates parameter block spacing within Terraform resource and data source blocks.
-This rule ensure consistent spacing between different types of parameters: basic parameters, structure blocks, and
-dynamic blocks.
+**Rule Description:** Validates parameter block spacing within Terraform resource, data source, provider, terraform,
+and locals blocks.  
+This rule ensures consistent spacing between different types of parameters across all supported parameter types.
 
 **Validation Criteria:**
-- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic
-  blocks
+- **Different parameter types**: Exactly 1 blank line required between different parameter types
 - **Same-name structure blocks**: 0-1 blank lines allowed between blocks with the same name (compact or single spacing)
 - **Adjacent dynamic blocks**: Exactly 1 blank line required between dynamic blocks
 - **Same-type basic parameters**: At most 1 blank line between basic parameters
+- **Same-type required provider blocks**: 0-1 blank lines allowed between required provider blocks (even with different
+  names)
 - **Structure and dynamic blocks with same name**: Exactly 1 blank line required
 
 **Parameter Types:**
-- **Basic Parameters**: Simple key-value assignments (e.g., `name = "value"`, `flavor_id = "c6.large.2"`)
-- **Structure Blocks**: Nested parameter blocks (e.g., `data_disks { ... }`, `network { ... }`)
-- **Dynamic Blocks**: Dynamic parameter blocks (e.g., `dynamic "data_disks" { ... }`)
+
+1. **Basic Parameter**: Simple key-value assignments including numbers, strings, booleans, and single-line conditional
+   expressions
+2. **Advanced Parameter**: Map or array assignments with equals sign before curly brace (distinguished from structure
+   blocks)
+3. **Structure Block**: Nested parameter blocks without equals sign before curly brace
+4. **Dynamic Block**: Dynamic parameter blocks using the dynamic keyword
+5. **Required Provider Block**: Provider assignments within terraform.required_providers block
+6. **Provider Block**: Provider configuration blocks
+
+**Spacing Rules:**
+- **Different parameter types**: Exactly 1 blank line required
+- **Same-type basic parameters**: 0-1 blank lines allowed
+- **Same-type structure blocks with same name**: 0-1 blank lines allowed
+- **Same-type required provider blocks**: 0-1 blank lines allowed (special case)
+- **All other combinations**: Exactly 1 blank line required
 
 **Purpose:**
 - Improve code readability by creating clear visual separation between different parameter types
 - Maintain logical grouping of related parameters
 - Enforce consistent spacing standards within resource definitions
-- Support all parameter types including basic parameters, structure blocks, and dynamic blocks
+- Support all parameter types including basic parameters, advanced parameters, structure blocks, dynamic blocks,
+  required provider blocks, and provider blocks
 
 **Good Example:**
 ```hcl

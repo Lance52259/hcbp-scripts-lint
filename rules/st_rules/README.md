@@ -38,7 +38,7 @@ st_rules/
 | ST.004 | Indentation character check | Ensures only spaces are used for indentation (no tabs) | `rule_004.py` |
 | ST.005 | Indentation level check | Validates consistent 2-space indentation levels. For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
-| ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource blocks | `rule_007.py` |
+| ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource, data source, provider, terraform, and locals blocks | `rule_007.py` |
 | ST.009 | Variable definition order check | Validates variable order consistency between files | `rule_009.py` |
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
@@ -125,37 +125,119 @@ the longest parameter name.
 
 ### ST.007 - Parameter Block Spacing Check
 
-**Purpose**: Validates parameter block spacing within Terraform resource and data source blocks.
+**Purpose**: Validates parameter block spacing within Terraform resource, data source, provider, terraform, and locals
+blocks.
 
 **Validation Criteria**:
-- **Different parameter types**: Exactly 1 blank line required between basic parameters, structure blocks, and dynamic blocks
+- **Different parameter types**: Exactly 1 blank line required between different parameter types
 - **Same-name structure blocks**: 0-1 blank lines allowed between blocks with the same name (compact or single spacing)
 - **Adjacent dynamic blocks**: Exactly 1 blank line required between dynamic blocks
 - **Same-type basic parameters**: At most 1 blank line between basic parameters
+- **Same-type required provider blocks**: 0-1 blank lines allowed between required provider blocks (even with different
+  names)
 - **Structure and dynamic blocks with same name**: Exactly 1 blank line required
 
 **Parameter Types**:
-- **Basic parameters**: Simple key-value assignments (e.g., `name = "value"`)
-- **Structure blocks**: Nested parameter blocks (e.g., `data_disks { ... }`)
-- **Dynamic blocks**: Dynamic parameter blocks (e.g., `dynamic "data_disks" { ... }`)
+
+1. **Basic Parameter**: Simple key-value assignments including numbers, strings, booleans, and single-line conditional
+   expressions
+
+   ```hcl
+   name = var.instance_name
+   count = var.instance_count > 0 ? 1 : 0
+   enabled = true
+   ```
+
+2. **Advanced Parameter**: Map or array assignments with equals sign before curly brace (distinguished from structure
+   blocks)
+
+   ```hcl
+   tags = {
+     Environment = "production"
+     Owner = "team"
+   }
+   security_groups = ["sg-12345", "sg-67890"]
+   ```
+
+3. **Structure Block**: Nested parameter blocks without equals sign before curly brace
+
+   ```hcl
+   data_disks {
+     type = "SSD"
+     size = 20
+   }
+   network {
+     uuid = huaweicloud_vpc_subnet.test.id
+   }
+   ```
+
+4. **Dynamic Block**: Dynamic parameter blocks using the dynamic keyword
+
+   ```hcl
+   dynamic "data_disks" {
+     for_each = var.data_disks_configurations
+     content {
+       type = data_disks.value.type
+       size = data_disks.value.size
+     }
+   }
+   ```
+
+5. **Required Provider Block**: Provider assignments within terraform.required_providers block
+
+   ```hcl
+   terraform {
+     required_providers {
+       huaweicloud = {
+         source = "huaweicloud/huaweicloud"
+         version = ">= 1.57.0"
+       }
+       kubernetes = {
+         source = "hashicorp/kubernetes"
+         version = ">= 1.6.2"
+       }
+     }
+   }
+   ```
+
+6. **Provider Block**: Provider configuration blocks
+
+   ```hcl
+   provider "huaweicloud" {
+     region = var.region_name
+     access_key = var.access_key
+     secret_key = var.secret_key
+   }
+   ```
+
+**Spacing Rules**:
+- **Different parameter types**: Exactly 1 blank line required
+- **Same-type basic parameters**: 0-1 blank lines allowed
+- **Same-type structure blocks with same name**: 0-1 blank lines allowed
+- **Same-type required provider blocks**: 0-1 blank lines allowed (special case)
+- **All other combinations**: Exactly 1 blank line required
 
 **Examples**:
 ```hcl
 # Valid spacing
 resource "huaweicloud_compute_instance" "test" {
+  # Basic parameters
   name = var.instance_name
   flavor_id = data.huaweicloud_compute_flavors.test.flavors[0].id
 
+  # Structure block
   data_disks {
     type = "SSD"
     size = 20
   }
 
+  # Same-name structure block (0-1 blank lines allowed)
   data_disks {
     type = "SAS"
     size = 40
   }
 
+  # Dynamic block
   dynamic "data_disks" {
     for_each = var.data_disks_configurations
     content {
@@ -164,11 +246,25 @@ resource "huaweicloud_compute_instance" "test" {
     }
   }
 
-  network {
-    uuid = huaweicloud_vpc_subnet.test.id
-  }
-
+  # Advanced parameter
   tags = merge(local.system_tags, var.custom_tags)
+}
+
+# Valid terraform block spacing
+terraform {
+  required_version = ">= 1.9.0"
+
+  required_providers {
+    huaweicloud = {
+      source = "huaweicloud/huaweicloud"
+      version = ">= 1.57.0"
+    }
+
+    kubernetes = {
+      source = "hashicorp/kubernetes"
+      version = ">= 1.6.2"
+    }
+  }
 }
 ```
 

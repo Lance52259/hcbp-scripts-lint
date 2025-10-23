@@ -167,16 +167,16 @@ output:
 ## 🎯 Rule Categories
 
 ### ST Rules (Style/Format)
-- **ST.001**: File naming convention check
-- **ST.002**: Directory structure validation
-- **ST.003**: Resource naming standards
-- **ST.004**: Variable naming conventions
-- **ST.005**: Output naming standards
-- **ST.006**: Data source naming
-- **ST.007**: Module naming conventions
+- **ST.001**: Resource and data source naming convention check
+- **ST.002**: Variable default value check
+- **ST.003**: Parameter alignment check
+- **ST.004**: Indentation character check
+- **ST.005**: Indentation level check
+- **ST.006**: Resource and data source spacing check
+- **ST.007**: Parameter block spacing check
 - **ST.008**: Meta-parameter spacing check
-- **ST.009**: Locals naming conventions
-- **ST.010**: Terraform block validation
+- **ST.009**: Variable definition order check
+- **ST.010**: Resource, data source, variable, and output quote check
 - **ST.011**: Comment formatting standards
 - **ST.012**: Indentation and spacing
 - **ST.013**: Directory naming convention check
