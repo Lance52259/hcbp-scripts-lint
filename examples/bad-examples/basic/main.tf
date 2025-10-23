@@ -229,6 +229,13 @@ resource "huaweicloud_evs_volumes" "test" {
 }
 
 resource "huaweicloud_compute_volume_attach" "test" {
+  depends_on = [
+    huaweicloud_compute_instance.test
+    huaweicloud_evs_volumes.test
+  ]
+
+
+  # ST.008 Error: There are too many blank lines between the depends_on meta-parameter and for_each meta-parameter
   for_each = var.volumes_configurations
 
 
