@@ -5,15 +5,21 @@
 
 locals {
   is_instance_flavors_available = data.huaweicloud_compute_flavors.test.flavors[0].id != null
+
+
   # ST.003 Error: Missing space before equals sign
   # ST.003 Error: Multiple spaces after equals sign
   # ST.003 Error: Equals sign not aligned (with line 7)
+  # ST.007 Error: Too many empty lines between different parameter blocks
   system_tags=  {
     "Environment" = "Development" # The alignment of this line is correct
     # ST.003 Error: Equals sign not aligned
     # ST.003 Error: Missing space before equals sign
     # ST.003 Error: Missing space after equals sign
     "Usage"="Tool"
+
+
+    # ST.007 Error: Too many empty lines between different parameter blocks
     "Owner"       =  "DevOps"  # ST.003 Error: Multiple spaces after equals sign and the alignment of this line is correct (already aligned with line 12)
     "Project"     ="Terraform" # ST.003 Error: Missing space after equals sign and the alignment of this line is correct (already aligned with line 12)
   }
