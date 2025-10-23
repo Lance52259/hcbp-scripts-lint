@@ -83,10 +83,10 @@ def check_st007_parameter_block_spacing(file_path: str, content: str, log_error_
     Validate parameter block spacing according to ST.007 rule specifications.
 
     This function scans through the provided Terraform file content and validates
-    parameter block spacing within resource, data source, provider, and terraform blocks.
+    parameter block spacing within resource, data source, provider, terraform, and locals blocks.
 
     The validation process:
-    1. Parse content to identify all resource, data source, provider, and terraform blocks
+    1. Parse content to identify all resource, data source, provider, terraform, and locals blocks
     2. Within each block, identify different types of parameters:
        - Basic parameters (name = value)
        - Structure blocks (name { ... })
@@ -122,7 +122,7 @@ def check_st007_parameter_block_spacing(file_path: str, content: str, log_error_
 
 def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     """
-    Extract all resource, data source, provider, and terraform blocks with their parameters.
+    Extract all resource, data source, provider, terraform, and locals blocks with their parameters.
 
     Args:
         content (str): The Terraform file content
@@ -137,8 +137,8 @@ def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     while i < len(lines):
         line = lines[i].strip()
         
-        # Match resource, data, provider, or terraform blocks (support quoted, single-quoted, and unquoted syntax)
-        resource_match = re.match(r'(resource|data|provider|terraform)\s*(?:(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))(?:\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*)))?)?\s*\{', line)
+        # Match resource, data, provider, terraform, or locals blocks (support quoted, single-quoted, and unquoted syntax)
+        resource_match = re.match(r'(resource|data|provider|terraform|locals)\s*(?:(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))(?:\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*)))?)?\s*\{', line)
         
         if resource_match:
             block_type = resource_match.group(1)
@@ -149,6 +149,9 @@ def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
                 full_name = f'{block_type} "{provider_name}"'
             elif block_type == 'terraform':
                 # Terraform blocks have no name
+                full_name = f'{block_type}'
+            elif block_type == 'locals':
+                # Locals blocks have no name
                 full_name = f'{block_type}'
             else:
                 # Resource and data blocks have both type and name
@@ -206,7 +209,7 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
         List[Dict]: List of parameter information
     """
     parameters = []
-    i = 1  # Skip the resource declaration line
+    i = 0  # Start from the first line
     nesting_level = 0
     
     while i < len(resource_lines):
@@ -219,7 +222,7 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
         # Look for dynamic blocks first (dynamic "name" { ... })
         dynamic_match = re.match(r'dynamic\s+"([^"]+)"\s*\{', line)
         
-        if dynamic_match and nesting_level == 0:
+        if dynamic_match:
             param_name = dynamic_match.group(1)
             block_start = resource_start_line + i
             
@@ -356,11 +359,12 @@ def _extract_nested_parameters(resource_lines: List[str], resource_start_line: i
             i += 1
             continue
         
-        # Look for structure blocks (parameter_name { ... })
+        # Look for structure blocks (parameter_name { ... }) or structure block assignments (parameter_name = { ... })
         block_match = re.match(r'(\w+)\s*\{', line)
+        structure_assignment_match = re.match(r'(\w+)\s*=\s*\{', line)
         
-        if block_match:
-            param_name = block_match.group(1)
+        if block_match or structure_assignment_match:
+            param_name = block_match.group(1) if block_match else structure_assignment_match.group(1)
             block_start = resource_start_line + i
             
             # Find the end of this structure block
@@ -378,11 +382,6 @@ def _extract_nested_parameters(resource_lines: List[str], resource_start_line: i
             
             block_end = resource_start_line + j - 1
             
-            # Extract parameters from within this structure block
-            structure_parameters = _extract_parameters_from_resource(
-                resource_lines[i:j], block_start
-            )
-            
             # Add the structure block itself as a parameter
             nested_parameters.append({
                 'type': 'structure',
@@ -391,11 +390,28 @@ def _extract_nested_parameters(resource_lines: List[str], resource_start_line: i
                 'end_line': block_end
             })
             
-            # Add parameters from within the structure block with proper nesting context
-            for structure_param in structure_parameters:
-                # Mark these parameters as belonging to the structure block
-                structure_param['parent_block'] = param_name
-                nested_parameters.append(structure_param)
+            # Extract parameters from within this structure block
+            # Process each line within the structure block
+            for k in range(i + 1, j):
+                line = resource_lines[k].strip()
+                
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Look for basic parameter assignments (parameter_name = value or "parameter_name" = value)
+                param_match = re.match(r'(\w+|"[^"]+"|\'[^\']+\')\s*=', line)
+                
+                if param_match:
+                    param_name_inner = param_match.group(1)
+                    param_line_inner = resource_start_line + k
+                    
+                    nested_parameters.append({
+                        'type': 'basic',
+                        'name': param_name_inner,
+                        'start_line': param_line_inner,
+                        'end_line': param_line_inner,
+                        'parent_block': param_name
+                    })
             
             i = j
         else:
@@ -589,7 +605,7 @@ def get_rule_description() -> dict:
         "id": "ST.007",
         "name": "Parameter block spacing check",
         "description": (
-            "Validates parameter block spacing within Terraform resource, data source, provider, and terraform blocks. "
+            "Validates parameter block spacing within Terraform resource, data source, provider, terraform, and locals blocks. "
             "This ensure consistent spacing between different types of parameters: basic parameters, structure "
             "blocks, and dynamic blocks."
         ),
@@ -599,7 +615,7 @@ def get_rule_description() -> dict:
             "Proper spacing between different parameter types improves code readability by creating "
             "clear visual separation between basic parameter definitions, structure blocks, and "
             "dynamic blocks. This makes it easier to scan through resource, data source, provider, "
-            "and terraform definitions and understand the logical organization of configuration parameters."
+            "terraform, and locals definitions and understand the logical organization of configuration parameters."
         ),
         "examples": {
             "valid": [
