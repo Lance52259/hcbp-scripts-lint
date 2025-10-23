@@ -36,6 +36,9 @@ import re
 from typing import Callable, List, Optional, Set
 from pathlib import Path
 
+# Global set to track checked files to avoid duplicate checks
+_checked_files = set()
+
 
 def check_st014_file_naming(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
@@ -53,6 +56,13 @@ def check_st014_file_naming(file_path: str, content: str, log_error_func: Callab
     """
     # Get the base directory from the file path
     base_dir = os.path.dirname(os.path.abspath(file_path))
+    
+    # Check if we've already checked this directory
+    if base_dir in _checked_files:
+        return
+    
+    # Mark this directory as checked
+    _checked_files.add(base_dir)
     
     # Find all files recursively
     files = _find_all_files(base_dir)

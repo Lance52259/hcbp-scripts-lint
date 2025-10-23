@@ -36,6 +36,9 @@ import re
 from typing import Callable, List, Optional, Set
 from pathlib import Path
 
+# Global set to track checked directories to avoid duplicate checks
+_checked_directories = set()
+
 
 def check_st013_directory_naming(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
@@ -53,6 +56,13 @@ def check_st013_directory_naming(file_path: str, content: str, log_error_func: C
     """
     # Get the base directory from the file path
     base_dir = os.path.dirname(os.path.abspath(file_path))
+    
+    # Check if we've already checked this directory
+    if base_dir in _checked_directories:
+        return
+    
+    # Mark this directory as checked
+    _checked_directories.add(base_dir)
     
     # Find all directories recursively
     directories = _find_all_directories(base_dir)
@@ -84,6 +94,12 @@ def _find_all_directories(base_dir: str) -> List[str]:
     directories = []
     
     try:
+        # First, check the base directory itself
+        base_dir_name = os.path.basename(base_dir)
+        if not _should_skip_directory(base_dir_name):
+            directories.append(base_dir)
+        
+        # Then, find all subdirectories recursively
         for root, dirs, files in os.walk(base_dir):
             # Filter out hidden directories from further traversal
             # This prevents os.walk from descending into hidden directories
