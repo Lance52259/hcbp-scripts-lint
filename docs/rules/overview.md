@@ -259,7 +259,7 @@ spacing - blank lines are still required even when comments are present.
 
 ### ST.007 - Parameter Block Spacing Check
 
-**Rule Description:** Validates parameter block spacing within Terraform resource and data source blocks.  
+**Rule Description:** Validates parameter block spacing within Terraform resource, data source, provider, terraform, and locals blocks.  
 This rule ensure consistent spacing between different types of parameters: basic parameters, structure blocks, and
 dynamic blocks.
 

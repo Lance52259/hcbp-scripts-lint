@@ -15,6 +15,15 @@ terraform {
       source= "hashicorp/kubernetes" # ST.003 Error: Missing space before equals sign and missing space before equals sign
       version =  ">= 1.6.2"          # ST.003 Error: Multiple spaces after equals sign
     }
+
+    random = {
+      source = "hashicorp/random"
+      version = ">= 3.0.0"
+    }
+    time = {
+      source = "hashicorp/time"
+      version = ">= 0.9.0"
+    }
   }
 }
 # ST.006 Error: Missing blank line between provider block and terraform block
