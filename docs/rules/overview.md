@@ -457,8 +457,9 @@ excluding provider-related variables like region_*, access_key, secret_key, doma
 
 ### IO.004 - Variable Naming Convention Check
 
-**Rule Description:** Validates that each input variable name uses only lowercase letters and underscores, and does
-not start with an underscore.
+**Rule Description:** Validates that each input variable name follows naming conventions: can contain letters, numbers,
+and underscores; must not start with underscore or number; must not end with number; must not contain consecutive
+underscores.
 
 **Purpose:**
 - Enforce consistent variable naming
@@ -467,8 +468,9 @@ not start with an underscore.
 
 ### IO.005 - Output Naming Convention Check
 
-**Rule Description:** Validates that each output variable name uses only lowercase letters and underscores, and does not
-start with an underscore.
+**Rule Description:** Validates that each output variable name follows naming conventions: can contain letters, numbers,
+and underscores; must not start with underscore or number; must not end with number; must not contain consecutive
+underscores.
 
 **Purpose:**
 - Enforce consistent output naming
@@ -502,9 +504,10 @@ start with an underscore.
 - Improve code reliability
 - Enforce best practices
 
-### IO.009 - Variable Validation Block Check
+### IO.009 - Unused Variable Detection Check
 
-**Rule Description:** Validates that variables have appropriate validation blocks where needed.
+**Rule Description:** Detects variables defined in variables.tf but not referenced in any Terraform files within the
+same directory.
 
 **Purpose:**
 - Ensure data validation

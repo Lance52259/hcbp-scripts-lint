@@ -115,7 +115,7 @@ def check_io009_unused_variables(file_path: str, content: str, log_error_func: C
         ... }
         ... '''
         >>> check_io009_unused_variables("variables.tf", content, sample_log_func)
-        IO.009 at variables.tf:5: Variable 'unused_var' is defined but never used in the project
+        IO.009 at variables.tf:5: Variable 'unused_var' is defined but never used
     """
     # Only check variables.tf files
     if not file_path.endswith('variables.tf'):
@@ -144,7 +144,7 @@ def check_io009_unused_variables(file_path: str, content: str, log_error_func: C
             log_error_func(
                 file_path,
                 "IO.009",
-                f"Variable '{var_name}' is defined but never used in the project",
+                f"Variable '{var_name}' is defined but never used",
                 line_number
             )
 
@@ -378,8 +378,8 @@ resource "huaweicloud_compute_instance" "test" {
 }
 
 # Expected errors:
-# WARNING: variables.tf (7): [IO.009] Variable 'unused_var' is defined but never used in the project
-# WARNING: variables.tf (13): [IO.009] Variable 'another_unused' is defined but never used in the project
+# WARNING: variables.tf (7): [IO.009] Variable 'unused_var' is defined but never used
+# WARNING: variables.tf (13): [IO.009] Variable 'another_unused' is defined but never used
 '''
             ]
         },
