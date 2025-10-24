@@ -191,7 +191,7 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
     lines = content.split('\n')
     
     # Pattern to match variable definitions - support quoted, single-quoted, and unquoted syntax
-    var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{'
+    var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z][a-zA-Z0-9_]*[a-zA-Z]|[a-zA-Z]))\s*\{'
     
     # Define provider-related variables to exclude from IO.003 validation
     def _should_exclude_variable(var_name: str) -> bool:
@@ -247,7 +247,7 @@ def _extract_declared_variables(content: str) -> Set[str]:
     
     # Pattern to match variable declarations in tfvars
     # Matches: variable_name = value
-    var_decl_pattern = r'^([a-zA-Z_][a-zA-Z0-9_]*)\s*='
+    var_decl_pattern = r'^([a-zA-Z][a-zA-Z0-9_]*[a-zA-Z0-9]|[a-zA-Z])\s*='
     
     for line in clean_content.split('\n'):
         line = line.strip()

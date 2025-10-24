@@ -1167,9 +1167,11 @@ memory_size = 8                   # Required variable declared
 
 ### IO.004 - Variable Naming Convention Check
 
-**Rule Description:** Validates that each input variable name uses only lowercase letters and underscores, and does not
-start with an underscore. For each invalid variable definition, an error is reported showing the file where the variable
-is defined (e.g., if an invalid variable is defined in main.tf, the error file will show as main.tf).
+**Rule Description:** Validates that each input variable name follows naming conventions: can contain letters, numbers,
+and underscores; must not start with underscore or number; must not end with number; must not contain consecutive
+underscores.
+For each invalid variable definition, an error is reported showing the file where the variable is defined (e.g., if an
+invalid variable is defined in main.tf, the error file will show as main.tf).
 
 **Purpose:**
 - Ensure consistent variable naming patterns across all input variables
@@ -1232,9 +1234,11 @@ variable "instance_count" {
 
 ### IO.005 - Output Naming Convention Check
 
-**Rule Description:** Validates that each output variable name uses only lowercase letters and underscores, and does not
-start with an underscore. For each invalid output definition, an error is reported showing the file where the output
-is defined (e.g., if an invalid output is defined in main.tf, the error file will show as main.tf).
+**Rule Description:** Validates that each output variable name follows naming conventions: can contain letters, numbers,
+and underscores; must not start with underscore or number; must not end with number; must not contain consecutive
+underscores.
+For each invalid output definition, an error is reported showing the file where the output is defined (e.g., if an
+invalid output is defined in main.tf, the error file will show as main.tf).
 
 **Purpose:**
 - Ensure consistent output naming patterns across all output variables
@@ -1557,7 +1561,7 @@ referenced in configuration files:
 
 **Error Output Format:**
 ```
-ERROR: variables.tf (15): [IO.009] Variable 'unused_variable' is defined but not used in any Terraform files
+ERROR: variables.tf (15): [IO.009] Variable 'unused_variable' is defined but never used
 ```
 
 ---

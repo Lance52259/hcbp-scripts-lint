@@ -74,7 +74,7 @@ def check_io005_output_naming(file_path: str, content: str, log_error_func: Call
             log_error_func(
                 file_path,
                 "IO.005",
-                f"Output '{output_name}' should use snake_case naming convention (lowercase letters and underscores only, not starting with underscore)",
+                f"Output '{output_name}' should follow naming convention (letters, numbers, and underscores only; not starting/ending with underscore or number; no consecutive underscores)",
                 line_number
             )
 
@@ -128,7 +128,7 @@ def _extract_outputs_with_lines(content: str) -> List[tuple]:
     # Quoted: output "name" { ... }
     # Single-quoted: output 'name' { ... }
     # Unquoted: output name { ... }
-    output_pattern = r'output\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{'
+    output_pattern = r'output\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z][a-zA-Z0-9_]*[a-zA-Z]|[a-zA-Z]))\s*\{'
     outputs_with_lines = []
     
     lines = content.split('\n')
@@ -144,7 +144,7 @@ def _extract_outputs_with_lines(content: str) -> List[tuple]:
 
 def _is_valid_name(name: str) -> bool:
     """
-    Check if a name follows the snake_case naming convention.
+    Check if a name follows the naming convention.
 
     Args:
         name (str): The name to validate
@@ -152,20 +152,25 @@ def _is_valid_name(name: str) -> bool:
     Returns:
         bool: True if the name is valid, False otherwise
     """
-    # Must start with a lowercase letter
-    if not re.match(r'^[a-z]', name):
+    # Must not be empty
+    if not name:
         return False
     
-    # Must contain only lowercase letters, numbers, and underscores
-    if not re.match(r'^[a-z][a-z0-9_]*$', name):
+    # Must start with a letter (not underscore or number)
+    if not re.match(r'^[a-zA-Z]', name):
         return False
     
-    # Must not have consecutive underscores
+    # Must end with a letter (not underscore or number)
+    # Cannot end with a number, but can end with underscore
+    if name.endswith(tuple('0123456789')):
+        return False
+    
+    # Must contain only letters, numbers, and underscores
+    if not re.match(r'^[a-zA-Z0-9_]+$', name):
+        return False
+    
+    # Must not contain consecutive underscores
     if '__' in name:
-        return False
-    
-    # Must not end with underscore
-    if name.endswith('_'):
         return False
     
     return True
@@ -182,25 +187,30 @@ def get_rule_description() -> dict:
         "id": "IO.005",
         "name": "Output naming convention check",
         "description": (
-            "Validates that output names follow standard naming conventions "
-            "using snake_case format. Names should use lowercase letters and "
-            "underscores only, and should not start with underscores."
+            "Validates that output names follow standard naming conventions. "
+            "Output names should contain only letters, numbers, and underscores; "
+            "not start or end with underscore or number; and not contain consecutive underscores."
         ),
         "category": "Input/Output",
         "severity": "error",
         "rationale": (
             "Consistent naming conventions improve code readability and "
-            "maintainability. Snake_case is the standard convention for "
-            "Terraform output names."
+            "maintainability. Output names should follow clear rules to avoid "
+            "confusion and ensure compatibility."
         ),
         "examples": {
             "valid": [
                 'output "instance_id" { value = huaweicloud_compute_instance.test.id }',
-                'output "vpc_cidr_block" { value = huaweicloud_vpc.test.cidr }'
+                'output "vpc_cidr_block" { value = huaweicloud_vpc.test.cidr }',
+                'output "testOutput" { value = "test" }',
+                'output "configValue" { value = "test" }'
             ],
             "invalid": [
-                'output "BadOutputName" { value = "test" }',
-                'output "_underscore_output" { value = "test" }'
+                'output "_underscore_start" { value = "test" }  # Starts with underscore',
+                'output "1st_output" { value = "test" }  # Starts with number',
+                'output "output_1" { value = "test" }  # Ends with number',
+                'output "out__put" { value = "test" }  # Contains consecutive underscores',
+                'output "out-put" { value = "test" }  # Contains hyphens'
             ]
         }
     }

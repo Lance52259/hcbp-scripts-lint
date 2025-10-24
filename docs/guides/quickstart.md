@@ -183,11 +183,15 @@ output:
 - **ST.014**: File naming convention check
 
 ### IO Rules (Input/Output)
-- **IO.001**: Input validation
-- **IO.002**: Output validation
-- **IO.003**: Variable type checking
-- **IO.004**: Default value validation
-- **IO.005**: Sensitive data handling
+- **IO.001**: Variable definition file location check
+- **IO.002**: Output definition file location check
+- **IO.003**: Required variable declaration check
+- **IO.004**: Variable naming convention check
+- **IO.005**: Output naming convention check
+- **IO.006**: Variable description field check
+- **IO.007**: Output description field check
+- **IO.008**: Variable type definition check
+- **IO.009**: Unused variable detection check
 
 ### DC Rules (Documentation/Comments)
 - **DC.001**: Resource documentation

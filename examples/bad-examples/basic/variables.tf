@@ -7,12 +7,6 @@ variable "availability_zone" {
   default     = ""
 }
 
-variable "instance_flavor_id" {
-  description = "The ID of the flavor that ECS instance will use"
-  type        = string
-  default     = ""
-}
-
 # ST.010 Error: Variable name is without quotes
 variable instance_flavor_performance_type {
   description = "The performance type of the flavor that ECS instance will use"
@@ -80,8 +74,8 @@ variable "vpc_name" {
 }
 
 variable "vpc_cidr" {
-  # IO.007 Error: Variable missing description field
-  type = string
+  description = "The CIDR of the VPC"
+  type        = string
 }
 
 variable "subnet_name" {
@@ -137,14 +131,14 @@ variable "volumes_configurations" {
 
 # IO.004 Error: Variable name starts with underscore
 variable "_variable_starts_with_underscore" {
-  description = "Variable name starts with underscore"
+# IO.006 Error: Variable block without description
   type        = string
   default     = "incorrect_variable_naming"
 }
 
-# IO.006 Error: Variable with empty description
 variable "BadVariableName" {
-  description = "Variable with uppercase letters in name"
+# IO.006 Error: Variable block has an empty description
+  description = ""
   type        = string
   default     = "incorrect_variable_naming"
 }
