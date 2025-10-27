@@ -18,7 +18,7 @@ variable instance_flavor_performance_type {
 }
 # ST.006 Error: Missing blank line between variable blocks
 # ST.010 Error: Variable name is with single quotes
-variable 'instance_flavor_cpu_core_number' {
+variable "instance_flavor_cpu_core_number" {
   # ST.003 Error: Missing space before equals sign
   # ST.003 Error: Equals sign not aligned
   description= "The CPU core number of the flavor that ECS instance will use"
