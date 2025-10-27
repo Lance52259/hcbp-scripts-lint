@@ -116,6 +116,26 @@ def check_st003_parameter_alignment(file_path: str, content: str, log_error_func
 
         for block_type, start_line, block_lines in blocks:
             sections = _split_into_code_sections(block_lines)
+            
+            # For locals blocks, also check alignment of top-level parameters across sections
+            # This is because empty lines can split sections, but top-level locals should still align
+            if block_type.startswith('locals'):
+                all_top_level_params = []
+                for section in sections:
+                    for line, rel_idx in section:
+                        if '=' in line and not line.strip().startswith('#'):
+                            indent = len(line) - len(line.lstrip())
+                            if indent <= 2:  # Top-level parameters
+                                all_top_level_params.append((line, rel_idx))
+                
+                # Check alignment of top-level parameters across sections for locals
+                if len(all_top_level_params) > 1:
+                    top_level_errors = _check_parameter_alignment_in_section(
+                        all_top_level_params, block_type, start_line
+                    )
+                    all_errors.extend(top_level_errors)
+            
+            # Check alignment and spacing within each individual section
             for section in sections:
                 errors = _check_parameter_alignment_in_section(section, block_type, start_line)
                 all_errors.extend(errors)
@@ -123,8 +143,17 @@ def check_st003_parameter_alignment(file_path: str, content: str, log_error_func
         # Sort errors by line number
         all_errors.sort(key=lambda x: x[0])
         
-        # Report sorted errors
+        # Deduplicate errors (same line number and error message)
+        seen = set()
+        unique_errors = []
         for line_num, error_msg in all_errors:
+            key = (line_num, error_msg)
+            if key not in seen:
+                seen.add(key)
+                unique_errors.append((line_num, error_msg))
+        
+        # Report sorted and deduplicated errors
+        for line_num, error_msg in unique_errors:
             log_error_func(file_path, "ST.003", error_msg, line_num)
 
 
@@ -273,16 +302,19 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
         stripped_line = line.strip()
         
         if stripped_line == '':
-            # Empty line - split section if we have content
-            if current_section:
+            # Empty line - only split section if we're at brace_level 0 (not inside objects)
+            if brace_level == 0 and current_section:
                 sections.append(current_section)
                 current_section = []
+            # Always add empty lines to current section to maintain alignment context
+            if brace_level > 0:
+                current_section.append((line, line_idx))
             continue
         elif stripped_line.startswith('#'):
             # Skip comment lines but don't split sections
             continue
         else:
-            # Track brace levels
+            # Track brace levels before processing
             for char in line:
                 if char == '{':
                     brace_level += 1
@@ -387,8 +419,12 @@ def _check_group_alignment(
         equals_pos = line.find('=')
         if equals_pos == -1:
             continue
-            
+        
+        # Skip array/list declarations only if before_equals is just [ or ends with ]
+        # Don't skip lines that contain [ ] in the values
         before_equals = line[:equals_pos]
+        if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
+            continue
         param_name_match = re.match(r'^\s*(["\']?)([^"\'=\s]+)\1\s*$', before_equals)
         if param_name_match:
             # Use parameter value without quotes for length calculation
@@ -413,38 +449,107 @@ def _check_group_alignment(
     # Find longest parameter name
     longest_param_name_length = max(len(param_name) for param_name, _, _, _ in param_data)
     
-    # Calculate expected equals location based on longest parameter name
-    # Formula: indent_spaces + param_name_length + quote_chars + 1 (standard space before equals)
     indent_spaces = indent_level * 2  # Convert indent level back to spaces
-    # Find longest parameter to determine quote characters
-    longest_param_data = max(param_data, key=lambda x: len(x[0]))
-    longest_line = longest_param_data[1]
-    longest_equals_pos = longest_param_data[3]
-    longest_before_equals = longest_line[:longest_equals_pos]
-    longest_quote_chars = 2 if longest_before_equals.strip().startswith('"') else 0
     
-    expected_equals_location = indent_spaces + longest_param_name_length + longest_quote_chars + 1
+    # For tfvars files, check if most parameters are already aligned
+    # If so, use the aligned position as expected location
+    unique_equals_positions = {}
+    for param_name, line, relative_line_idx, equals_pos in param_data:
+        if equals_pos not in unique_equals_positions:
+            unique_equals_positions[equals_pos] = []
+        unique_equals_positions[equals_pos].append((param_name, line, relative_line_idx, equals_pos))
+    
+    # For tfvars files, use actual alignment if parameters are already aligned
+    if block_type == "tfvars":
+        # If all parameters are already aligned at one position, use that position
+        if len(unique_equals_positions) == 1:
+            expected_equals_location = list(unique_equals_positions.keys())[0]
+        elif len(unique_equals_positions) > 1:
+            # More than one position, find the most common one
+            most_common_pos = max(unique_equals_positions.keys(), 
+                                key=lambda pos: len(unique_equals_positions[pos]))
+            most_common_count = len(unique_equals_positions[most_common_pos])
+            total_params = len(param_data)
+            
+            # If most parameters (> 50% and at least 2 params) are aligned at one position, use that position
+            if most_common_count > total_params * 0.5 and most_common_count >= 2:
+                expected_equals_location = most_common_pos
+            else:
+                # Calculate based on longest parameter name
+                longest_param_data = max(param_data, key=lambda x: len(x[0]))
+                longest_line = longest_param_data[1]
+                longest_equals_pos = longest_param_data[3]
+                longest_before_equals = longest_line[:longest_equals_pos]
+                longest_quote_chars = 2 if longest_before_equals.strip().startswith('"') else 0
+                expected_equals_location = indent_spaces + longest_param_name_length + longest_quote_chars + 1
+        else:
+            # Calculate based on longest parameter name
+            longest_param_data = max(param_data, key=lambda x: len(x[0]))
+            longest_line = longest_param_data[1]
+            longest_equals_pos = longest_param_data[3]
+            longest_before_equals = longest_line[:longest_equals_pos]
+            longest_quote_chars = 2 if longest_before_equals.strip().startswith('"') else 0
+            expected_equals_location = indent_spaces + longest_param_name_length + longest_quote_chars + 1
+    else:
+        # Calculate expected equals location based on longest parameter name
+        # Formula: indent_spaces + param_name_length + quote_chars + 1 (standard space before equals)
+        longest_param_data = max(param_data, key=lambda x: len(x[0]))
+        longest_line = longest_param_data[1]
+        longest_equals_pos = longest_param_data[3]
+        longest_before_equals = longest_line[:longest_equals_pos]
+        
+        # Check if ANY parameter in the group has quotes
+        # This ensures we use correct quote_chars even if longest param doesn't have quotes
+        has_quoted_params = any(
+            line[:line.find('=')].strip().startswith('"') 
+            for _, line, _, _ in param_data
+        )
+        longest_quote_chars = 2 if has_quoted_params else 0
+        
+        expected_equals_location = indent_spaces + longest_param_name_length + longest_quote_chars + 1
     
     # Check alignment for each parameter
     for param_name, line, relative_line_idx, equals_pos in param_data:
         actual_line_num = block_start_line + relative_line_idx + 1
         
-        if equals_pos != expected_equals_location:
-            required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
+        # Skip alignment check if equals position matches expected location
+        if equals_pos == expected_equals_location:
+            continue
+        
+        # Check if indentation is incorrect (should be caught by ST.005)
+        # If indentation is wrong, skip alignment error to prioritize ST.005
+        actual_indent = len(line) - len(line.lstrip())
+        
+        # If indentation is not a multiple of 2, it's a ST.005 error
+        # Skip alignment check to avoid confusion
+        if actual_indent % 2 != 0:
+            continue
+        
+        # Check if this line has ST.008 error (meta-parameter spacing)
+        # If so, skip alignment error to prioritize ST.008
+        # Note: Simple heuristic - if param is meta-parameter, skip alignment check
+        # Full ST.008 error detection is done by rule_008 itself
+        meta_parameters = ['count', 'for_each', 'provider', 'depends_on', 'lifecycle']
+        if param_name in meta_parameters:
+            # Skip ST.003 alignment error for meta-parameters
+            # ST.008 will handle spacing errors for these
+            continue
             
-            if equals_pos < expected_equals_location:
-                errors.append((
-                    actual_line_num,
-                    f"Parameter assignment equals sign not aligned in {block_type}. "
-                    f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
-                    f"equals sign should be at column {expected_equals_location + 1}"
-                ))
-            elif equals_pos > expected_equals_location:
-                errors.append((
-                    actual_line_num,
-                    f"Parameter assignment equals sign not aligned in {block_type}. "
-                    f"Too many spaces before '=', equals sign should be at column {expected_equals_location + 1}"
-                ))
+        required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
+        
+        if equals_pos < expected_equals_location:
+            errors.append((
+                actual_line_num,
+                f"Parameter assignment equals sign not aligned in {block_type}. "
+                f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                f"equals sign should be at column {expected_equals_location + 1}"
+            ))
+        elif equals_pos > expected_equals_location:
+            errors.append((
+                actual_line_num,
+                f"Parameter assignment equals sign not aligned in {block_type}. "
+                f"Too many spaces before '=', equals sign should be at column {expected_equals_location + 1}"
+            ))
     
     return errors
 
@@ -644,12 +749,15 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     """
     lines = content.split('\n')
     
-    # Find all variable assignment lines
+    # Find all variable assignment lines and boundary markers
     assignment_lines = []
     for i, line in enumerate(lines):
         stripped = line.strip()
         if stripped and '=' in stripped:
             # Include all assignment lines (comments already removed)
+            assignment_lines.append((i + 1, line))
+        elif stripped in ['{', '}']:
+            # Include brace lines as boundary markers
             assignment_lines.append((i + 1, line))
     
     if not assignment_lines:
@@ -690,8 +798,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         # Check if we're starting a new object in an array (line is just {)
         elif (in_array and 
               stripped_line == '{' and 
-              current_section and
-              any('=' in prev_line for prev_line, _ in current_section)):
+              current_section):
             # Start of a new object in the array - split current section
             sections.append(current_section)
             current_section = []
@@ -719,7 +826,9 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 current_section = [(line_num, line)]
         else:
             # Inside array structure - add to current section
-            current_section.append((line_num, line))
+            if stripped_line not in ['{', '}']:
+                # Don't add standalone braces to sections, they're just markers
+                current_section.append((line_num, line))
     
     if current_section:
         sections.append(current_section)
@@ -796,6 +905,5 @@ def _is_inside_block_structure_tfvars(current_line: str, all_lines: List[str], c
         return False
     else:
         return False
-
 
 

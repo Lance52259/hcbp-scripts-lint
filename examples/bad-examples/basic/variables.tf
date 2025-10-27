@@ -20,8 +20,7 @@ variable instance_flavor_performance_type {
 # ST.010 Error: Variable name is with single quotes
 variable "instance_flavor_cpu_core_number" {
   # ST.003 Error: Missing space before equals sign
-  # ST.003 Error: Equals sign not aligned
-  description= "The CPU core number of the flavor that ECS instance will use"
+  description= "The CPU core number of the flavor that ECS instance will use" # Only fixed space error, the equals sign alignment error will be reported in the next line
   # ST.003 Error: Missing space after equals sign
   # ST.003 Error: Equals sign not aligned
   type       =number
@@ -95,10 +94,16 @@ variable "instance_name" {
 }
 
 variable "data_disks_configurations" {
-  description ="The data disk configurations for the ECS instance" # ST.003 Error: Missing space after equals sign
-  type       = list(object({                                       # ST.003 Error: Equals sign not aligned
+   # ST.003 Error: Missing space after equals sign
+  description ="The data disk configurations for the ECS instance"
+  # ST.003 Error: Equals sign not aligned
+  type       = list(object({
+    # ST.003 Error: Missing space before and after equals sign
+    # ST.003 Error: Missing space after equals sign
+    # ST.003 Error: Equals sign not aligned
     type=optional(string, "SSD") # ST.003 Error: Missing space before and after equals sign, and is not aligned with the longest parameter name in the current code block
-    size =  optional(number, 40) # ST.003 Error: Too many spaces after equals sign
+    # ST.003 Error: Too many spaces after equals sign
+    size =  optional(number, 40)
   }))
   default = [
     {
@@ -106,12 +111,16 @@ variable "data_disks_configurations" {
      size  = 40 # ST.005 Error: 5 spaces found, not 6 spaces
     },
     {
-      type= "SAS" # ST.003 Error: Missing space before equals sign
-      size =80    # ST.003 Error: Missing space after equals sign
+      # ST.003 Error: Missing space before equals sign
+      # ST.003 Error: Equals sign not aligned
+      type= "SAS"
+      # ST.003 Error: Missing space after equals sign
+      size =80
     },
     {
       type = "SSD"
-      size  = 120 # ST.003 Error: Equals sign not aligned
+      # ST.003 Error: Equals sign not aligned
+      size  = 120
     }
   ]
 }
@@ -132,8 +141,8 @@ variable "volumes_configurations" {
 # IO.004 Error: Variable name starts with underscore
 variable "_variable_starts_with_underscore" {
 # IO.006 Error: Variable block without description
-  type        = string
-  default     = "incorrect_variable_naming"
+  type    = string
+  default = "incorrect_variable_naming"
 }
 
 variable "BadVariableName" {
