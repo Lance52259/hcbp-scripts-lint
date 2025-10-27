@@ -21,6 +21,7 @@ Valid Examples:
     #
 
 Invalid Examples:
+    // This comment uses wrong format
     #This comment has no space after #
     #  This comment has multiple spaces after #
     #	This comment has a tab after #
@@ -127,8 +128,17 @@ def _analyze_comment_formatting(lines: List[str]) -> List[Tuple[int, str, str]]:
         if in_heredoc:
             continue
 
-        # Skip empty lines or lines without comments
-        if not line.strip() or '#' not in line:
+        # Skip empty lines
+        if not line.strip():
+            continue
+            
+        # Check for // comments (invalid format)
+        if line.strip().startswith('//'):
+            violations.append((line_num, "invalid_format", "Comment must start with '#' instead of '//'"))
+            continue
+            
+        # Skip lines without # comments
+        if '#' not in line:
             continue
             
         # Use regex to find comment patterns in the current line

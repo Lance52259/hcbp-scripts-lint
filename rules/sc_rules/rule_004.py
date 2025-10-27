@@ -759,8 +759,61 @@ def _test_terraform_validate_with_version(terraform_dir: str, provider_version: 
             # Copy terraform files to temp directory
             _copy_terraform_files(terraform_dir, temp_dir)
             
-            # Create a temporary providers.tf with the specific version
-            providers_content = f'''terraform {{
+            # Remove the copied providers.tf (if it exists) before creating new one
+            providers_file = os.path.join(temp_dir, "providers.tf")
+            if os.path.exists(providers_file):
+                os.remove(providers_file)
+            
+            # Read original providers.tf to preserve its structure
+            original_providers_file = os.path.join(terraform_dir, "providers.tf")
+            
+            if os.path.exists(original_providers_file):
+                with open(original_providers_file, 'r', encoding='utf-8') as f:
+                    original_content = f.read()
+                
+                # Find and replace the huaweicloud version in the required_providers block
+                # This regex searches for the version line within the huaweicloud block
+                # Pattern matches: huaweicloud = { ... version = "anything" ... }
+                # and replaces the version value
+                
+                # More robust pattern that finds huaweicloud block and its version
+                lines = original_content.split('\n')
+                modified_lines = []
+                in_huaweicloud_block = False
+                found_version = False
+                
+                for line in lines:
+                    if 'huaweicloud' in line and '{' in line:
+                        in_huaweicloud_block = True
+                        modified_lines.append(line)
+                    elif in_huaweicloud_block:
+                        if 'version' in line and 'huaweicloud' not in line:
+                            # Replace the version line
+                            # Keep the rest of the line (spaces, comment, etc.) but replace the version value
+                            version_match = re.search(r'(version\s*=\s*["\'])([^"\']*)(["\'])', line)
+                            if version_match:
+                                prefix = version_match.group(1)
+                                suffix = version_match.group(3)
+                                new_line = line.replace(version_match.group(2), f'= {provider_version}')
+                                modified_lines.append(new_line)
+                                found_version = True
+                            else:
+                                modified_lines.append(line)
+                        else:
+                            modified_lines.append(line)
+                            if '}' in line and not line.strip().startswith('#'):
+                                in_huaweicloud_block = False
+                                found_version = False
+                    else:
+                        modified_lines.append(line)
+                
+                modified_content = '\n'.join(modified_lines)
+                
+                with open(providers_file, 'w', encoding='utf-8') as f:
+                    f.write(modified_content)
+            else:
+                # If no providers.tf exists, create one with the specific version
+                providers_content = f'''terraform {{
   required_providers {{
     huaweicloud = {{
       source  = "huaweicloud/huaweicloud"
@@ -768,10 +821,8 @@ def _test_terraform_validate_with_version(terraform_dir: str, provider_version: 
     }}
   }}
 }}'''
-            
-            providers_file = os.path.join(temp_dir, "providers.tf")
-            with open(providers_file, 'w', encoding='utf-8') as f:
-                f.write(providers_content)
+                with open(providers_file, 'w', encoding='utf-8') as f:
+                    f.write(providers_content)
             
             # Execute terraform init
             init_result = _execute_terraform_command(['init'], temp_dir)

@@ -1,7 +1,8 @@
 
 
 # ST.012 Error: This file has multiple empty lines before the first non-empty line
-# Terraform configuration example that violates the standards
+# DC.001 Error: Incorrect comment format, comment must starts with # instead of //
+// Terraform configuration example that violates the standards
 
 locals {
   is_instance_flavors_available = data.huaweicloud_compute_flavors.test.flavors[0].id != null
@@ -130,8 +131,8 @@ resource "huaweicloud_networking_secgroup" "test" {
   depends_on = [huaweicloud_vpc.test]  # The depends_on meta-parameter is behind of the other parameters
 }
 
-#  The security group rule resource definition and open the SSH port 22 access from anywhere (DC.001 Error: Incorrect comment format, Too many spaces
-#  after # character)
+# DC.001 Error: Incorrect comment format, Too many spaces after # character
+#  The security group rule resource definition and open the SSH port 22 access from anywhere
 resource "huaweicloud_networking_secgroup_rule" "test" {
   provider = huaweicloud.test
 
@@ -230,7 +231,7 @@ resource "huaweicloud_evs_volumes" "test" {
 
 resource "huaweicloud_compute_volume_attach" "test" {
   depends_on = [
-    huaweicloud_compute_instance.test
+    huaweicloud_compute_instance.test,
     huaweicloud_evs_volumes.test
   ]
 

@@ -10,7 +10,7 @@ output subnet_id {
 }
 # ST.006 Error: Missing blank line between output blocks
 # ST.010 Error: Output name with single quotes
-output 'instance_id' {
+output "instance_id" {
   description = ""    # IO.007 Error: Output with empty description
   # ST.005 Error: 3 spaces found, not 2 spaces
    value      = huaweicloud_compute_instance.test.id
