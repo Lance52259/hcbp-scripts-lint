@@ -12,16 +12,20 @@ terraform {
 
     # ST.007 Error: Too many empty lines between different parameter blocks
     kubernetes = {
-      source= "hashicorp/kubernetes" # ST.003 Error: Missing space before equals sign and missing space before equals sign
-      version =  ">= 1.6.2"          # ST.003 Error: Multiple spaces after equals sign
+      # ST.003 Error: Equals sign not aligned
+      # ST.003 Error: Missing space before equals sign
+      source= "hashicorp/kubernetes"
+      # ST.003 Error: Multiple spaces after equals sign
+      version =  ">= 1.6.2"
     }
 
     random = {
+      # ST.003 Error: Equals sign not aligned
       source = "hashicorp/random"
       version = ">= 3.0.0"
     }
     time = {
-      source = "hashicorp/time"
+      source  = "hashicorp/time"
       version = ">= 0.9.0"
     }
   }

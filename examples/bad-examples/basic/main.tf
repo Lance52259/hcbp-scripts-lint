@@ -55,7 +55,7 @@ data "huaweicloud_images_images" "test" {
 
 
   # ST.003 Error: Missing space before equals sign
-  # ST.003 Error: Equals signs not aligned (with line 46)
+  # ST.003 Error: Equals signs not aligned
   # ST.008 Error: There are too many blank lines between the count meta-parameter and other parameters
   flavor_id= var.instance_flavor_id == "" ? try(data.huaweicloud_compute_flavors.test.flavors[0].id, null) : var.instance_flavor_id
   visibility =var.instance_image_visibility    # ST.003 Error: No space after equals sign
