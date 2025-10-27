@@ -782,9 +782,20 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         
         # Check if we're entering an array (line ends with [)
         if stripped_line.endswith('[') and not in_array:
-            # We're entering an array - add to current section instead of splitting
-            # This ensures variable assignments before array are grouped together
-            current_section.append((line_num, line))
+            # We're entering an array
+            # Check if we should split section (e.g., there's a blank line before this)
+            if current_section:
+                prev_line_num = current_section[-1][0]
+                gap = line_num - prev_line_num
+                if gap > 1:
+                    # Blank line separates sections
+                    sections.append(current_section)
+                    current_section = [(line_num, line)]
+                else:
+                    # No gap, add to current section
+                    current_section.append((line_num, line))
+            else:
+                current_section.append((line_num, line))
             in_array = True
         
         # Check if we're exiting an array (line is just ])
@@ -816,14 +827,18 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             if not current_section:
                 # First line
                 current_section.append((line_num, line))
-            elif line_num - current_section[-1][0] <= 3:
-                # Within 3 lines of previous assignment - same section
-                current_section.append((line_num, line))
             else:
-                # More than 3 lines away - start new section
-                if current_section:
-                    sections.append(current_section)
-                current_section = [(line_num, line)]
+                # Check gap from previous line
+                gap = line_num - current_section[-1][0]
+                # If gap > 1 (means there's at least one blank line), split section
+                if gap > 1:
+                    # Blank line separates sections
+                    if current_section:
+                        sections.append(current_section)
+                    current_section = [(line_num, line)]
+                else:
+                    # Same line group, add to current section
+                    current_section.append((line_num, line))
         else:
             # Inside array structure - add to current section
             if stripped_line not in ['{', '}']:
@@ -837,11 +852,12 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     all_errors = []
     for section in sections:
         # Convert (line_num, line) to (line, relative_line_idx) format
-        converted_section = [(line, i) for i, (line_num, line) in enumerate(section)]
+        # For tfvars, we need to preserve original line numbers
+        converted_section = [(line, line_num) for line_num, line in section]
         # Use the first line number minus 1 as the base line number
         # because _check_parameter_alignment_in_section adds 1 to the line number
         base_line_num = section[0][0] - 1
-        errors = _check_parameter_alignment_in_section(converted_section, "tfvars", base_line_num)
+        errors = _check_tfvars_parameter_alignment_in_section(converted_section, "tfvars")
         all_errors.extend(errors)
     
     # Sort errors by line number
@@ -850,6 +866,166 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     # Report sorted errors
     for line_num, error_msg in all_errors:
         log_error_func(file_path, "ST.003", error_msg, line_num)
+
+
+def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]], block_type: str) -> List[Tuple[int, str]]:
+    """
+    Check parameter alignment in a tfvars section.
+    
+    This is a wrapper that directly uses actual line numbers from tfvars.
+    
+    Args:
+        section: List of (line_content, actual_line_num) tuples
+        block_type: Type of the block being checked
+    
+    Returns:
+        List[Tuple[int, str]]: List of (line_number, error_message) tuples
+    """
+    errors = []
+    parameter_lines = []
+    
+    # Extract parameter lines from section
+    for line_content, actual_line_num in section:
+        line = line_content.rstrip()
+        if '=' in line and not line.strip().startswith('#'):
+            # Skip block declarations
+            if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
+                parameter_lines.append((line, actual_line_num))
+    
+    if len(parameter_lines) == 0:
+        return errors
+    
+    # Group by indentation level
+    groups = {}
+    for line, actual_line_num in parameter_lines:
+        indent = len(line) - len(line.lstrip())
+        indent_level = indent // 2
+        if indent_level not in groups:
+            groups[indent_level] = []
+        groups[indent_level].append((actual_line_num, line))
+    
+    # Check alignment and spacing for each group
+    for indent_level, group_lines in groups.items():
+        # Sort by line number to maintain order
+        group_lines.sort()
+        alignment_errors = _check_group_alignment_tfvars(group_lines, indent_level, block_type)
+        errors.extend(alignment_errors)
+        
+        # Check spacing for each line in the group
+        for actual_line_num, line in group_lines:
+            spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
+            errors.extend(spacing_errors)
+    
+    return errors
+
+
+def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_level: int, block_type: str) -> List[Tuple[int, str]]:
+    """Check alignment within a group of tfvars parameters, using actual line numbers."""
+    errors = []
+    
+    # Extract parameter names and find longest
+    param_data = []
+    for actual_line_num, line in group_lines:
+        equals_pos = line.find('=')
+        if equals_pos == -1:
+            continue
+        
+        before_equals = line[:equals_pos]
+        if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
+            continue
+        param_name_match = re.match(r'^\s*(["\']?)([^"\'=\s]+)\1\s*$', before_equals)
+        if param_name_match:
+            param_name = param_name_match.group(2)
+            param_data.append((param_name, line, actual_line_num, equals_pos))
+    
+    if len(param_data) < 2:
+        return errors
+    
+    # Find longest parameter name
+    longest_param_name_length = max(len(param_name) for param_name, _, _, _ in param_data)
+    indent_spaces = indent_level * 2
+    
+    # For tfvars files, check if most parameters are already aligned
+    unique_equals_positions = {}
+    for param_name, line, actual_line_num, equals_pos in param_data:
+        if equals_pos not in unique_equals_positions:
+            unique_equals_positions[equals_pos] = 0
+        unique_equals_positions[equals_pos] += 1
+    
+    # If all params are already aligned at one position, use that
+    if len(unique_equals_positions) == 1:
+        return errors
+    
+    # If most params are aligned at one position, use that
+    total_params = len(param_data)
+    most_common_pos = max(unique_equals_positions.items(), key=lambda x: x[1])[0]
+    most_common_count = unique_equals_positions[most_common_pos]
+    
+    if most_common_count > total_params * 0.5 and most_common_count >= 2:
+        expected_equals_location = most_common_pos
+    else:
+        expected_equals_location = indent_spaces + longest_param_name_length + 1
+    
+    # Check alignment for each parameter
+    for param_name, line, actual_line_num, equals_pos in param_data:
+        # Skip alignment check if equals position matches expected location
+        if equals_pos == expected_equals_location:
+            continue
+        
+        # Check if indentation is incorrect
+        actual_indent = len(line) - len(line.lstrip())
+        if actual_indent % 2 != 0:
+            continue
+        
+        required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
+        
+        if equals_pos < expected_equals_location:
+            errors.append((
+                actual_line_num,
+                f"Parameter assignment equals sign not aligned in {block_type}. "
+                f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                f"equals sign should be at column {expected_equals_location + 1}"
+            ))
+        elif equals_pos > expected_equals_location:
+            errors.append((
+                actual_line_num,
+                f"Parameter assignment equals sign not aligned in {block_type}. "
+                f"Too many spaces before '=', equals sign should be at column {expected_equals_location + 1}"
+            ))
+    
+    return errors
+
+
+def _check_parameter_spacing_tfvars(line: str, actual_line_num: int, block_type: str) -> List[Tuple[int, str]]:
+    """Check spacing around equals sign for tfvars, using actual line number."""
+    errors = []
+    equals_pos = line.find('=')
+    
+    if equals_pos == -1:
+        return errors
+    
+    # Check space before equals
+    before_equals_raw = line[:equals_pos]
+    if not before_equals_raw.strip() or not before_equals_raw.endswith(' '):
+        errors.append((
+            actual_line_num,
+            f"Parameter assignment should have at least one space before '=' in {block_type}"
+        ))
+    
+    # Check space after equals
+    after_equals = line[equals_pos + 1:]
+    if len(after_equals) == 0 or not after_equals[0] == ' ':
+        errors.append((
+            actual_line_num,
+            f"Parameter assignment should have at least one space after '=' in {block_type}"
+        ))
+    elif len(after_equals) > 1 and after_equals[:2] == '  ':
+        errors.append((
+            actual_line_num,
+            f"Parameter assignment should have exactly one space after '=' in {block_type}, found multiple spaces"
+        ))
+    
+    return errors
 
 
 def _is_inside_block_structure_tfvars(current_line: str, all_lines: List[str], current_line_num: int) -> bool:

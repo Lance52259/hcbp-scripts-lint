@@ -3,6 +3,7 @@
 # IO.001 Error: Missing variable declaration (incorrect_vpc_name not declared)
 vpc_name = "tf_test_vpc"                     # ST.003 Error: Equals sign not aligned
 vpc_cidr                  ="192.168.0.0/16"  # ST.003 Error: Missing space after equals sign and equals sign not aligned
+# ST.011 Error: Tab exist in the end of line
 eip_address               = "192.168.0.1"  
 data_disks_configurations = [
   {
