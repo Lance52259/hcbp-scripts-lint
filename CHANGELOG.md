@@ -5,6 +5,138 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-10-27
+
+### 🚀 Major Rule Enhancements
+
+#### 🔧 ST Rules - Comprehensive Improvements
+
+##### 📋 ST.003 - Structure Validation Rule - Complete Rewrite
+- **Major Refactor**: Completely rewrote the internal logic for improved accuracy and reliability
+- **Enhanced Detection**: 
+  - Now correctly detects `variable` blocks with proper structure validation
+  - Supports `locals` blocks with proper key-value pair validation
+  - Supports `terraform` blocks with proper configuration structure
+  - Supports `provider` blocks with proper configuration structure
+- **Nested Structure Support**: Improved handling of nested structures like maps within maps
+- **Better Error Reporting**: Enhanced error messages with accurate block labels and structure details
+- **Block Detection**: Now accurately identifies and validates various Terraform block types
+
+##### 🔢 ST.005 - Indentation Checking Rule - Multiple Fixes
+- **Line Level Detection**: Fixed incorrect level detection logic causing false positives
+- **TfVars Support**: Now correctly detects indentation issues in `.tfvars` files
+- **Tab Detection**: Fixed tab detection and space number display issues
+- **Error Format Enhancement**: Refactored error message format for better clarity and consistency
+- **Spacing Detection**: Improved detection of spacing between blocks
+- **Providers.tf Support**: Enhanced detection for `providers.tf` files
+- **Smart Skip Logic**: Now skips ST.005 checks if ST.004 has already been triggered to prevent duplicate reports
+
+##### 📏 ST.006 - Block Spacing Rule - Enhanced Detection
+- **Comment Ignoring**: Now correctly ignores comment lines when checking block spacing
+- **Quote Handling**: Improved handling of quoted content within blocks
+- **Line Separation**: Fixed line separation detection to accurately identify spacing issues
+- **Providers.tf Support**: Enhanced detection for `providers.tf` files
+
+##### 🎯 ST.007 - Block Alignment Rule - Major Enhancement
+- **Extended Scope**: Now supports more block types including:
+  - `terraform` block with proper attribute alignment
+  - `locals` block with proper key-value alignment
+  - `dynamic` block with proper attribute alignment
+- **Meta-Parameter Ignoring**: Now correctly ignores meta-parameters (like `count`, `for_each`, etc.) when checking alignment
+- **Documentation Update**: Updated rule documentation with comprehensive descriptions
+
+##### 🔄 ST.008 - Block Internal Indentation Rule - Merged with ST.007
+- **Merged Rules**: ST.008 functionality has been integrated into ST.007 for better rule management
+- **Reduced Redundancy**: Eliminates duplicate checks between ST.007 and ST.008
+- **Improved Performance**: Combined logic for more efficient checking
+
+##### 📁 ST.010 - File Naming Rule - Enhanced Detection
+- **Providers.tf Support**: Fixed detection issues in `providers.tf` files
+- **Improved Accuracy**: Better file naming convention validation
+
+##### 📂 ST.013 & ST.014 - Directory and File Naming Rules - Enhanced Detection
+- **Improved Detection**: Fixed issues with detecting invalid folder and file names
+- **Test Coverage**: Added comprehensive test cases for various naming scenarios
+
+#### 🔧 IO Rules - Critical Fixes
+
+##### 📥 IO.003 - Variable Declaration Rule - Bug Fixes
+- **Fixed Issues**: Corrected logic for detecting variable declaration patterns
+
+##### 📤 IO.004 - Output Declaration Rule - Logic Improvements
+- **Enhanced Detection**: Improved logic for detecting output declaration patterns
+- **Better Error Reporting**: Enhanced error messages for clearer feedback
+
+##### 📝 IO.005 - Resource Tagging Rule - Improvements
+- **Enhanced Logic**: Improved detection of missing or incorrect tags
+- **Better Pattern Matching**: More accurate tag validation
+
+##### ✅ IO.009 - File Naming Convention Rule - Fixes
+- **Detection Improvements**: Enhanced file naming convention validation
+
+#### 🔍 DC & SC Rules - Important Fixes
+
+##### 📚 DC.001 - Documentation Rule - Critical Fix
+- **Bug Fixes**: Repaired issues with documentation rule detection
+
+##### 🛡️ SC.004 - Security Check Rule - Enhanced Validation
+- **Improved Detection**: Enhanced security validation logic
+- **Better Error Reporting**: Improved error messages for security issues
+
+### 📚 Documentation Updates
+
+#### 📖 Rule Documentation Refinements
+- **Updated ST.007 Documentation**: Enhanced descriptions with comprehensive scenarios
+- **Rule Overview Updates**: Refreshed rule overview documentation with latest changes
+- **IO Rules Documentation**: Updated IO rules documentation to reflect fixes and improvements
+- **ST Rules Documentation**: Comprehensive updates to ST rules documentation
+
+### 🔧 Technical Improvements
+
+#### ⚙️ Code Quality Enhancements
+- **Rule Logic Refactoring**: Multiple rules underwent significant refactoring for better maintainability
+- **Error Message Improvements**: Enhanced error messages across all rules for better user experience
+- **Detection Accuracy**: Improved detection accuracy across all rule categories
+- **Performance Optimization**: Better performance through optimized logic
+
+#### 🧪 Testing and Validation
+- **Comprehensive Testing**: Added extensive test cases for various scenarios
+- **Edge Case Handling**: Improved handling of edge cases across multiple rules
+- **Providers.tf Support**: Enhanced testing for `providers.tf` files across multiple rules
+
+### 📊 Impact Summary
+
+#### ✅ Rule Improvements
+- **ST Rules**: 8 major improvements and fixes across ST rules
+- **IO Rules**: 4 critical fixes in IO rules
+- **DC & SC Rules**: Important fixes in DC.001 and SC.004
+- **Total Changes**: 26 commit fixes improving detection accuracy and reliability
+
+#### 🎯 Enhanced Detection Capabilities
+- **Broader Block Support**: Rules now support more block types (locals, terraform, provider, dynamic)
+- **Better Edge Case Handling**: Improved detection in various file types (providers.tf, variables.tf, tfvars)
+- **Improved Accuracy**: Reduced false positives through better logic
+- **Better User Experience**: Enhanced error messages and clearer feedback
+
+#### 📈 Code Quality
+- **Refactored Code**: Multiple rules completely rewritten for maintainability
+- **Consolidated Logic**: Merged redundant rules (ST.007 and ST.008) for efficiency
+- **Better Structure**: Improved code structure across all rule files
+
+### 🎉 Summary
+
+This release delivers **comprehensive improvements** across all rule categories, with particular focus on ST (Style/Format) rules. The major refactoring of ST.003, ST.005, ST.006, and ST.007 rules significantly enhances detection accuracy and reduces false positives. The merge of ST.007 and ST.008 consolidates related functionality for better rule management.
+
+**Key Achievements**:
+- **Enhanced Detection**: Improved accuracy across multiple rule categories
+- **Better Edge Case Handling**: More robust handling of various Terraform configurations
+- **Code Quality**: Significant refactoring for maintainability and performance
+- **User Experience**: Better error messages and clearer feedback
+
+**Recommended for**: All users seeking improved rule accuracy, better detection capabilities, and enhanced code quality across all Terraform linting rules.
+
+---
+
 ## [2.4.1] - 2025-9-30
 
 ### 🐛 Critical Bug Fixes
