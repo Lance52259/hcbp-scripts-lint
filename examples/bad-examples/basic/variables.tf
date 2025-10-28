@@ -10,7 +10,7 @@ variable "availability_zone" {
 # ST.010 Error: Variable name is without quotes
 variable instance_flavor_performance_type {
   description = "The performance type of the flavor that ECS instance will use"
-  # ST.003 Error: Equals signs not aligned while variable name is without quotes
+  # ST.003 Error: Missing space after equals sign
   # ST.003 Error: Equals sign not aligned
   type =string
   # ST.003 Error: Equals sign not aligned
@@ -19,7 +19,7 @@ variable instance_flavor_performance_type {
 # ST.006 Error: Missing blank line between variable blocks
 # ST.010 Error: Variable name is with single quotes
 variable "instance_flavor_cpu_core_number" {
-  # ST.003 Error: Missing space before equals sign
+  # ST.003 Error: Equals sign not aligned
   description= "The CPU core number of the flavor that ECS instance will use" # Only fixed space error, the equals sign alignment error will be reported in the next line
   # ST.003 Error: Missing space after equals sign
   # ST.003 Error: Equals sign not aligned
@@ -98,29 +98,43 @@ variable "data_disks_configurations" {
   description ="The data disk configurations for the ECS instance"
   # ST.003 Error: Equals sign not aligned
   type       = list(object({
-    # ST.003 Error: Missing space before and after equals sign
     # ST.003 Error: Missing space after equals sign
     # ST.003 Error: Equals sign not aligned
-    type=optional(string, "SSD") # ST.003 Error: Missing space before and after equals sign, and is not aligned with the longest parameter name in the current code block
+    type=optional(string, "SSD")
     # ST.003 Error: Too many spaces after equals sign
-    size =  optional(number, 40)
+    size         =  optional(number, 40)
+    extend_param = optional(map(string), {})
   }))
   default = [
+    {
+      type = "SATA"
+      size = 40
+
+      extend_param = {
+        # ST.003 Error: Equals sign not aligned
+        "format" = "ext4"
+        "partition_size" = 10
+      }
+    },
     {
       type = "SSD"
      size  = 40 # ST.005 Error: 5 spaces found, not 6 spaces
     },
     {
-      # ST.003 Error: Missing space before equals sign
       # ST.003 Error: Equals sign not aligned
       type= "SAS"
       # ST.003 Error: Missing space after equals sign
       size =80
     },
     {
+      # ST.003 Error: Equals sign not aligned
       type = "SSD"
       # ST.003 Error: Equals sign not aligned
-      size  = 120
+      size = 120
+      extend_param = {
+        "format"         = "ext4"
+        "partition_size" = 10
+      }
     }
   ]
 }

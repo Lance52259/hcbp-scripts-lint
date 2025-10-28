@@ -229,33 +229,100 @@ the longest parameter name.
 - Equals signs must be aligned within the same code block
 - Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
 - Exactly one space after the equals sign and parameter value
-- Parameters within the same code block (not separated by blank lines) should follow alignment rules
 - Supports resource, data source, provider, locals, terraform, and variable blocks
 - Supports terraform.tfvars files for variable assignment alignment checking
 - Intelligently handles nested object structures (e.g., list(object({...}))) by grouping parameters within objects
 - Uses expandtabs(2) to properly handle tab characters in indentation calculation
 - Reports all alignment issues on a single line for comprehensive error reporting
 - Properly filters out comment lines in all supported file types
+- Even single-parameter groups are checked for proper spacing before the equals sign
 
 **Alignment Calculation Formula**:
 - Expected equals location = indent_spaces + param_name_length + quote_chars + 1
 - Where:
   - indent_spaces = indent_level * 2 (Terraform uses 2 spaces per indent level)
   - param_name_length = length of parameter name without quotes
-  - quote_chars = 2 if parameter name is quoted, 0 otherwise
+  - quote_chars = 2 if parameter name is quoted (e.g., "format"), 0 otherwise
   - 1 = standard space before equals sign
 
 **Code Block Sectioning Rules**:
-- Sections are split on empty lines
+- Sections are split on empty lines (true blank lines, not comment lines)
+- Empty lines always split sections, regardless of brace level or nesting
 - Comment lines are ignored for sectioning (do not split sections)
 - Object boundaries ({ and }) create new sections
+- When entering an object (parameter = {), the parameter declaration starts a new section
 - Parameters within the same section must align with each other
+- Nested structures (objects, arrays, lists) maintain their own alignment groups
 
 **Special Cases**:
-- Lines containing tab characters are excluded from alignment calculations
-- If all lines in a group contain tabs, no alignment errors are reported
-- Parameters with quotes (e.g., "Environment") are handled correctly
+- Lines containing tab characters (ST.004 issues) are excluded from alignment calculations
+- Lines with incorrect indentation (ST.005 issues) are excluded from alignment calculations  
+- Meta-parameters (ST.008 issues: count, for_each, provider, lifecycle, depends_on) are excluded from alignment
+  calculations
+- If all lines in a group have ST.004, ST.005, or ST.008 issues, no alignment errors are reported
+- Parameters with quotes (e.g., "Environment") are handled correctly with quote_chars = 2
 - Nested objects maintain their own alignment groups
+- Parameters followed by `{` (nested blocks) are still checked for alignment and spacing
+
+**Terraform.tfvars Specific Handling**:
+- Groups consecutive variable assignments
+- Splits groups based on actual blank lines between parameters (ignores comment lines)
+- For arrays and nested structures, respects structural boundaries while grouping
+- Checks alignment within each group based on longest parameter name
+- Handles quoted parameter names correctly (adds quote_chars to calculation)
+
+**Examples**:
+
+Valid alignment:
+```hcl
+# Single group - all parameters aligned
+resource "huaweicloud_compute_instance" "test" {
+  name               = "test-instance"
+  flavor_id          = "c6.large.2"
+  availability_zone  = "cn-north-1a"
+}
+
+# Multiple groups separated by blank lines
+locals {
+  # Group 1
+  is_available = true
+  
+  # Group 2 (separated by blank line)
+  system_tags = {
+    "Environment" = "Development"
+    "Owner"       = "DevOps"
+  }
+}
+
+# Terraform.tfvars - grouped by blank lines
+vpc_name = "test-vpc"
+
+vpc_cidr    = "10.0.0.0/16"
+subnet_name = "test-subnet"
+```
+
+Invalid alignment:
+```hcl
+# Group 1 - not aligned (missing space before =)
+resource "huaweicloud_compute_instance" "test" {
+ accl_name= "test-instance"  # ST.003 Error
+  flavor_id = "c6.large.2"
+  availability_zone = "cn-north-1a"  # ST.003 Error: not aligned with longest parameter
+}
+
+# Group 2 - multiple spaces after =
+locals {
+  is_available =  true  # ST.003 Error: multiple spaces after =
+  system_tags =  {     # ST.003 Error: multiple spaces after =
+    "Environment" = "Development"
+  }
+}
+
+# Terraform.tfvars - not grouped correctly
+vpc_name = "test-vpc"
+# This comment should not affect grouping
+vpc_cidr = "10.0.0.0/16"  # ST.003 Error: should be aligned with vpc_name
+```
 
 ### ST.004 - Indentation Character Check
 

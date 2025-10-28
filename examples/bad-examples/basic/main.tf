@@ -8,24 +8,27 @@ locals {
   is_instance_flavors_available = data.huaweicloud_compute_flavors.test.flavors[0].id != null
 
 
-  # ST.003 Error: Missing space before equals sign
+  # ST.003 Error: Equals sign not aligned
   # ST.003 Error: Multiple spaces after equals sign
-  # ST.003 Error: Equals sign not aligned (with line 7)
   # ST.007 Error: Too many empty lines between different parameter blocks
   system_tags=  {
     "Environment" = "Development" # The alignment of this line is correct
     # ST.003 Error: Equals sign not aligned
-    # ST.003 Error: Missing space before equals sign
     # ST.003 Error: Missing space after equals sign
     "Usage"="Tool"
 
 
+    # ST.003 Error: Equals sign not aligned (blank line ahead of this line, so this line is in the new section)
+    # ST.003 Error: Multiple spaces after equals sign
     # ST.007 Error: Too many empty lines between different parameter blocks
-    "Owner"       =  "DevOps"  # ST.003 Error: Multiple spaces after equals sign and the alignment of this line is correct (already aligned with line 12)
-    "Project"     ="Terraform" # ST.003 Error: Missing space after equals sign and the alignment of this line is correct (already aligned with line 12)
+    "Owner"       =  "DevOps"
+    # ST.003 Error: Equals sign not aligned
+    # ST.003 Error: Missing space after equals sign
+    "Project"     ="Terraform"
   }
 
-  sys_eps_id                   = "0" # ST.003 Error: Equals sign not aligned (should be aligned by itself (new section) and shouldn't be aligned with line 7)
+  # ST.003 Error: Equals sign not aligned (blank line ahead of this line, so this line is in the new section)
+  sys_eps_id                   = "0"
 }
 # ST.001 Error: Data source name is not "test"
 # ST.006 Error: Missing blank line between local variable block and data source block
@@ -54,12 +57,13 @@ data "huaweicloud_images_images" "test" {
   count = var.instance_image_id == "" ? 1 : 0
 
 
-  # ST.003 Error: Missing space before equals sign
-  # ST.003 Error: Equals signs not aligned
+  # ST.003 Error: Equals sign not aligned (blank line ahead of this line, so this line is in the new section)
   # ST.008 Error: There are too many blank lines between the count meta-parameter and other parameters
   flavor_id= var.instance_flavor_id == "" ? try(data.huaweicloud_compute_flavors.test.flavors[0].id, null) : var.instance_flavor_id
-  visibility =var.instance_image_visibility    # ST.003 Error: No space after equals sign
-  os         =   var.instance_image_os         # ST.003 Error: Multiple spaces after equals sign
+  # ST.003 Error: Missing space after equals sign
+  visibility =var.instance_image_visibility
+  # ST.003 Error: Multiple spaces after equals sign
+  os         =   var.instance_image_os
 }
 # ST.001 Error: Resource name is not "test"
 # ST.006 Error: Missing blank line between data source block and resource block
@@ -138,21 +142,27 @@ resource "huaweicloud_networking_secgroup_rule" "test" {
 
 
   # ST.008 Error: There are too many blank lines between the provider meta-parameter and other parameters
-  security_group_id  = huaweicloud_networking_secgroup.test.id # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
-  direction          = "ingress"                               # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
-  ethertype          = "IPv4"                                  # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
-  protocol           = "tcp"                                   # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
-  ports              = "22"                                    # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
-  remote_ip_prefix   = "0.0.0.0/0"                             # ST.003 Error: Equals sign not aligned (location 20 and Column 21 should be)
+  # ST.003 Error: Equals sign not aligned
+  security_group_id  = huaweicloud_networking_secgroup.test.id
+  # ST.003 Error: Equals sign not aligned
+  direction          = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  ports             = "22"
+  remote_ip_prefix  = "0.0.0.0/0"
 }
 
 resource "huaweicloud_compute_instance" "test" {
-  # Indentation level 1 is not a multiple of 2 spaces, 2 spaces is expected
- name               = var.instance_name                                            # ST.005 Error: 1 space found, not 2 spaces
-    image_id        = try(data.huaweicloud_images_images.test.images[0].id, "")    # ST.005 Error: 4 spaces found, not 2 spaces
-  flavor_id         = data.huaweicloud_compute_flavors.test.flavors[0].id          # SC.001 Error: Array index access is unsafe
+   # ST.005 Error: 1 space found, not 2 spaces
+ name               = var.instance_name
+  # ST.005 Error: 4 spaces found, not 2 spaces
+  # Equals sign not aligned (This ST.003 error message will not be displayed until the ST.005 problem is fixed)
+    image_id        = try(data.huaweicloud_images_images.test.images[0].id, "")
+    # SC.001 Error: Array index access is unsafe
+  flavor_id         = data.huaweicloud_compute_flavors.test.flavors[0].id
   security_groups   = [huaweicloud_security_group.test.name]
-  availability_zone = local.queried_availability_zones[0]                          # SC.001 Error: Array index access is unsafe
+  # SC.001 Error: Array index access is unsafe
+  availability_zone = local.queried_availability_zones[0]
 
 
   # ST.007 Error: Too many empty lines between different parameter blocks
@@ -166,8 +176,9 @@ resource "huaweicloud_compute_instance" "test" {
   # ST.008 Error: There are too many blank lines between the for_each meta-parameter (in the dynamic block) and other parameters
   # ST.005 Error: Indentation level 2 is not a multiple of 2 spaces, 4 spaces is expected
   content {
-       type = data_disks.value.type # ST.005 Error: 7 spaces found, not 6 spaces
-     size = data_disks.value.size # ST.005 Error: 5 spaces found, not 6 spaces
+       type        = data_disks.value.type # ST.005 Error: 7 spaces found, not 6 spaces
+     size          = data_disks.value.size # ST.005 Error: 5 spaces found, not 6 spaces
+      extend_param = data_disks.value.extend_param
     }
   }
 
@@ -183,6 +194,11 @@ resource "huaweicloud_compute_instance" "test" {
   network {
     uuid        = huaweicloud_vpc_subnet.test.id
     fixed_ip_v4 = "10.0.1.100"
+
+    extend_param = {
+      "dhcp_disabled" = "true"  # Fixed definition
+      "access_mode"   = "nat"   # Fixed definition
+    }
   }
 
 
