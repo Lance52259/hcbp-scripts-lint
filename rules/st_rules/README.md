@@ -74,22 +74,86 @@ the longest parameter name.
 - Equals signs must be aligned within the same code block
 - Aligned equals signs should maintain exactly one space from the longest parameter name in the code block
 - Exactly one space after the equals sign and parameter value
-- Parameters within the same code block (not separated by blank lines) should follow alignment rules
 - Supports resource, data source, provider, locals, terraform, and variable blocks
 - Supports terraform.tfvars files for variable assignment alignment checking
 - Intelligently handles nested object structures by grouping parameters within objects
 - Uses expandtabs(2) to properly handle tab characters in indentation calculation
-- Lines containing tab characters are excluded from alignment calculations
-- Parameters with quotes (e.g., "Environment") are handled correctly
+- Even single-parameter groups are checked for proper spacing before the equals sign
+- Comment lines are ignored during sectioning and parameter extraction
+- Parameters with quotes (e.g., "Environment") are handled correctly with quote_chars = 2
 - Nested objects maintain their own alignment groups
+- Parameters followed by `{` (nested blocks) are still checked for alignment and spacing
 
 **Alignment Calculation Formula**:
 - Expected equals location = indent_spaces + param_name_length + quote_chars + 1
 - Where:
   - indent_spaces = indent_level * 2 (Terraform uses 2 spaces per indent level)
   - param_name_length = length of parameter name without quotes
-  - quote_chars = 2 if parameter name is quoted, 0 otherwise
+  - quote_chars = 2 if parameter name is quoted (e.g., "format"), 0 otherwise
   - 1 = standard space before equals sign
+
+**Code Block Sectioning Rules**:
+- Sections are split on empty lines (true blank lines, not comment lines)
+- Empty lines always split sections, regardless of brace level or nesting
+- Comment lines are ignored for sectioning (do not split sections)
+- Object boundaries ({ and }) create new sections
+- When entering an object (parameter = {), the parameter declaration starts a new section
+- For terraform.tfvars files, groups consecutive variable assignments based on actual blank lines
+- Nested structures maintain their own alignment groups within objects and arrays
+
+**Special Cases**:
+- Lines containing tab characters (ST.004 issues) are excluded from alignment calculations
+- Lines with incorrect indentation (ST.005 issues) are excluded from alignment calculations
+- Meta-parameters (ST.008 issues: count, for_each, provider, lifecycle, depends_on) are excluded from alignment
+  calculations
+- If a line has ST.004, ST.005, or ST.008 issues, ST.003 alignment errors are not reported for that line
+
+**Examples**:
+
+Valid alignment:
+```hcl
+# All parameters in a group aligned to longest name
+resource "huaweicloud_compute_instance" "test" {
+  name               = "test-instance"  # "name" is 4 chars, needs 10 spaces before =
+  flavor_id          = "c6.large.2"     # "flavor_id" is 9 chars, needs 5 spaces before =
+  availability_zone  = "cn-north-1a"    # "availability_zone" is 17 chars (longest), needs 0 spaces before =
+}
+
+# Groups separated by blank lines
+locals {
+  is_available = true  # Group 1 (single parameter)
+  
+  system_tags = {      # Group 2 (single parameter with nested object)
+    "Environment" = "Development"  # Group 3 (nested parameters aligned)
+    "Owner"       = "DevOps"       # Group 3 (aligned with "Environment")
+  }
+}
+
+# Terraform.tfvars - blank lines create separate groups
+vpc_name = "test-vpc"    # Group 1
+
+vpc_cidr    = "10.0.0.0/16"  # Group 2 (longest is "vpc_cidr")
+subnet_name = "test-subnet"  # Group 2
+```
+
+Invalid alignment:
+```hcl
+# Not aligned with longest parameter
+resource "huaweicloud_compute_instance" "test" {
+  name= "test-instance"     # ST.003 Error: missing space before =
+  flavor_id = "c6.large.2"
+  availability_zone = "cn-north-1a"  # ST.003 Error: not aligned (should be at same column as flavor_id)
+}
+
+# Multiple spaces after =, not aligned
+locals {
+  is_available =  true  # ST.003 Error: multiple spaces after =
+  system_tags =  {     # ST.003 Error: multiple spaces after =
+    "format"        = "ext4"      # Group aligned within object
+    "partition_size" = 10         # Group aligned (longest name)
+  }
+}
+```
 
 ### ST.004 - Indentation Character Check
 

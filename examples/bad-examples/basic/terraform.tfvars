@@ -1,15 +1,23 @@
 
 # ST.012 Error: This file has a empty line before the first non-empty line
 # IO.001 Error: Missing variable declaration (incorrect_vpc_name not declared)
-vpc_name = "tf_test_vpc"                     # ST.003 Error: Equals sign not aligned
-vpc_cidr                  ="192.168.0.0/16"  # ST.003 Error: Missing space after equals sign and equals sign not aligned
+# ST.003 Error: Equals sign not aligned
+vpc_name = "tf_test_vpc"
+# ST.003 Error: Missing space after equals sign
+vpc_cidr                  ="192.168.0.0/16"
 # ST.011 Error: Tab exist in the end of line
 eip_address               = "192.168.0.1"  
 data_disks_configurations = [
   {
     type = "SATA"
     size = 100
-  },
+
+    extend_param = {
+      # ST.003 Error: Equals sign not aligned
+      "format" = "ext4"
+      "partition_size" = 10
+    }
+  }
 { # ST.005 Error: 0 spaces found, not 2 spaces
    type  = "ESSD" # ST.005 Error: 3 spaces found, not 4 spaces
     size =80      # ST.003 Error: Missing space after equals sign
@@ -22,8 +30,28 @@ data_disks_configurations = [
   },
   {
     # ST.004 Error: This line uses tab instead of spaces
+    # Equals sign not aligned (This ST.003 error message will not be displayed until the ST.004 problem is fixed)
 		type = "SAS"
+    # ST.003 Error: Missing space after equals sign
     size = 120
+    extend_param = {
+      "format"         = "ext4"
+      "partition_size" = 10
+    }
+  }
+]
+
+security_group_name = "tf_test_security_group"
+instance_name       = "tf_test_instance"
+
+volumes_configurations = [
+  {
+    type = "SSD"
+    size = 100
+  },
+  {
+    type = "GPSSD"
+    size = 100
   }
 ]
 # IO.003 Error: The value of the required variable 'subnet_name' is not set

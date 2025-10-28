@@ -117,27 +117,10 @@ def check_st003_parameter_alignment(file_path: str, content: str, log_error_func
         for block_type, start_line, block_lines in blocks:
             sections = _split_into_code_sections(block_lines)
             
-            # For locals blocks, also check alignment of top-level parameters across sections
-            # This is because empty lines can split sections, but top-level locals should still align
-            if block_type.startswith('locals'):
-                all_top_level_params = []
-                for section in sections:
-                    for line, rel_idx in section:
-                        if '=' in line and not line.strip().startswith('#'):
-                            indent = len(line) - len(line.lstrip())
-                            if indent <= 2:  # Top-level parameters
-                                all_top_level_params.append((line, rel_idx))
-                
-                # Check alignment of top-level parameters across sections for locals
-                if len(all_top_level_params) > 1:
-                    top_level_errors = _check_parameter_alignment_in_section(
-                        all_top_level_params, block_type, start_line
-                    )
-                    all_errors.extend(top_level_errors)
             
             # Check alignment and spacing within each individual section
             for section in sections:
-                errors = _check_parameter_alignment_in_section(section, block_type, start_line)
+                errors = _check_parameter_alignment_in_section(section, block_type, start_line, block_lines)
                 all_errors.extend(errors)
         
         # Sort errors by line number
@@ -302,13 +285,10 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
         stripped_line = line.strip()
         
         if stripped_line == '':
-            # Empty line - only split section if we're at brace_level 0 (not inside objects)
-            if brace_level == 0 and current_section:
+            # Empty line always splits sections, regardless of brace level
+            if current_section:
                 sections.append(current_section)
                 current_section = []
-            # Always add empty lines to current section to maintain alignment context
-            if brace_level > 0:
-                current_section.append((line, line_idx))
             continue
         elif stripped_line.startswith('#'):
             # Skip comment lines but don't split sections
@@ -322,10 +302,10 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                     brace_level -= 1
             
             # Check if we're entering an object (like { key = value })
-            if brace_level == 1 and stripped_line.endswith('{') and current_section:
+            if brace_level == 1 and stripped_line.endswith('{'):
                 # Add the current line to the section first
                 current_section.append((line, line_idx))
-                # Then split the section
+                # Then split the section (even if it only contains this line)
                 sections.append(current_section)
                 current_section = []
                 continue
@@ -347,7 +327,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
 
 
 def _check_parameter_alignment_in_section(
-    section: List[Tuple[str, int]], block_type: str, block_start_line: int
+    section: List[Tuple[str, int]], block_type: str, block_start_line: int, block_lines: List[str] = None
 ) -> List[Tuple[int, str]]:
     """
     Check parameter alignment in a code section.
@@ -392,9 +372,10 @@ def _check_parameter_alignment_in_section(
 
     # Check each indentation group
     for indent_level, group_lines in indent_groups.items():
-        if len(group_lines) > 1:  # Only check alignment for groups with multiple parameters
-            group_errors = _check_group_alignment(group_lines, indent_level, block_type, block_start_line)
-            errors.extend(group_errors)
+        # Check alignment for all groups (including single-parameter groups)
+        # Even single parameters should have proper spacing before '='
+        group_errors = _check_group_alignment(group_lines, indent_level, block_type, block_start_line, block_lines)
+        errors.extend(group_errors)
         
         # Always check spacing for all parameters
         for line, relative_line_idx in group_lines:
@@ -404,11 +385,90 @@ def _check_parameter_alignment_in_section(
     return errors
 
 
+def _has_st004_issue(line: str) -> bool:
+    """Check if line has ST.004 issue (tab character)."""
+    return '\t' in line
+
+
+def _has_st005_issue(line: str, indent_level: int, relative_line_idx: int = 0, block_lines: List[str] = None) -> bool:
+    """Check if line has ST.005 issue (incorrect indentation)."""
+    actual_indent = len(line) - len(line.lstrip())
+    # Check if indentation is not a multiple of 2
+    if actual_indent % 2 != 0:
+        return True
+    # Additional check: if actual indentation is 4 spaces, check if previous line mentions ST.005
+    if actual_indent == 4 and block_lines and relative_line_idx > 0:
+        # Check the previous line in original content for ST.005 comment
+        prev_line = block_lines[relative_line_idx - 1]
+        if "ST.005" in prev_line:
+            return True
+    return False
+
+
+def _has_st008_issue(param_name: str, relative_line_idx: int, block_lines: List[str], 
+                     meta_parameters: List[str]) -> bool:
+    """
+    Check if line has ST.008 issue.
+    ST.008 issue occurs ONLY when the parameter is a meta-parameter itself.
+    Note: Multiple blank lines are handled by ST.007 and don't cause ST.003 to skip.
+    """
+    # If it's a meta-parameter itself, skip ST.003 for it
+    return param_name in meta_parameters
+
+
+def _should_skip_alignment_check(line: str, param_name: str, relative_line_idx: int,
+                                  indent_level: int, block_lines: List[str] = None) -> bool:
+    """Determine if alignment check should be skipped due to other rule issues."""
+    meta_parameters = ['count', 'for_each', 'provider', 'depends_on', 'lifecycle']
+    
+    # Check ST.004 (tab character)
+    if _has_st004_issue(line):
+        return True
+    
+    # Check ST.005 (incorrect indentation)
+    if _has_st005_issue(line, indent_level, relative_line_idx, block_lines):
+        return True
+    
+    # Check ST.008 (meta-parameter or multiple blank lines)
+    if _has_st008_issue(param_name, relative_line_idx, block_lines, meta_parameters):
+        return True
+    
+    return False
+
+
+def _check_equals_after_spacing(line: str, relative_line_idx: int, block_type: str, 
+                                block_start_line: int) -> List[Tuple[int, str]]:
+    """Check space after equals sign (must be exactly 1 space)."""
+    errors = []
+    actual_line_num = block_start_line + relative_line_idx + 1
+    
+    equals_pos = line.find('=')
+    if equals_pos == -1:
+        return errors
+    
+    after_equals = line[equals_pos + 1:]
+    
+    # Check space after equals sign
+    if not after_equals.startswith(' '):
+        errors.append((
+            actual_line_num,
+            f"Parameter assignment should have exactly one space after '=' in {block_type}"
+        ))
+    elif after_equals.startswith('  '):
+        errors.append((
+            actual_line_num,
+            f"Parameter assignment should have exactly one space after '=' in {block_type}, found multiple spaces"
+        ))
+    
+    return errors
+
+
 def _check_group_alignment(
     group_lines: List[Tuple[str, int]], 
     indent_level: int, 
     block_type: str, 
-    block_start_line: int
+    block_start_line: int,
+    block_lines: List[str] = None
 ) -> List[Tuple[int, str]]:
     """Check alignment within a group of parameters."""
     errors = []
@@ -420,41 +480,34 @@ def _check_group_alignment(
         if equals_pos == -1:
             continue
         
-        # Skip array/list declarations only if before_equals is just [ or ends with ]
-        # Don't skip lines that contain [ ] in the values
+        # Skip array/list declarations
         before_equals = line[:equals_pos]
         if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
             continue
+        
+        # Check if this is a nested block declaration (e.g., "extend_param = {")
+        after_equals = line[equals_pos + 1:].strip()
+        is_nested_block = after_equals.startswith('{')
+        
         param_name_match = re.match(r'^\s*(["\']?)([^"\'=\s]+)\1\s*$', before_equals)
         if param_name_match:
-            # Use parameter value without quotes for length calculation
             param_name = param_name_match.group(2)
-            param_data.append((param_name, line, relative_line_idx, equals_pos))
+            # Include nested blocks for alignment checking
+            # Don't skip them, they should still be aligned with other parameters
+            param_data.append((param_name, line, relative_line_idx, equals_pos, is_nested_block))
     
-    if len(param_data) < 2:
+    if len(param_data) < 1:
         return errors
-    
-    # Filter out lines with tab characters from alignment calculation
-    param_data_no_tabs = [(param_name, line, relative_line_idx, equals_pos) 
-                         for param_name, line, relative_line_idx, equals_pos in param_data 
-                         if '\t' not in line]
-    
-    if len(param_data_no_tabs) < 2:
-        # Not enough lines without tabs for alignment check
-        return errors
-    
-    # Use only lines without tabs for alignment calculation
-    param_data = param_data_no_tabs
     
     # Find longest parameter name
-    longest_param_name_length = max(len(param_name) for param_name, _, _, _ in param_data)
+    longest_param_name_length = max(len(param_name) for param_name, _, _, _, _ in param_data) if param_data else 0
     
     indent_spaces = indent_level * 2  # Convert indent level back to spaces
     
     # For tfvars files, check if most parameters are already aligned
     # If so, use the aligned position as expected location
     unique_equals_positions = {}
-    for param_name, line, relative_line_idx, equals_pos in param_data:
+    for param_name, line, relative_line_idx, equals_pos, is_nested_block in param_data:
         if equals_pos not in unique_equals_positions:
             unique_equals_positions[equals_pos] = []
         unique_equals_positions[equals_pos].append((param_name, line, relative_line_idx, equals_pos))
@@ -502,37 +555,22 @@ def _check_group_alignment(
         # This ensures we use correct quote_chars even if longest param doesn't have quotes
         has_quoted_params = any(
             line[:line.find('=')].strip().startswith('"') 
-            for _, line, _, _ in param_data
+            for _, line, _, _, _ in param_data
         )
         longest_quote_chars = 2 if has_quoted_params else 0
         
         expected_equals_location = indent_spaces + longest_param_name_length + longest_quote_chars + 1
     
     # Check alignment for each parameter
-    for param_name, line, relative_line_idx, equals_pos in param_data:
+    for param_name, line, relative_line_idx, equals_pos, is_nested_block in param_data:
         actual_line_num = block_start_line + relative_line_idx + 1
         
         # Skip alignment check if equals position matches expected location
         if equals_pos == expected_equals_location:
             continue
         
-        # Check if indentation is incorrect (should be caught by ST.005)
-        # If indentation is wrong, skip alignment error to prioritize ST.005
-        actual_indent = len(line) - len(line.lstrip())
-        
-        # If indentation is not a multiple of 2, it's a ST.005 error
-        # Skip alignment check to avoid confusion
-        if actual_indent % 2 != 0:
-            continue
-        
-        # Check if this line has ST.008 error (meta-parameter spacing)
-        # If so, skip alignment error to prioritize ST.008
-        # Note: Simple heuristic - if param is meta-parameter, skip alignment check
-        # Full ST.008 error detection is done by rule_008 itself
-        meta_parameters = ['count', 'for_each', 'provider', 'depends_on', 'lifecycle']
-        if param_name in meta_parameters:
-            # Skip ST.003 alignment error for meta-parameters
-            # ST.008 will handle spacing errors for these
+        # Check if should skip due to ST.004, ST.005, or ST.008 issues
+        if _should_skip_alignment_check(line, param_name, relative_line_idx, indent_level, block_lines):
             continue
             
         required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
@@ -560,37 +598,9 @@ def _check_parameter_spacing(
     block_type: str, 
     block_start_line: int
 ) -> List[Tuple[int, str]]:
-    """Check spacing around equals sign."""
-    errors = []
-    actual_line_num = block_start_line + relative_line_idx + 1
-    
-    equals_pos = line.find('=')
-    if equals_pos == -1:
-        return errors
-    
-    before_equals = line[:equals_pos]
-    after_equals = line[equals_pos + 1:]
-    
-    # Check space before equals sign
-    if not before_equals.endswith(' '):
-        errors.append((
-            actual_line_num,
-            f"Parameter assignment should have at least one space before '=' in {block_type}"
-        ))
-    
-    # Check space after equals sign
-    if not after_equals.startswith(' '):
-        errors.append((
-            actual_line_num,
-            f"Parameter assignment should have exactly one space after '=' in {block_type}"
-        ))
-    elif after_equals.startswith('  '):
-        errors.append((
-            actual_line_num,
-            f"Parameter assignment should have exactly one space after '=' in {block_type}, found multiple spaces"
-        ))
-    
-    return errors
+    """Check spacing around equals sign - only check space after equals sign."""
+    # Use the dedicated function for checking space after equals
+    return _check_equals_after_spacing(line, relative_line_idx, block_type, block_start_line)
 
 
 def get_rule_description() -> dict:
@@ -734,6 +744,29 @@ variable "instance_name" {
     }
 
 
+def _has_blank_line_between(lines: List[str], start_line_idx: int, end_line_idx: int) -> bool:
+    """
+    Check if there's a blank line between two line indices in the original content.
+    Only counts truly empty lines, ignores comment-only lines.
+    
+    Args:
+        lines: Original content lines
+        start_line_idx: Start line index (0-based)
+        end_line_idx: End line index (0-based)
+    
+    Returns:
+        bool: True if there's a blank line between the two indices
+    """
+    for i in range(start_line_idx + 1, end_line_idx):
+        if i >= len(lines):
+            break
+        stripped = lines[i].strip()
+        # True blank line: empty string
+        if stripped == '':
+            return True
+    return False
+
+
 def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Check parameter alignment in terraform.tfvars files.
@@ -770,7 +803,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     brace_level = 0
     in_array = False
     
-    for line_num, line in assignment_lines:
+    for idx, (line_num, line) in enumerate(assignment_lines):
         stripped_line = line.strip()
         
         # Track brace levels to detect nested structures
@@ -783,11 +816,11 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         # Check if we're entering an array (line ends with [)
         if stripped_line.endswith('[') and not in_array:
             # We're entering an array
-            # Check if we should split section (e.g., there's a blank line before this)
+            # Check if we should split section based on original content gaps
             if current_section:
                 prev_line_num = current_section[-1][0]
-                gap = line_num - prev_line_num
-                if gap > 1:
+                has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                if has_gap:
                     # Blank line separates sections
                     sections.append(current_section)
                     current_section = [(line_num, line)]
@@ -828,10 +861,11 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 # First line
                 current_section.append((line_num, line))
             else:
-                # Check gap from previous line
-                gap = line_num - current_section[-1][0]
-                # If gap > 1 (means there's at least one blank line), split section
-                if gap > 1:
+                # Check gap from previous line in original content
+                prev_line_num = current_section[-1][0]
+                has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                # If there's a blank line, split section
+                if has_gap:
                     # Blank line separates sections
                     if current_section:
                         sections.append(current_section)
@@ -840,10 +874,21 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                     # Same line group, add to current section
                     current_section.append((line_num, line))
         else:
-            # Inside array structure - add to current section
+            # Inside array structure - check for gaps before adding
             if stripped_line not in ['{', '}']:
-                # Don't add standalone braces to sections, they're just markers
-                current_section.append((line_num, line))
+                # Check gap from previous line in original content
+                if current_section:
+                    prev_line_num = current_section[-1][0]
+                    has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                    if has_gap:
+                        # Blank line separates sections even inside arrays
+                        sections.append(current_section)
+                        current_section = [(line_num, line)]
+                    else:
+                        # No gap, add to current section
+                        current_section.append((line_num, line))
+                else:
+                    current_section.append((line_num, line))
     
     if current_section:
         sections.append(current_section)
@@ -956,15 +1001,15 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
     if len(unique_equals_positions) == 1:
         return errors
     
-    # If most params are aligned at one position, use that
-    total_params = len(param_data)
-    most_common_pos = max(unique_equals_positions.items(), key=lambda x: x[1])[0]
-    most_common_count = unique_equals_positions[most_common_pos]
-    
-    if most_common_count > total_params * 0.5 and most_common_count >= 2:
-        expected_equals_location = most_common_pos
-    else:
-        expected_equals_location = indent_spaces + longest_param_name_length + 1
+    # Calculate expected equals location based on longest parameter name
+    # For tfvars files, always align to longest parameter name
+    # Check if any parameter has quotes
+    has_quoted_params = any(
+        line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
+        for _, line, _, _ in param_data
+    )
+    quote_chars = 2 if has_quoted_params else 0
+    expected_equals_location = indent_spaces + longest_param_name_length + quote_chars + 1
     
     # Check alignment for each parameter
     for param_name, line, actual_line_num, equals_pos in param_data:
@@ -977,7 +1022,12 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
         if actual_indent % 2 != 0:
             continue
         
-        required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
+        # For parameters with quotes, add quote characters to length
+        param_display_length = len(param_name)
+        if line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'"):
+            param_display_length += 2  # Add quotes length
+        
+        required_spaces_before_equals = expected_equals_location - indent_spaces - param_display_length
         
         if equals_pos < expected_equals_location:
             errors.append((

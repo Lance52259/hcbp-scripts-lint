@@ -13,7 +13,6 @@ terraform {
     # ST.007 Error: Too many empty lines between different parameter blocks
     kubernetes = {
       # ST.003 Error: Equals sign not aligned
-      # ST.003 Error: Missing space before equals sign
       source= "hashicorp/kubernetes"
       # ST.003 Error: Multiple spaces after equals sign
       version =  ">= 1.6.2"
@@ -24,6 +23,7 @@ terraform {
       source = "hashicorp/random"
       version = ">= 3.0.0"
     }
+      # ST.003 Error: Equals sign not aligned
     time = {
       source  = "hashicorp/time"
       version = ">= 0.9.0"
@@ -32,19 +32,24 @@ terraform {
 }
 # ST.006 Error: Missing blank line between provider block and terraform block
 provider "huaweicloud" {
-region           = var.region_name # ST.005 Error: 0 space found, not 2 spaces
-  # ST.003 Error: Multiple spaces after equals sign
+  # ST.005 Error: 0 space found, not 2 spaces
+  # Equals sign not aligned (This ST.003 error message will not be displayed until the ST.005 problem is fixed)
+region = var.region_name
   # ST.004 Error: This line uses tab instead of spaces
+  # Multiple spaces after equals sign (This ST.003 error message will not be displayed until the ST.004 problem is fixed)
+  # ST.003 Error: Multiple spaces after equals sign
 	access_key     =  var.access_key
-  # ST.003 Error: Missing space before equals sign
-  # ST.003 Error: Equals sign not aligned
-  secret_key= var.secret_key
-  security_token = var.security_token
+  # ST.003 Error: Equals signs not aligned
+  secret_key    = var.secret_key
+  # ST.003 Error: Equals signs not aligned
+  security_token= var.security_token
 
 
   # ST.007 Error: Too many empty lines between different parameter blocks
   endpoints = {
+    # ST.003 Error: Equals signs not aligned
     iam = "https://iam.myhuaweicloud.com"
+    sdrs = "https://sdrs.myhuaweicloud.com"
   }
 }
 

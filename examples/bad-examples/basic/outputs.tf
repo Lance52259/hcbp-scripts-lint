@@ -19,7 +19,6 @@ output "instance_id" {
 output "instance_flavors" {
   # ST.003 Error: Missing space after equals sign
   description ="The flavors of the instance"
-  # ST.003 Error: Missing space before equals sign
   # ST.003 Error: Equals signs not aligned
   value= try(data.huaweicloud_compute_flavors.test[0].flavors, [])
 }
