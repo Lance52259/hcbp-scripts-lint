@@ -97,6 +97,12 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
     in_heredoc = False
     heredoc_terminator = None
     
+    # Track bracket/brace nesting levels
+    # Each left bracket/brace increases level, each right decreases it
+    # If multiple brackets on same line, net level change is calculated
+    brace_level = 0  # Track curly braces { }
+    bracket_level = 0  # Track square brackets [ ]
+    
     for line_num, line in enumerate(lines, 1):
         if line.strip() == '':
             continue
@@ -110,23 +116,45 @@ def check_st005_indentation_level(file_path: str, content: str, log_error_func: 
         if in_heredoc:
             continue
         
-        indent_level = _get_indentation_level(line)
         line_content = line.strip()
-        
-        # Handle tab characters (should be caught by ST.004)
-        if indent_level == -1:
-            continue
         
         # Skip comment lines
         if line_content.startswith('#'):
             continue
         
+        # Calculate bracket/brace level changes for this line
+        # Count opening and closing brackets/braces
+        open_braces = line.count('{')
+        close_braces = line.count('}')
+        open_brackets = line.count('[')
+        close_brackets = line.count(']')
+        
+        # Calculate net level change: each opening increases level, each closing decreases
+        # But if multiple on same line, we calculate net effect
+        net_brace_change = open_braces - close_braces
+        net_bracket_change = open_brackets - close_brackets
+        
+        # For determining expected level, use the level BEFORE this line
+        # (since brackets on this line affect what's inside, not the line itself)
+        current_nesting_level = brace_level + bracket_level
+        
+        # Update levels AFTER we've calculated expected level for current line
+        brace_level = max(0, brace_level + net_brace_change)
+        bracket_level = max(0, bracket_level + net_bracket_change)
+        
+        indent_level = _get_indentation_level(line)
+        
+        # Handle tab characters (should be caught by ST.004)
+        if indent_level == -1:
+            continue
+        
         # Validate indentation based on line content and context
-        _validate_line_indentation(file_path, line_num, line_content, indent_level, is_tfvars_file, log_error_func)
+        _validate_line_indentation(file_path, line_num, line_content, indent_level, is_tfvars_file, lines, current_nesting_level, log_error_func)
 
 
 def _validate_line_indentation(file_path: str, line_num: int, line_content: str, indent_level: int, 
-                               is_tfvars_file: bool, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
+                               is_tfvars_file: bool, lines: List[str], current_nesting_level: int,
+                               log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Validate the indentation of a single line based on its content and context.
     
@@ -136,10 +164,13 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
         line_content (str): The stripped content of the current line
         indent_level (int): Current indentation level in spaces
         is_tfvars_file (bool): Whether this is a .tfvars file
+        lines (List[str]): All lines in the file for context checking
+        current_nesting_level (int): Current nesting level based on brackets/braces
         log_error_func: Function to log errors
     """
     # Top-level declarations should not be indented
     # Only check for actual top-level declarations, not block names
+    # Skip if line contains ' = ' (this is a parameter assignment, not a top-level declaration)
     if ((line_content.startswith('resource ') or 
          line_content.startswith('data ') or 
          line_content.startswith('variable ') or 
@@ -147,7 +178,9 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
          line_content.startswith('locals ') or 
          line_content.startswith('terraform ') or 
          line_content.startswith('provider ')) and
-        ' ' in line_content and not line_content.endswith('{')):
+        ' ' in line_content and not line_content.endswith('{') and ' = ' not in line_content):
+        # This is a top-level block declaration (e.g., "resource ..." or "provider ... {")
+        # Not a parameter assignment (e.g., "provider = ..." inside a resource block)
         if indent_level > 0:
             log_error_func(
                 file_path,
@@ -157,38 +190,8 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
             )
         return
     
-    # For .tfvars files, handle array/object structure indentation first
-    if is_tfvars_file:
-        if line_content.startswith('{') and indent_level == 0:
-            # Opening brace should be indented
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: 2 spaces",
-                line_num
-            )
-            return
-        elif '=' in line_content and indent_level == 3:
-            # Object properties should be indented 4 spaces, not 3
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. "
-                f"Current indentation: {indent_level} spaces, Expected: 4 spaces",
-                line_num
-            )
-            return
-        elif '=' in line_content and indent_level > 0:
-            # Check if this is a top-level assignment that shouldn't be indented
-            # Skip if it's inside an array/object structure (indented 4 spaces or more)
-            if indent_level < 4:
-                log_error_func(
-                    file_path,
-                    "ST.005",
-                    f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: 0 spaces",
-                    line_num
-                )
-            return
+    # For .tfvars files, the indentation calculation is based on bracket/brace levels
+    # No special handling needed - the standard level-based calculation works correctly
     
     # Check if indentation is a multiple of 2
     if indent_level > 0 and indent_level % 2 != 0:
@@ -236,61 +239,47 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
             )
             return
     
-    # Additional validation for specific problematic patterns
-    # This is a simplified approach - we could make it more sophisticated
-    if indent_level > 0:
-        # Check for common incorrect indentation patterns
-        if indent_level == 1:
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: 2 spaces",
-                line_num
-            )
-        elif indent_level == 3:
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: 4 spaces",
-                line_num
-            )
-        elif indent_level == 5:
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: 6 spaces",
-                line_num
-            )
-        elif indent_level == 7:
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: 8 spaces",
-                line_num
-            )
-        # Additional checks for specific problematic cases
-        elif indent_level == 4 and '=' in line_content and not line_content.endswith('{'):
-            # This might be a parameter that should be at level 2 instead of 4
-            # Check if this looks like a resource parameter (not an object property)
-            if ('image_id' in line_content or 'flavor_id' in line_content or 
-                'security_groups' in line_content or 'availability_zone' in line_content):
-                log_error_func(
-                    file_path,
-                    "ST.005",
-                    f"Indentation level incorrect. "
-                    f"Current indentation: {indent_level} spaces, Expected: 2 spaces",
-                    line_num
-                )
-        elif indent_level == 2 and line_content.endswith('{') and 'content' in line_content:
-            # This might be a content block that should be at level 4 instead of 2
-            # Note: dynamic blocks at level 2 are correct (they're inside resource blocks)
-            log_error_func(
-                file_path,
-                "ST.005",
-                f"Indentation level incorrect. "
-                f"Current indentation: {indent_level} spaces, Expected: 4 spaces",
-                line_num
-            )
+    # Calculate expected indentation based on nesting level
+    # Expected indentation = current_nesting_level * 2 spaces
+    # Special handling for closing braces/brackets: they should align with their opening
+    close_braces = line_content.count('}')
+    close_brackets = line_content.count(']')
+    open_braces = line_content.count('{')
+    open_brackets = line_content.count('[')
+    
+    # Check if this line is primarily closing braces/brackets
+    # It's a closing line if it has more closes than opens, or has closes without opens
+    has_closing = (close_braces > 0 or close_brackets > 0)
+    has_opening = (open_braces > 0 or open_brackets > 0)
+    net_close_braces = close_braces - open_braces
+    net_close_brackets = close_brackets - open_brackets
+    
+    # If this line primarily closes (net closes > 0), align with the opening
+    if has_closing and (net_close_braces > 0 or net_close_brackets > 0):
+        # For closing lines, the indent should match the level before closing
+        # Each closing bracket reduces the level by 1
+        total_net_close = net_close_braces + net_close_brackets
+        expected_indent = max(0, (current_nesting_level - total_net_close) * 2)
+    else:
+        # For normal lines (including those that open), use current level
+        expected_indent = current_nesting_level * 2
+    
+    # Validate indentation based on expected level
+    # Allow odd indentation to be corrected to nearest even
+    if indent_level % 2 != 0:
+        # For odd indentation, choose the closest even number based on expected
+        if indent_level < expected_indent:
+            expected_indent = indent_level + 1
+        else:
+            expected_indent = indent_level - 1
+    
+    if indent_level != expected_indent:
+        log_error_func(
+            file_path,
+            "ST.005",
+            f"Indentation level incorrect. Current indentation: {indent_level} spaces, Expected: {expected_indent} spaces",
+            line_num
+        )
 
 
 

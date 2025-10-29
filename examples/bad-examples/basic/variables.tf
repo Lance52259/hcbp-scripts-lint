@@ -179,3 +179,15 @@ variable "eip_address" {
   description = "The address of the EIP"
   type        = string
 }
+
+variable "instance_configurations" {
+  description = "The list of configurations for multiple Kafka instances"
+
+  type = list(object({
+    name               = string
+    availability_zones = optional(list(string), [])
+    engine_version     = optional(string, "3.x")
+    flavor_id          = optional(string, "")
+    flavor_type        = optional(string, "cluster")
+  }))
+}
