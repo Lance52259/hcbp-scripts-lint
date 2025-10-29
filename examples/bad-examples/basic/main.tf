@@ -148,8 +148,9 @@ resource "huaweicloud_networking_secgroup_rule" "test" {
   direction          = "ingress"
   ethertype         = "IPv4"
   protocol          = "tcp"
-  ports             = "22"
-  remote_ip_prefix  = "0.0.0.0/0"
+
+  ports            = "22"
+  remote_ip_prefix = "0.0.0.0/0"
 }
 
 resource "huaweicloud_compute_instance" "test" {
@@ -163,11 +164,6 @@ resource "huaweicloud_compute_instance" "test" {
   security_groups   = [huaweicloud_security_group.test.name]
   # SC.001 Error: Array index access is unsafe
   availability_zone = local.queried_availability_zones[0]
-
-
-  # ST.007 Error: Too many empty lines between different parameter blocks
-  system_disk_type = "SSD"
-  system_disk_size = 40
   # ST.007 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
   dynamic "data_disks" {
     for_each = var.data_disks_configurations
@@ -188,6 +184,17 @@ resource "huaweicloud_compute_instance" "test" {
     type = "SSD"
     size = "20"
   }
+
+  system_disk_type = "SSD"
+  system_disk_size = 40
+
+
+  # ST.007 Error: Too many blank lines between data_disks block and parameter (Maximum 1 blank line)
+  data_disks {
+    type = "SSD"
+    size = "20"
+  }
+
 
 
   # ST.007 Error: Too many blank lines between network block and data disks block (Maximum 1 blank line)
