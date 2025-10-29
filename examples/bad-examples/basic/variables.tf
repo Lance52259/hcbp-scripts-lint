@@ -94,7 +94,7 @@ variable "instance_name" {
 }
 
 variable "data_disks_configurations" {
-   # ST.003 Error: Missing space after equals sign
+  # ST.003 Error: Missing space after equals sign
   description ="The data disk configurations for the ECS instance"
   # ST.003 Error: Equals sign not aligned
   type       = list(object({
@@ -105,6 +105,7 @@ variable "data_disks_configurations" {
     size         =  optional(number, 40)
     extend_param = optional(map(string), {})
   }))
+  # ST.003 Error: Equals sign not aligned
   default = [
     {
       type = "SATA"
@@ -150,6 +151,13 @@ variable "volumes_configurations" {
     type = string
     size = number
   }))
+
+  default = [
+    {
+      type = "SSD"
+      size = 40
+    }
+  ]
 }
 
 # IO.004 Error: Variable name starts with underscore

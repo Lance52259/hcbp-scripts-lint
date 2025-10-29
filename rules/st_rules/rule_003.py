@@ -280,12 +280,13 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     sections = []
     current_section = []
     brace_level = 0
+    bracket_level = 0
 
     for line_idx, line in enumerate(block_lines):
         stripped_line = line.strip()
         
         if stripped_line == '':
-            # Empty line always splits sections, regardless of brace level
+            # Empty line always splits sections, regardless of brace/bracket level
             if current_section:
                 sections.append(current_section)
                 current_section = []
@@ -294,27 +295,64 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # Skip comment lines but don't split sections
             continue
         else:
-            # Track brace levels before processing
+            # Track brace and bracket levels before processing
             for char in line:
                 if char == '{':
                     brace_level += 1
                 elif char == '}':
                     brace_level -= 1
+                elif char == '[':
+                    bracket_level += 1
+                elif char == ']':
+                    bracket_level -= 1
             
-            # Check if we're entering an object (like { key = value })
+            # Check if we're entering an object (parameter = { form)
+            # When encountering '{', enter a new grouping
             if brace_level == 1 and stripped_line.endswith('{'):
-                # Add the current line to the section first
-                current_section.append((line, line_idx))
-                # Then split the section (even if it only contains this line)
-                sections.append(current_section)
-                current_section = []
-                continue
+                # Check if this is a simple "parameter = {" form
+                if '=' in stripped_line:
+                    after_equals = stripped_line.split('=', 1)[1].strip()
+                    if after_equals == '{':
+                        # Entering object grouping
+                        current_section.append((line, line_idx))
+                        sections.append(current_section)
+                        current_section = []
+                        continue
+            
+            # Check if we're entering an array (parameter = [ form)
+            # When encountering '[', enter a new grouping
+            if bracket_level == 1 and stripped_line.endswith('['):
+                # Check if this is a simple "parameter = [" form
+                if '=' in stripped_line:
+                    after_equals = stripped_line.split('=', 1)[1].strip()
+                    if after_equals == '[':
+                        # Entering array grouping
+                        current_section.append((line, line_idx))
+                        sections.append(current_section)
+                        current_section = []
+                        continue
+            
+            # Check if we're in an array and encountering a standalone '{' (new object element)
+            # This happens in structures like: default = [ { ... }, { ... } ]
+            if bracket_level >= 1 and stripped_line == '{' and '=' not in stripped_line:
+                # Starting a new object within an array
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
             
             # Check if we're exiting an object
-            elif brace_level == 0 and stripped_line == '}' and current_section:
-                # We're exiting an object - split current section
-                sections.append(current_section)
-                current_section = []
+            if brace_level == 0 and stripped_line == '}':
+                # Exiting object grouping
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
+            
+            # Check if we're exiting an array
+            if bracket_level == 0 and stripped_line == ']':
+                # Exiting array grouping
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
             
             # Add line to current section
             current_section.append((line, line_idx))
