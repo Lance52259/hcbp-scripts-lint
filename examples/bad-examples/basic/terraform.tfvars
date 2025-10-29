@@ -17,13 +17,15 @@ data_disks_configurations = [
       "format" = "ext4"
       "partition_size" = 10
     }
-  }
-{ # ST.005 Error: 0 spaces found, not 2 spaces
-   type  = "ESSD" # ST.005 Error: 3 spaces found, not 4 spaces
-    size =80      # ST.003 Error: Missing space after equals sign
+  },
+  # ST.005 Error: 0 spaces found, not 2 spaces
+{
+  # ST.005 Error: 3 spaces found, not 4 spaces
+   type  = "ESSD"
+    # ST.003 Error: Missing space after equals sign
+    size =80
   },
   {
-    # ST.003 Error: Missing space before equals sign
     # ST.003 Error: Equals sign not aligned
     type= "SSD"
     size = 100
@@ -32,7 +34,7 @@ data_disks_configurations = [
     # ST.004 Error: This line uses tab instead of spaces
     # Equals sign not aligned (This ST.003 error message will not be displayed until the ST.004 problem is fixed)
 		type = "SAS"
-    # ST.003 Error: Missing space after equals sign
+    # ST.003 Error: Equals sign not aligned
     size = 120
     extend_param = {
       "format"         = "ext4"
@@ -54,6 +56,11 @@ volumes_configurations = [
     size = 100
   }
 ]
+# ST.003 Error: Equals sign not aligned
+custom_tags = {
+  "access.key" = "your_access_key"
+  "secret.key" = "your_secret_key"
+}
 # IO.003 Error: The value of the required variable 'subnet_name' is not set
 # ST.012 Error: This file has multiple empty lines after the last non-empty line
 

@@ -66,6 +66,7 @@ License: Apache 2.0
 """
 
 import re
+import sys
 from typing import Callable, List, Tuple, Optional, Dict
 
 
@@ -280,12 +281,13 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     sections = []
     current_section = []
     brace_level = 0
+    bracket_level = 0
 
     for line_idx, line in enumerate(block_lines):
         stripped_line = line.strip()
         
         if stripped_line == '':
-            # Empty line always splits sections, regardless of brace level
+            # Empty line always splits sections, regardless of brace/bracket level
             if current_section:
                 sections.append(current_section)
                 current_section = []
@@ -294,27 +296,64 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # Skip comment lines but don't split sections
             continue
         else:
-            # Track brace levels before processing
+            # Track brace and bracket levels before processing
             for char in line:
                 if char == '{':
                     brace_level += 1
                 elif char == '}':
                     brace_level -= 1
+                elif char == '[':
+                    bracket_level += 1
+                elif char == ']':
+                    bracket_level -= 1
             
-            # Check if we're entering an object (like { key = value })
+            # Check if we're entering an object (parameter = { form)
+            # When encountering '{', enter a new grouping
             if brace_level == 1 and stripped_line.endswith('{'):
-                # Add the current line to the section first
-                current_section.append((line, line_idx))
-                # Then split the section (even if it only contains this line)
-                sections.append(current_section)
-                current_section = []
-                continue
+                # Check if this is a simple "parameter = {" form
+                if '=' in stripped_line:
+                    after_equals = stripped_line.split('=', 1)[1].strip()
+                    if after_equals == '{':
+                        # Entering object grouping
+                        current_section.append((line, line_idx))
+                        sections.append(current_section)
+                        current_section = []
+                        continue
+            
+            # Check if we're entering an array (parameter = [ form)
+            # When encountering '[', enter a new grouping
+            if bracket_level == 1 and stripped_line.endswith('['):
+                # Check if this is a simple "parameter = [" form
+                if '=' in stripped_line:
+                    after_equals = stripped_line.split('=', 1)[1].strip()
+                    if after_equals == '[':
+                        # Entering array grouping
+                        current_section.append((line, line_idx))
+                        sections.append(current_section)
+                        current_section = []
+                        continue
+            
+            # Check if we're in an array and encountering a standalone '{' (new object element)
+            # This happens in structures like: default = [ { ... }, { ... } ]
+            if bracket_level >= 1 and stripped_line == '{' and '=' not in stripped_line:
+                # Starting a new object within an array
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
             
             # Check if we're exiting an object
-            elif brace_level == 0 and stripped_line == '}' and current_section:
-                # We're exiting an object - split current section
-                sections.append(current_section)
-                current_section = []
+            if brace_level == 0 and stripped_line == '}':
+                # Exiting object grouping
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
+            
+            # Check if we're exiting an array
+            if bracket_level == 0 and stripped_line == ']':
+                # Exiting array grouping
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
             
             # Add line to current section
             current_section.append((line, line_idx))
@@ -322,7 +361,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     # Add final section if exists
     if current_section:
         sections.append(current_section)
-
+    
     return sections
 
 
@@ -789,8 +828,8 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         if stripped and '=' in stripped:
             # Include all assignment lines (comments already removed)
             assignment_lines.append((i + 1, line))
-        elif stripped in ['{', '}']:
-            # Include brace lines as boundary markers
+        elif stripped.rstrip(',') in ['{', '}', '[', ']']:
+            # Include brace and bracket lines as boundary markers (allow trailing commas)
             assignment_lines.append((i + 1, line))
     
     if not assignment_lines:
@@ -801,109 +840,186 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     sections = []
     current_section = []
     brace_level = 0
-    in_array = False
+    bracket_level = 0
+    top_level_indent = 0  # Track the indent of the current top-level section
     
     for idx, (line_num, line) in enumerate(assignment_lines):
         stripped_line = line.strip()
+        # Also strip trailing comma for boundary checks
+        stripped_for_boundary = stripped_line.rstrip(',')
         
-        # Track brace levels to detect nested structures
+        # Save levels BEFORE updating them
+        prev_brace_level_saved = brace_level
+        prev_bracket_level_saved = bracket_level
+        
+        # Track brace and bracket levels to detect nested structures
+        # Ensure levels don't go negative (defensive programming)
         for char in stripped_line:
             if char == '{':
                 brace_level += 1
             elif char == '}':
-                brace_level -= 1
+                brace_level = max(0, brace_level - 1)
+            elif char == '[':
+                bracket_level += 1
+            elif char == ']':
+                bracket_level = max(0, bracket_level - 1)
         
         # Check if we're entering an array (line ends with [)
-        if stripped_line.endswith('[') and not in_array:
-            # We're entering an array
-            # Check if we should split section based on original content gaps
-            if current_section:
-                prev_line_num = current_section[-1][0]
-                has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
-                if has_gap:
-                    # Blank line separates sections
-                    sections.append(current_section)
-                    current_section = [(line_num, line)]
-                else:
-                    # No gap, add to current section
-                    current_section.append((line_num, line))
-            else:
+        if stripped_line.endswith('[') and bracket_level == 1 and '=' in stripped_line:
+            after_equals = stripped_line.split('=', 1)[1].strip()
+            if after_equals == '[':
+                # Array declaration line - check if we should split based on blank lines
+                line_indent = len(line) - len(line.lstrip())
+                prev_brace_level = prev_brace_level_saved
+                prev_bracket_level = prev_bracket_level_saved
+                
+                # For top-level array declarations, check blank lines before splitting
+                is_top_level_array = (line_indent == 0 and 
+                                    prev_brace_level == 0 and 
+                                    prev_bracket_level == 0)
+                
+                if is_top_level_array and current_section:
+                    # Check if there's a blank line before this array declaration
+                    prev_line_num = current_section[-1][0]
+                    has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                    
+                    if has_gap:
+                        # Blank line before top-level array - split section
+                        sections.append(current_section)
+                        current_section = [(line_num, line)]
+                        continue
+                
+                # No gap or not top-level - add to current section but don't split
                 current_section.append((line_num, line))
-            in_array = True
+                continue
         
-        # Check if we're exiting an array (line is just ])
-        elif stripped_line == ']' and in_array:
-            # We're exiting the array - split current section if it exists
-            if current_section:
-                sections.append(current_section)
-                current_section = []
-            in_array = False
+        # Check if we're entering an object (parameter = {)
+        # But only if it's NOT a top-level parameter (top-level should be aligned first)
+        if stripped_line.endswith('{') and '=' in stripped_line:
+            after_equals = stripped_line.split('=', 1)[1].strip()
+            if after_equals == '{':
+                # Check if this is a top-level parameter
+                # We need to use levels BEFORE this line updates them
+                line_indent = len(line) - len(line.lstrip())
+                prev_brace_level = prev_brace_level_saved
+                prev_bracket_level = prev_bracket_level_saved
+                
+                is_top_level = (line_indent == 0 and 
+                              prev_brace_level == 0 and 
+                              prev_bracket_level == 0)
+                
+                if not is_top_level:
+                    # Entering non-top-level object grouping
+                    # Continue processing to check blank lines between
+                    pass
         
-        # Check if we're starting a new object in an array (line is just {)
-        elif (in_array and 
-              stripped_line == '{' and 
-              current_section):
-            # Start of a new object in the array - split current section
-            sections.append(current_section)
-            current_section = []
+        # Don't split section on ] or } - just exit the grouping level
+        # Sections should only be split on blank lines or when entering new structures
         
-        # Check if we're ending an object in an array (line is just })
-        elif (in_array and 
-              stripped_line == '}' and 
-              current_section):
-            # End of an object in the array - split current section
-            sections.append(current_section)
-            current_section = []
+        # Don't clear current_section when exiting array
+        # This allows subsequent top-level params to join the same section
+        # Check if we're starting a new object in an array (standalone {)
+        # Only split if this is not at the top level
+        if bracket_level >= 1 and stripped_for_boundary == '{' and '=' not in stripped_line:
+            # Check if this is top-level (bracket_level was 1 AFTER this line's [, meaning we're in a top-level array)
+            if bracket_level == 1:
+                # Top-level array, don't split section
+                pass
+            else:
+                # Non-top-level, split section
+                if current_section:
+                    sections.append(current_section)
+                    current_section = []
         
-        # Regular grouping for non-array assignments
-        elif not in_array:
+        # Regular grouping logic (handles gaps between lines)
+        # Check if we should process this line for regular grouping
+        process_regular_grouping = True
+        if stripped_for_boundary in ['{', '}', '[', ']'] and '=' not in stripped_line:
+            # Standalone braces/brackets are handled above, skip regular grouping
+            process_regular_grouping = False
+        
+        if process_regular_grouping:
+            # Calculate current line's indent
+            line_indent = len(line) - len(line.lstrip())
+            
             if not current_section:
                 # First line
+                top_level_indent = line_indent
                 current_section.append((line_num, line))
             else:
-                # Check gap from previous line in original content
-                prev_line_num = current_section[-1][0]
-                has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
-                # If there's a blank line, split section
-                if has_gap:
-                    # Blank line separates sections
-                    if current_section:
+                # Check if this is a top-level parameter
+                # A parameter is top-level if:
+                # 1. It has the same indent as the current section's top-level indent
+                # 2. It's not inside any nested structures (we check BEFORE this line increases the levels)
+                # 3. We need to use the PREVIOUS brace_level and bracket_level (before this line increases them)
+                prev_brace_level = prev_brace_level_saved
+                prev_bracket_level = prev_bracket_level_saved
+                
+                # For top-level parameters (prev_brace_level == 0 and prev_bracket_level == 0),
+                # we should align them even if they contain { or [
+                # Also include parameters inside array objects that have the same indent level
+                # For tfvars, top-level parameters have indent level 0
+                is_top_level = (line_indent == top_level_indent and 
+                              '=' in stripped_line and
+                              ((prev_brace_level == 0 and prev_bracket_level == 0) or line_indent == 0))
+                
+                # Check if this is a parameter inside an object (regardless of indent level)
+                # This handles cases where parameters have different indentation within the same object
+                # For tfvars, parameters in the same object should be grouped together
+                is_object_param = ('=' in stripped_line and
+                                 prev_brace_level >= 1 and
+                                 not stripped_line.strip().startswith('#'))
+                
+                if is_top_level or is_object_param:
+                    # This is another top-level parameter, array object parameter, or object parameter
+                    prev_line_num = current_section[-1][0]
+                    has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                    
+                    # For tfvars, split on blank lines unless they're inside arrays/objects
+                    # If there's a blank line and we're both at the top level, always split
+                    if has_gap and prev_brace_level == 0 and prev_bracket_level == 0:
+                        # Both are top-level parameters separated by a blank line
+                        # Split into separate sections
                         sections.append(current_section)
-                    current_section = [(line_num, line)]
+                        current_section = [(line_num, line)]
+                        
+                    else:
+                        # Same top-level group, add to current section
+                        current_section.append((line_num, line))
                 else:
-                    # Same line group, add to current section
-                    current_section.append((line_num, line))
-        else:
-            # Inside array structure - check for gaps before adding
-            if stripped_line not in ['{', '}']:
-                # Check gap from previous line in original content
-                if current_section:
+                    # Not a top-level parameter, check gap from previous line
                     prev_line_num = current_section[-1][0]
                     has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
                     if has_gap:
-                        # Blank line separates sections even inside arrays
+                        # Blank line separates sections
                         sections.append(current_section)
                         current_section = [(line_num, line)]
                     else:
-                        # No gap, add to current section
+                        # Same line group, add to current section
                         current_section.append((line_num, line))
-                else:
-                    current_section.append((line_num, line))
     
     if current_section:
         sections.append(current_section)
     
     # Check alignment in each section
     all_errors = []
-    for section in sections:
+    processed_lines = set()  # Track processed lines to avoid duplicates
+    
+    for section_idx, section in enumerate(sections):
         # Convert (line_num, line) to (line, relative_line_idx) format
         # For tfvars, we need to preserve original line numbers
         converted_section = [(line, line_num) for line_num, line in section]
         # Use the first line number minus 1 as the base line number
         # because _check_parameter_alignment_in_section adds 1 to the line number
         base_line_num = section[0][0] - 1
+        
         errors = _check_tfvars_parameter_alignment_in_section(converted_section, "tfvars")
-        all_errors.extend(errors)
+        
+        # Only add errors for lines that haven't been processed yet
+        for line_num, msg in errors:
+            if line_num not in processed_lines:
+                all_errors.append((line_num, msg))
+                processed_lines.add(line_num)
     
     # Sort errors by line number
     all_errors.sort(key=lambda x: x[0])
@@ -945,6 +1061,9 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
     for line, actual_line_num in parameter_lines:
         indent = len(line) - len(line.lstrip())
         indent_level = indent // 2
+        # Skip odd indent (indent not multiple of 2) - these are ST.005 issues
+        if indent % 2 != 0:
+            continue
         if indent_level not in groups:
             groups[indent_level] = []
         groups[indent_level].append((actual_line_num, line))
@@ -968,55 +1087,342 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
     """Check alignment within a group of tfvars parameters, using actual line numbers."""
     errors = []
     
+    # Deduplicate group_lines to avoid processing the same line multiple times
+    seen_lines = set()
+    unique_group_lines = []
+    for line_num, line in group_lines:
+        if line_num not in seen_lines:
+            seen_lines.add(line_num)
+            unique_group_lines.append((line_num, line))
+    
+    group_lines = unique_group_lines
+    
     # Extract parameter names and find longest
     param_data = []
     for actual_line_num, line in group_lines:
-        equals_pos = line.find('=')
+        display_line = line.expandtabs(2)
+        equals_pos = display_line.find('=')
         if equals_pos == -1:
             continue
         
-        before_equals = line[:equals_pos]
+        before_equals = display_line[:equals_pos]
         if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
             continue
-        param_name_match = re.match(r'^\s*(["\']?)([^"\'=\s]+)\1\s*$', before_equals)
+        
+        # Check if this is an array/object declaration line (e.g., "param = [" or "param = {")
+        # For top-level declarations (indent=0), we should check alignment
+        # For nested declarations, we should skip them from expected position calculation only
+        after_equals = display_line[equals_pos + 1:].strip()
+        is_object_or_array_decl = after_equals.startswith('[') or after_equals.startswith('{')
+        
+        # Skip object/array declarations from expected position calculation if they're nested
+        # But still check their alignment if they're top-level
+        actual_indent = len(line) - len(line.lstrip())
+        should_skip_from_expected_calc = is_object_or_array_decl and actual_indent > 0
+            
+        # Match parameter name, optionally with quotes
+        # For quoted params like "format", we need to handle the quotes
+        # For unquoted params like type, we just need the name
+        if before_equals.strip().startswith('"') or before_equals.strip().startswith("'"):
+            param_name_match = re.match(r'^\s*(["\'])([^"\'=\s]+)\1', before_equals)
+            if param_name_match:
+                param_name = param_name_match.group(2)
+            else:
+                param_name_match = None
+        else:
+            param_name_match = re.match(r'^\s*([^"\'=\s]+)', before_equals)
+            if param_name_match:
+                param_name = param_name_match.group(1)
+            else:
+                param_name_match = None
+        
         if param_name_match:
-            param_name = param_name_match.group(2)
-            param_data.append((param_name, line, actual_line_num, equals_pos))
+            # Store original line for later skip checks, but equals_pos based on expanded tabs
+            # Also store whether this should be skipped from expected position calculation
+            param_data.append((param_name, line, actual_line_num, equals_pos, should_skip_from_expected_calc))
     
     if len(param_data) < 2:
         return errors
     
     # Find longest parameter name
-    longest_param_name_length = max(len(param_name) for param_name, _, _, _ in param_data)
+    # First get longest from non-skipped and non-tab parameters (for expected position calculation)
+    # Parameters with tabs (ST.004) should not influence expected position
+    non_skipped_non_tab_params_len = [
+        len(p[0]) for p in param_data 
+        if not p[4] and '\t' not in p[1]  # p[4] is should_skip, p[1] is line
+    ]
+    if non_skipped_non_tab_params_len:
+        longest_param_name_length = max(non_skipped_non_tab_params_len)
+        # If we have skipped parameters (object/array declarations) that are significantly longer,
+        # use them for alignment calculation
+        # This ensures parameters can align with object declarations when appropriate
+        skipped_params_len = [len(p[0]) for p in param_data if p[4] and '\t' not in p[1]]
+        if skipped_params_len:
+            longest_skipped_len = max(skipped_params_len)
+            # If the longest skipped parameter is significantly longer than non-skipped ones,
+            # use it for expected position calculation
+            # This handles cases where multiple simple params (like size, type) should align
+            # with a longer object declaration parameter (like extend_param)
+            if longest_skipped_len > longest_param_name_length and longest_skipped_len - longest_param_name_length >= 4:
+                # Skip parameter is significantly longer (at least 4 chars), use it
+                longest_param_name_length = longest_skipped_len
+    else:
+        # All parameters are skipped or have tabs, use all non-tab params
+        non_tab_params_len = [len(p[0]) for p in param_data if '\t' not in p[1]]
+        if non_tab_params_len:
+            longest_param_name_length = max(non_tab_params_len)
+        else:
+            # All have tabs, use all params
+            longest_param_name_length = max(len(p[0]) for p in param_data)
     indent_spaces = indent_level * 2
     
     # For tfvars files, check if most parameters are already aligned
+    # Exclude tab lines from alignment position counting
     unique_equals_positions = {}
-    for param_name, line, actual_line_num, equals_pos in param_data:
+    for param_name, line, actual_line_num, equals_pos, _ in param_data:
+        # Skip tab lines from counting (ST.004 issues should not influence alignment expectations)
+        if '\t' in line:
+            continue
         if equals_pos not in unique_equals_positions:
             unique_equals_positions[equals_pos] = 0
         unique_equals_positions[equals_pos] += 1
     
-    # If all params are already aligned at one position, use that
+    # If all params are already aligned at one position, still check spacing after equals
+    # and skip lines with tabs (ST.004) - but still check alignment based on longest param
     if len(unique_equals_positions) == 1:
+        # Check if the aligned position matches the expected position based on longest parameter
+        longest_param_len = max(len(param_name) for param_name, _, _, _, _ in param_data)
+        # Check if any parameter has quotes and add quote length
+        has_quoted_params = any(
+            line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
+            for _, line, _, _, _ in param_data
+        )
+        quote_chars = 2 if has_quoted_params else 0
+        expected_equals_location = indent_spaces + longest_param_len + quote_chars + 1
+        
+        # If the aligned position doesn't match the expected position, they need realignment
+        aligned_position = list(unique_equals_positions.keys())[0]
+        
+        if aligned_position != expected_equals_location:
+            # Parameters are aligned but not to the longest parameter
+            # Check alignment for all parameters
+            for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
+                # Skip nested object/array declaration lines from alignment check
+                if should_skip:
+                    continue
+                
+                # Skip lines with tabs (ST.004)
+                if '\t' in line:
+                    continue
+                
+                if equals_pos != expected_equals_location:
+                    required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
+                    if equals_pos < expected_equals_location:
+                        errors.append((
+                            actual_line_num,
+                            f"Parameter assignment equals sign not aligned in {block_type}. "
+                            f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                            f"equals sign should be at column {expected_equals_location + 1}"
+                        ))
+                    elif equals_pos > expected_equals_location:
+                        errors.append((
+                            actual_line_num,
+                            f"Parameter assignment equals sign not aligned in {block_type}. "
+                            f"Too many spaces before '=', equals sign should be at column {expected_equals_location + 1}"
+                        ))
+        
+        # Also check spacing after equals for all parameters
+        for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
+            # Skip nested object/array declaration lines
+            if should_skip:
+                continue
+            
+            # Skip lines with tabs (ST.004)
+            if '\t' in line:
+                continue
+            
+            # Use the original line to find equals and check spacing
+            original_equals_pos = line.find('=')
+            if original_equals_pos == -1:
+                continue
+                
+            after_equals = line[original_equals_pos + 1:]
+            if len(after_equals) == 0 or not after_equals[0] == ' ':
+                errors.append((
+                    actual_line_num,
+                    f"Parameter assignment should have at least one space after '=' in {block_type}"
+                ))
+        
         return errors
+    
+    # Check if there are multiple alignment groups
+    # If most parameters are aligned at one position, use that position
+    # Note: unique_equals_positions already excludes tab lines, so count only non-tab params
+    if unique_equals_positions:
+        most_common_pos = max(unique_equals_positions.items(), key=lambda x: x[1])
+        most_common_count = most_common_pos[1]
+        # Count only non-tab parameters for total_params (to match unique_equals_positions)
+        total_params = sum(1 for p in param_data if '\t' not in p[1])
+    else:
+        # All params have tabs (shouldn't happen, but handle it)
+        most_common_pos = (0, 0)
+        most_common_count = 0
+        total_params = sum(1 for p in param_data if '\t' not in p[1])
+        if total_params == 0:
+            total_params = len(param_data)
+    
+    # Calculate expected position based on longest parameter
+    # First try to get longest from non-skipped and non-tab parameters
+    # Parameters with tabs (ST.004) should not influence expected position
+    non_skipped_non_tab_params = [p for p in param_data if not p[4] and '\t' not in p[1]]  # p[4] is should_skip, p[1] is line
+    if non_skipped_non_tab_params:
+        longest_param_len = max(len(p[0]) for p in non_skipped_non_tab_params)  # p[0] is param_name
+        # If we have skipped parameters (object/array declarations) that are longer,
+        # consider using them for alignment calculation
+        # This ensures parameters can align with object declarations when appropriate
+        skipped_non_tab_params = [p for p in param_data if p[4] and '\t' not in p[1]]
+        if skipped_non_tab_params:
+            longest_skipped_len = max(len(p[0]) for p in skipped_non_tab_params)
+            # If the longest skipped parameter is significantly longer than non-skipped ones,
+            # use it for expected position calculation
+            # This handles cases where multiple simple params (like size, type) should align
+            # with a longer object declaration parameter (like extend_param)
+            if longest_skipped_len > longest_param_len and longest_skipped_len - longest_param_len >= 4:
+                # Skip parameter is significantly longer (at least 4 chars), use it
+                longest_param_len = longest_skipped_len
+    else:
+        # All parameters are skipped or have tabs, use all non-tab params
+        non_tab_params = [p for p in param_data if '\t' not in p[1]]
+        if non_tab_params:
+            longest_param_len = max(len(p[0]) for p in non_tab_params)
+        else:
+            # All have tabs, use all params
+            longest_param_len = max(len(p[0]) for p in param_data)
+    # Check if any parameter has quotes and add quote length
+    has_quoted_params = any(
+        line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
+        for _, line, _, _, _ in param_data
+    )
+    quote_chars = 2 if has_quoted_params else 0
+    # The equals position is calculated as: indent + param_name_length + quote_chars + 1 space between param and =
+    expected_equals_location = indent_spaces + longest_param_len + quote_chars + 1
+    
+    # If more than half of parameters are already aligned at a specific position,
+    # use that position (they're already aligned, so it's valid)
+    # Use the most common position if most parameters are aligned there
+    # This respects existing alignment patterns
+    # However, if the expected location based on longest parameter (including object declarations)
+    # differs significantly from the most_common position, we should use the longest-based position
+    # This ensures parameters correctly align with their object declarations
+    use_most_common = False
+    expected_based_on_longest = indent_spaces + longest_param_len + quote_chars + 1
+    
+    if most_common_count > total_params / 2 or (total_params == 2 and most_common_count == 2):
+        # Check if most_common position is close to the expected position based on longest parameter
+        # If they differ significantly (>2 columns), use the longest-based position instead
+        # This prevents cases where a majority of parameters from different objects are aligned
+        # but we need to align with an object declaration in the same group
+        if abs(most_common_pos[0] - expected_based_on_longest) > 2:
+            # Most common position differs significantly from expected - use expected position
+            # This handles cases like: multiple size params at position 9, but extend_param at 17
+            use_most_common = False
+        else:
+            expected_equals_location = most_common_pos[0]
+            use_most_common = True
+        
+        # Only execute this branch if we're actually using most_common position
+        # Otherwise, fall through to the normal alignment check loop below
+        if use_most_common:
+            # Only check spacing after equals, not alignment
+            # Skip alignment checks for parameters that are already aligned
+            for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
+                # Skip nested object/array declaration lines from alignment check
+                if should_skip:
+                    continue
+                
+                if equals_pos != expected_equals_location:
+                    # Check if this parameter is already aligned with other parameters
+                    # If most params are aligned at a different position, this might be a different alignment group
+                    if most_common_count > 1:
+                        # Check if this parameter is aligned with the majority
+                        if equals_pos == most_common_pos[0]:
+                            # This parameter is aligned with the majority, skip check
+                            continue
+                    
+                    # Check if it's close enough to be considered aligned
+                    if abs(equals_pos - expected_equals_location) <= 1:
+                        # Close enough, skip alignment check
+                        continue
+                    
+                    # Too far off, report alignment error
+                    required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
+                    if equals_pos < expected_equals_location:
+                        errors.append((
+                            actual_line_num,
+                            f"Parameter assignment equals sign not aligned in {block_type}. "
+                            f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                            f"equals sign should be at column {expected_equals_location + 1}"
+                        ))
+                    elif equals_pos > expected_equals_location:
+                        errors.append((
+                            actual_line_num,
+                            f"Parameter assignment equals sign not aligned in {block_type}. "
+                            f"Too many spaces before '=', equals sign should be at column {expected_equals_location + 1}"
+                        ))
+            
+            # Check spacing after equals for all parameters
+            for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
+                # Skip nested object/array declaration lines
+                if should_skip:
+                    continue
+                
+                after_equals = line[equals_pos + 1:]
+                if len(after_equals) == 0 or not after_equals[0] == ' ':
+                    errors.append((
+                        actual_line_num,
+                        f"Parameter assignment should have at least one space after '=' in {block_type}"
+                    ))
+            
+            return errors
     
     # Calculate expected equals location based on longest parameter name
     # For tfvars files, always align to longest parameter name
     # Check if any parameter has quotes
     has_quoted_params = any(
         line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
-        for _, line, _, _ in param_data
+        for _, line, _, _, _ in param_data
     )
     quote_chars = 2 if has_quoted_params else 0
-    expected_equals_location = indent_spaces + longest_param_name_length + quote_chars + 1
+    # Calculate expected location based on longest parameter
+    # Use longest_param_len which is already calculated above (at line 1249-1265)
+    # and includes the logic to consider object/array declarations when appropriate
+    expected_equals_location_base = indent_spaces + longest_param_len + quote_chars + 1
+    
+    # If we already determined to use most common position, keep it
+    # Otherwise use the base calculation
+    if not use_most_common:
+        expected_equals_location = expected_equals_location_base
     
     # Check alignment for each parameter
-    for param_name, line, actual_line_num, equals_pos in param_data:
+    for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
+        # Skip alignment check for nested object/array declaration lines
+        if should_skip:
+            continue
+        
         # Skip alignment check if equals position matches expected location
         if equals_pos == expected_equals_location:
             continue
         
+        # If most params are already aligned, respect that alignment
+        if use_most_common:
+            if equals_pos == most_common_pos[0]:
+                # This parameter is aligned with the majority, skip check
+                continue
+        
+        # Skip emitting alignment error on lines with tabs (ST.004), but still allow them to influence expected position
+        if '\t' in line:
+            continue
+
         # Check if indentation is incorrect
         actual_indent = len(line) - len(line.lstrip())
         if actual_indent % 2 != 0:
@@ -1024,8 +1430,75 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
         
         # For parameters with quotes, add quote characters to length
         param_display_length = len(param_name)
-        if line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'"):
+        before_eq_for_quote = line[: line.find('=')]
+        if before_eq_for_quote.strip().startswith('"') or before_eq_for_quote.strip().startswith("'"):
             param_display_length += 2  # Add quotes length
+        
+        # Check if this parameter is already aligned with at least 2 other NON-TAB parameters
+        # Tab lines (ST.004) should not count for alignment - we only want to skip if aligned with valid parameters
+        # However, we should only skip if the alignment position matches the expected location
+        # or if it matches the most_common position and the difference from expected is small
+        non_tab_aligned_count = sum(1 for p in param_data if p[3] == equals_pos and '\t' not in p[1])
+        if non_tab_aligned_count >= 2:
+            # Check if this alignment position is acceptable
+            # If it matches expected location, or matches most_common and is close to expected, skip
+            if equals_pos == expected_equals_location:
+                # Aligned at expected location, skip
+                continue
+            elif use_most_common and equals_pos == most_common_pos[0]:
+                # Aligned with most_common and we're using most_common, skip
+                continue
+            elif abs(equals_pos - expected_equals_location) <= 1:
+                # Close to expected location (within 1 column), skip
+                continue
+            # Check if this parameter is aligned with the majority position
+            # If most parameters are already aligned at a different position (most_common_pos),
+            # and this parameter is at that position, skip the check
+            # This handles cases where multiple parameters form a valid alignment group,
+            # but the expected position is based on an object declaration in a different context
+            # However, don't skip if this parameter should align with an object declaration
+            # (i.e., if it's immediately followed by an object declaration parameter)
+            elif not use_most_common and unique_equals_positions and equals_pos == most_common_pos[0]:
+                # Check if this parameter should align with an object declaration
+                # Find the index of current parameter in param_data
+                current_idx = None
+                for idx, (_, _, ln, _, _) in enumerate(param_data):
+                    if ln == actual_line_num:
+                        current_idx = idx
+                        break
+                
+                # Check if next parameter is an object declaration and should be used for alignment
+                should_align_with_next_decl = False
+                if current_idx is not None and current_idx + 1 < len(param_data):
+                    next_param = param_data[current_idx + 1]
+                    if next_param[4]:  # next_param[4] is should_skip (object declaration)
+                        # Check if there's a blank line between current and next parameter
+                        # Find the line numbers from group_lines
+                        next_line_num = next_param[2]  # next_param[2] is actual_line_num
+                        current_line_num = actual_line_num
+                        
+                        # If line numbers differ by more than 1, there might be blank lines
+                        # But we need to check group_lines to see the actual lines
+                        # For now, if next_line_num - current_line_num == 1, they're adjacent
+                        if next_line_num - current_line_num == 1:
+                            # Adjacent lines, check if object declaration length was used for expected position
+                            skipped_params_len = [len(p[0]) for p in param_data if p[4] and '\t' not in p[1]]
+                            if skipped_params_len:
+                                longest_skipped_len = max(skipped_params_len)
+                                non_skipped_params = [p for p in param_data if not p[4] and '\t' not in p[1]]
+                                non_skipped_len = max(len(p[0]) for p in non_skipped_params) if non_skipped_params else 0
+                                if longest_skipped_len > non_skipped_len and longest_skipped_len - non_skipped_len >= 4:
+                                    # Object declaration length was used, and this param is immediately before it
+                                    should_align_with_next_decl = True
+                        # If line numbers differ by more than 1, they're not adjacent, don't align
+                
+                if not should_align_with_next_decl:
+                    # Most parameters are aligned at a position different from expected
+                    # This parameter is aligned with the majority, skip check
+                    continue
+                # Otherwise, should align with next declaration, continue to report error
+            # Otherwise, this parameter is aligned incorrectly with other parameters
+            # Report the error instead of skipping
         
         required_spaces_before_equals = expected_equals_location - indent_spaces - param_display_length
         
