@@ -61,6 +61,19 @@ custom_tags = {
   "access.key" = "your_access_key"
   "secret.key" = "your_secret_key"
 }
+
+instance_configurations = [
+  {
+    name = "instance_0"
+  },
+  {
+    name               = "instance_1"
+    availability_zones = ["cn-north-1a", "cn-north-1b"]
+    engine_version     = "3.x"
+    flavor_id          = "c6.large.4"
+    flavor_type        = "cluster"
+  }
+]
 # IO.003 Error: The value of the required variable 'subnet_name' is not set
 # ST.012 Error: This file has multiple empty lines after the last non-empty line
 

@@ -41,6 +41,7 @@ data huaweicloud_availability_zones "myaz" {
 
 # ST.006 Error: Missing blank line between data source blocks
 data "huaweicloud_availability_zones" test {
+  count = anytrue([for v in var.instance_configurations : length(v.availability_zones) == 0]) ? 1 : 0
 }
 
 

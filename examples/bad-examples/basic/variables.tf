@@ -190,4 +190,14 @@ variable "instance_configurations" {
     flavor_id          = optional(string, "")
     flavor_type        = optional(string, "cluster")
   }))
+
+  default = [
+    {
+      name               = "instance_1"
+      availability_zones = ["cn-north-1a", "cn-north-1b"]
+      engine_version     = "3.x"
+      flavor_id          = "c6.large.4"
+      flavor_type        = "cluster"
+    }
+  ]
 }

@@ -5,8 +5,10 @@ terraform {
   # ST.007 Error: Too many empty lines between different parameter blocks
   required_providers {
     huaweicloud = {
-      source = "huaweicloud/huaweicloud" # ST.003 Error: Equals sign not aligned
-      version =">= 1.57.0"               # ST.003 Error: Missing space after equals sign
+      # ST.003 Error: Equals sign not aligned
+      source = "huaweicloud/huaweicloud"
+      # ST.003 Error: Missing space after equals sign
+      version =">= 1.57.0"
     }
 
 
