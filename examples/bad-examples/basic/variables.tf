@@ -189,6 +189,16 @@ variable "instance_configurations" {
     engine_version     = optional(string, "3.x")
     flavor_id          = optional(string, "")
     flavor_type        = optional(string, "cluster")
+
+    optional = optional(object({
+      private_ip  = optional(string, "")
+      eip_address = optional(string, "")
+
+      sub_optional = optional(object({
+        private_ip  = optional(string, "")
+        eip_address = optional(string, "")
+      }), {})
+    }), {})
   }))
 
   default = [
