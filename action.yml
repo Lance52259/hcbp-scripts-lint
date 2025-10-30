@@ -195,7 +195,10 @@ runs:
         BASE_CMD="$BASE_CMD --performance-monitoring '${{ inputs.performance-monitoring }}'"
         
         # Enable report file generation
-        if [ "${{ inputs.report-file }}" = "true" ]; then
+        # Heuristic:
+        # - If report-file is true, always enable
+        # - If report-format is 'both' or 'json', enable (user explicitly wants file artifacts)
+        if [ "${{ inputs.report-file }}" = "true" ] || [ "${{ inputs.report-format }}" = "both" ] || [ "${{ inputs.report-format }}" = "json" ]; then
           BASE_CMD="$BASE_CMD --report-file"
         fi
         
