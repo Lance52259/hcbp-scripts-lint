@@ -5,6 +5,82 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2025-10-30
+
+### 🚀 Features
+
+- Default behavior now avoids generating report files. Use `--report-file` to explicitly enable file output.
+- Report filenames standardized to snake_case:
+  - `terraform_lint_report.txt`
+  - `terraform_lint_report.json`
+
+### 🔧 Rule Fixes & Improvements
+
+#### 🎯 ST.002 - Data Source Variable Default Value Check
+- Replaced regex-based variable parsing with a brace-balanced scanner that correctly handles arbitrarily nested blocks and strings/escapes.
+- Fixed false "not defined in the current directory" errors when variables are defined with deeply nested `optional(object({...}))` structures (e.g., `instance_configurations`).
+- Ensures only variables actually lacking a `default` and used in data sources are reported, while properly acknowledging variables with defaults in `variables.tf`.
+- Cleaned up newly added comments to use English only.
+
+#### 📏 ST.003 - Parameter Alignment and Spacing
+- Improved equals sign alignment across mixed sections and nested objects; preserves exactly one space after `=`.
+- Better handling for quoted keys (e.g., `"format"`) and single-parameter groups to avoid misalignment false positives.
+- More robust sectioning on blank lines and awareness of dynamic/content/lifecycle blocks.
+- Tab width normalized using `expandtabs(2)` for accurate column calculations.
+
+#### 🔢 ST.005 - Indentation Level Validation
+- More accurate expected indent computation based on brace depth across resources, data sources, and nested blocks (including `dynamic`, `content`, `lifecycle`).
+- Reduced false positives around lines with trailing comments/whitespace and near block boundaries.
+- Clear enforcement of 2-space indentation units while avoiding overlap with tab-character checks (ST.004).
+
+### ⚠️ Breaking/Behavior Changes
+
+- Removed flag: `--no-report-file` (no longer supported).
+- New flag: `--report-file` (enables writing report files).
+- Renamed report artifact filenames from kebab-case to snake_case: `terraform-lint-report.*` → `terraform_lint_report.*`.
+
+### 🛠️ CI/Action Updates
+
+- `action.yml`:
+  - Added input `report-file` (default `false`).
+  - Removed input `no-report-file`.
+  - Updated artifact names, parsing, and summary logic to use snake_case (`terraform_lint_report.*`).
+  - Only parses and displays detailed report sections if the corresponding report files exist; otherwise continues without error.
+
+### 📚 Documentation
+
+- Updated `docs/guides/troubleshooting.md` to use snake_case report filenames.
+- `README.md` contained no references to deprecated flags/filenames; no changes required.
+
+### 🔼 Upgrade Guide
+
+- To generate report files in GitHub Actions:
+
+  ```yaml
+  - name: Lint Terraform
+    uses: Lance52259/hcbp-scripts-lint@v2
+    with:
+      report-file: 'true'
+      report-format: 'both' # or text/json
+  ```
+
+  or
+
+  ```yaml
+  - name: Lint Terraform
+    uses: Lance52259/hcbp-scripts-lint@v2
+    with:
+      report-format: 'both' # or text/json
+  ```
+
+- Replace any references to `terraform-lint-report.*` with `terraform_lint_report.*`.
+- Remove usages of `--no-report-file`; use `--report-file` when file output is needed.
+
+### 🧑‍💻 Developer Notes
+
+- ST.002 implementation now uses a robust brace-balanced scanner with quote/escape handling for accurate variable body extraction and `default` detection across nested HCL structures.
+- ST.003 and ST.005 logic refined for alignment and indentation accuracy in complex, nested Terraform constructs.
+
 ## [2.5.0] - 2025-10-27
 
 ### 🚀 Major Rule Enhancements
