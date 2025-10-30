@@ -918,18 +918,19 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         
         # Don't clear current_section when exiting array
         # This allows subsequent top-level params to join the same section
-        # Check if we're starting a new object in an array (standalone {)
-        # Only split if this is not at the top level
+        # Check if we're starting a new object element inside an array (standalone '{')
+        # In tfvars, each object element within an array should form its own alignment group
+        # Split sections when encountering a standalone '{' inside any array level
         if bracket_level >= 1 and stripped_for_boundary == '{' and '=' not in stripped_line:
-            # Check if this is top-level (bracket_level was 1 AFTER this line's [, meaning we're in a top-level array)
-            if bracket_level == 1:
-                # Top-level array, don't split section
-                pass
-            else:
-                # Non-top-level, split section
-                if current_section:
-                    sections.append(current_section)
-                    current_section = []
+            # Only split if current_section is not tracking top-level parameters
+            def _section_has_top_level_param(sec):
+                for _ln, _l in sec:
+                    if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
+                        return True
+                return False
+            if current_section and not _section_has_top_level_param(current_section):
+                sections.append(current_section)
+                current_section = []
         
         # Regular grouping logic (handles gaps between lines)
         # Check if we should process this line for regular grouping
@@ -984,8 +985,19 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                         current_section = [(line_num, line)]
                         
                     else:
-                        # Same top-level group, add to current section
-                        current_section.append((line_num, line))
+                        # If current_section tracks top-level params, and this line is an object param
+                        # within an array/object, start a new section for nested params
+                        def _section_has_top_level_param(sec):
+                            for _ln, _l in sec:
+                                if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
+                                    return True
+                            return False
+                        if is_object_param and _section_has_top_level_param(current_section):
+                            sections.append(current_section)
+                            current_section = [(line_num, line)]
+                        else:
+                            # Same group, add to current section
+                            current_section.append((line_num, line))
                 else:
                     # Not a top-level parameter, check gap from previous line
                     prev_line_num = current_section[-1][0]
@@ -1005,6 +1017,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     all_errors = []
     processed_lines = set()  # Track processed lines to avoid duplicates
     
+    last_top_level_expected: Optional[int] = None
     for section_idx, section in enumerate(sections):
         # Convert (line_num, line) to (line, relative_line_idx) format
         # For tfvars, we need to preserve original line numbers
@@ -1013,7 +1026,26 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         # because _check_parameter_alignment_in_section adds 1 to the line number
         base_line_num = section[0][0] - 1
         
-        errors = _check_tfvars_parameter_alignment_in_section(converted_section, "tfvars")
+        # Compute override expected for single top-level param sections using last seen top-level expected
+        # Determine if this section has a top-level group with >=2 params to refresh the expected
+        # or only one param, in which case use the last expected
+        # Build groups quickly to detect counts
+        temp_params = []
+        for line, actual_line_num in converted_section:
+            if '=' in line and not line.strip().startswith('#'):
+                indent = len(line) - len(line.lstrip())
+                indent_level = indent // 2
+                temp_params.append((indent_level, actual_line_num, line))
+        top_level_params = [(n, l) for il, n, l in temp_params if il == 0]
+        top_level_override = None
+        if len(top_level_params) >= 2:
+            # Recompute expected for this section's top-level group
+            group_lines = [(n, l) for n, l in top_level_params]
+            last_top_level_expected = _compute_expected_equals_location_tfvars(group_lines, 0)
+        elif len(top_level_params) == 1 and last_top_level_expected is not None:
+            top_level_override = last_top_level_expected
+
+        errors = _check_tfvars_parameter_alignment_in_section(converted_section, "tfvars", top_level_expected_override=top_level_override)
         
         # Only add errors for lines that haven't been processed yet
         for line_num, msg in errors:
@@ -1029,7 +1061,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         log_error_func(file_path, "ST.003", error_msg, line_num)
 
 
-def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]], block_type: str) -> List[Tuple[int, str]]:
+def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]], block_type: str, top_level_expected_override: Optional[int] = None) -> List[Tuple[int, str]]:
     """
     Check parameter alignment in a tfvars section.
     
@@ -1072,6 +1104,36 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
     for indent_level, group_lines in groups.items():
         # Sort by line number to maintain order
         group_lines.sort()
+        # If this is a top-level group with only one parameter and we have an override, apply it
+        if indent_level == 0 and len(group_lines) == 1 and top_level_expected_override is not None:
+            actual_line_num, line = group_lines[0]
+            display_line = line.expandtabs(2)
+            equals_pos = display_line.find('=')
+            # Only apply override for top-level object declarations (param = {), not arrays
+            after_equals_strip = display_line[equals_pos + 1:].strip() if equals_pos != -1 else ''
+            if equals_pos != -1 and after_equals_strip.startswith('{') and '\t' not in line and equals_pos != top_level_expected_override:
+                # Compute param display length with quotes if any for message spacing
+                before_equals = display_line[:equals_pos]
+                if before_equals.strip().startswith('"') or before_equals.strip().startswith("'"):
+                    name_match = re.match(r"^\s*([\"\'])([^\"'\s=]+)\1", before_equals)
+                    param_name = name_match.group(2) if name_match else before_equals.strip().strip("\"'")
+                    name_len = len(param_name) + 2
+                else:
+                    param_name = before_equals.strip()
+                    name_len = len(param_name)
+                indent_spaces = indent_level * 2
+                required_spaces_before_equals = top_level_expected_override - indent_spaces - name_len
+                errors.append((
+                    actual_line_num,
+                    f"Parameter assignment equals sign not aligned in {block_type}. "
+                    f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                    f"equals sign should be at column {top_level_expected_override + 1}"
+                ))
+            # Always check spacing after '=' as usual
+            spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
+            errors.extend(spacing_errors)
+            continue
+
         alignment_errors = _check_group_alignment_tfvars(group_lines, indent_level, block_type)
         errors.extend(alignment_errors)
         
@@ -1081,6 +1143,53 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
             errors.extend(spacing_errors)
     
     return errors
+
+
+def _compute_expected_equals_location_tfvars(group_lines: List[Tuple[int, str]], indent_level: int) -> Optional[int]:
+    """Compute expected equals location for a tfvars group similarly to _check_group_alignment_tfvars."""
+    # Reuse the same param_data building logic
+    param_data = []
+    for actual_line_num, line in group_lines:
+        display_line = line.expandtabs(2)
+        equals_pos = display_line.find('=')
+        if equals_pos == -1:
+            continue
+        before_equals = display_line[:equals_pos]
+        if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
+            continue
+        after_equals = display_line[equals_pos + 1:].strip()
+        is_object_or_array_decl = after_equals.startswith('[') or after_equals.startswith('{')
+        actual_indent = len(line) - len(line.lstrip())
+        should_skip_from_expected_calc = is_object_or_array_decl and actual_indent > 0
+        if before_equals.strip().startswith('"') or before_equals.strip().startswith("'"):
+            m = re.match(r"^\s*([\"\'])([^\"'\s=]+)\1", before_equals)
+            param_name = m.group(2) if m else None
+        else:
+            m = re.match(r"^\s*([^\"'\s=]+)", before_equals)
+            param_name = m.group(1) if m else None
+        if param_name is not None:
+            param_data.append((param_name, line, actual_line_num, equals_pos, should_skip_from_expected_calc))
+    if not param_data:
+        return None
+    indent_spaces = indent_level * 2
+    # Compute longest considering skip logic like in main function
+    non_skipped_non_tab_params = [p for p in param_data if not p[4] and '\t' not in p[1]]
+    if non_skipped_non_tab_params:
+        longest_param_len = max(len(p[0]) for p in non_skipped_non_tab_params)
+        skipped_non_tab_params = [p for p in param_data if p[4] and '\t' not in p[1]]
+        if skipped_non_tab_params:
+            longest_skipped_len = max(len(p[0]) for p in skipped_non_tab_params)
+            if longest_skipped_len > longest_param_len and longest_skipped_len - longest_param_len >= 4:
+                longest_param_len = longest_skipped_len
+    else:
+        non_tab_params = [p for p in param_data if '\t' not in p[1]]
+        if non_tab_params:
+            longest_param_len = max(len(p[0]) for p in non_tab_params)
+        else:
+            longest_param_len = max(len(p[0]) for p in param_data)
+    has_quoted_params = any(line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'") for _, line, _, _, _ in param_data)
+    quote_chars = 2 if has_quoted_params else 0
+    return indent_spaces + longest_param_len + quote_chars + 1
 
 
 def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_level: int, block_type: str) -> List[Tuple[int, str]]:
