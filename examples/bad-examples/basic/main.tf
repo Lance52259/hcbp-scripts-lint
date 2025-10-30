@@ -55,6 +55,7 @@ data "huaweicloud_compute_flavors" test {
 }
 
 data "huaweicloud_images_images" "test" {
+  # ST.002 Error: Data source variable 'instance_image_id' used but without default value
   count = var.instance_image_id == "" ? 1 : 0
 
 
@@ -114,6 +115,7 @@ resource "huaweicloud_vpc_subnet" test {
 data "huaweicloud_vpc_subnets" "test" {
   depends_on = [huaweicloud_vpc_subnet.test]  # The depends_on meta-parameter is ahead of the other parameters
 
+  # ST.002 Error: Data source variable 'subnet_name' used but without default value
   name = var.subnet_name
 }
 

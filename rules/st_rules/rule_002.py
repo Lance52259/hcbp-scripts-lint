@@ -289,31 +289,79 @@ def _extract_data_source_variables_with_lines(content: str, original_lines: List
 
 def _extract_variables(content: str) -> Dict[str, bool]:
     """
-    Extract variable definitions from content and check if they have defaults.
+    Extract variable definitions and determine whether they contain a default.
+    This parser supports arbitrarily nested braces and multiple naming styles.
 
-    Args:
-        content (str): The cleaned Terraform content
-
-    Returns:
-        Dict[str, bool]: Dictionary mapping variable names to whether they have defaults
+    Supported forms:
+    - variable "name" { ... }
+    - variable 'name' { ... }
+    - variable name { ... }
     """
-    variables = {}
-    
-    # Pattern to match variable definitions - support quoted, single-quoted, and unquoted syntax
-    # Quoted: variable "name" { ... }
-    # Single-quoted: variable 'name' { ... }
-    # Unquoted: variable name { ... }
-    var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}'
-    
-    for match in re.finditer(var_pattern, content, re.DOTALL):
-        # Get variable name from quoted, single-quoted, or unquoted group
-        var_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
-        var_body = match.group(4)
-        
-        # Check if variable has a default value
-        has_default = bool(re.search(r'\bdefault\s*=', var_body))
-        variables[var_name] = has_default
-    
+    variables: Dict[str, bool] = {}
+
+    # Find the start of a variable block (name and the first following '{')
+    start_pattern = re.compile(
+        r"\bvariable\s+(?:\"([^\"]+)\"|'([^']+)'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{",
+        re.MULTILINE,
+    )
+
+    pos = 0
+    length = len(content)
+
+    while pos < length:
+        m = start_pattern.search(content, pos)
+        if not m:
+            break
+
+        var_name = m.group(1) or m.group(2) or m.group(3)
+        # Locate the position of the first '{'
+        brace_start = content.find('{', m.end() - 1)
+        if brace_start == -1:
+            # Should not happen; advance to avoid infinite loop
+            pos = m.end()
+            continue
+
+        # Scan forward using brace counting; handle nested braces and braces inside strings
+        brace_count = 0
+        i = brace_start
+        in_quotes = False
+        quote_char = ''
+        while i < length:
+            ch = content[i]
+
+            # Handle quotes and escapes to avoid counting braces inside strings
+            if in_quotes:
+                if ch == '\\':
+                    # Skip the escaped character
+                    i += 2
+                    continue
+                if ch == quote_char:
+                    in_quotes = False
+                i += 1
+                continue
+            else:
+                if ch == '"' or ch == '\'':
+                    in_quotes = True
+                    quote_char = ch
+                    i += 1
+                    continue
+
+            if ch == '{':
+                brace_count += 1
+            elif ch == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    # Variable block ends; extract body
+                    body = content[brace_start + 1:i]
+                    has_default = bool(re.search(r"\bdefault\s*=", body))
+                    variables[var_name] = has_default
+                    pos = i + 1
+                    break
+            i += 1
+        else:
+            # Unclosed block; advance to avoid infinite loop
+            pos = m.end()
+
     return variables
 
 
