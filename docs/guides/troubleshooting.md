@@ -16,7 +16,7 @@ GitHub Action shows exit code 1, indicating that the linting check found code er
   if: always()
   run: |
     echo "=== Lint Report ==="
-    cat terraform-lint-report.txt || echo "Report file not found"
+    cat terraform_lint_report.txt || echo "Report file not found"
     echo "=================="
 ```
 
@@ -152,10 +152,10 @@ Processing large Terraform projects may timeout or run out of memory.
   if: always()
   run: |
     echo "=== Text Report ==="
-    cat terraform-lint-report.txt || echo "Text report not found"
+    cat terraform_lint_report.txt || echo "Text report not found"
     echo ""
     echo "=== JSON Report ==="
-    cat terraform-lint-report.json || echo "JSON report not found"
+    cat terraform_lint_report.json || echo "JSON report not found"
 ```
 
 ### Validate Input Parameters

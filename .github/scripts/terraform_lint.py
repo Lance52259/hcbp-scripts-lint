@@ -761,7 +761,7 @@ class TerraformLinter:
                 except Exception as e:
                     print(f"Error writing JSON report to {output_file}: {e}")
             else:
-                print("Report file generation skipped (--no-report-file specified)")
+                print("Report file generation skipped (file output not enabled)")
 
             # For JSON format, we don't need report_content for file writing,
             # but we still need it for the console output logic below
@@ -974,7 +974,7 @@ class TerraformLinter:
                 except Exception as e:
                     print(f"Error writing text report to {output_file}: {e}")
             else:
-                print("Report file generation skipped (--no-report-file specified)")
+                print("Report file generation skipped (file output not enabled)")
 
         # Also print summary to console
         print("\n" + "=" * 60)
@@ -1232,14 +1232,14 @@ Examples:
   # Complex filtering with performance optimization
   python3 terraform_lint.py --directory ./prod --ignore-rules "ST.001" --exclude-paths "*.backup,test/*"
 
-  # Console output only, no report files
-  python3 terraform_lint.py --no-report-file
+  # Generate report files explicitly
+  python3 terraform_lint.py --report-file
 
-  # Console only with JSON format (no files generated)
-  python3 terraform_lint.py --no-report-file --report-format json
+  # Generate JSON report file explicitly
+  python3 terraform_lint.py --report-file --report-format json
 
-  # Quick check without generating files
-  python3 terraform_lint.py --changed-files-only --no-report-file
+  # Quick check (console only by default)
+  python3 terraform_lint.py --changed-files-only
 
 Rule Categories:
   ST (Style/Format): Code formatting and style rules
@@ -1290,9 +1290,10 @@ System Information:
 
     parser.add_argument('--performance-monitoring', type=str, default='true',
                        help='Enable or disable detailed performance monitoring (true/false, case-insensitive, default: true)')
-
-    parser.add_argument('--no-report-file', action='store_true',
-                       help='Skip generating report files, only show console output')
+    
+    # Reporting behavior: default is console-only; enable file output via --report-file
+    parser.add_argument('--report-file', action='store_true',
+                       help='Generate report files (default: console-only)')
 
     args = parser.parse_args()
 
@@ -1369,19 +1370,20 @@ System Information:
     success = linter.lint_directory(target_directory)
 
     # Generate comprehensive report based on format and file output setting
-    write_files = not args.no_report_file
+    # Default is no report file; enable when --report-file is provided
+    write_files = True if getattr(args, 'report_file', False) else False
     
     if args.report_format == 'json':
-        output_file = "terraform-lint-report.json"
+        output_file = "terraform_lint_report.json"
         lint_report = linter.generate_report(output_file=output_file, format='json', write_file=write_files)
     elif args.report_format == 'both':
         # Generate both text and JSON reports
-        text_output = "terraform-lint-report.txt"
-        json_output = "terraform-lint-report.json"
+        text_output = "terraform_lint_report.txt"
+        json_output = "terraform_lint_report.json"
         lint_report = linter.generate_report(output_file=text_output, format='text', write_file=write_files)
         linter.generate_report(output_file=json_output, format='json', write_file=write_files)
     else:
-        output_file = "terraform-lint-report.txt"
+        output_file = "terraform_lint_report.txt"
         lint_report = linter.generate_report(output_file=output_file, format='text', write_file=write_files)
 
     # Enhanced exit code logic to distinguish different scenarios
