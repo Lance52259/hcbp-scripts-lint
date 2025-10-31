@@ -1,6 +1,24 @@
 
 # ST.012 Error: This file has a empty line before the first non-empty line
-# Variables definition
+# Variable definitions for authentication
+variable "region_name" {
+  description = "The region where the ECS instance is located"
+  type        = string
+}
+
+variable "access_key" {
+  description = "The access key of the IAM user"
+  type        = string
+  sensitive   = true
+}
+
+variable "secret_key" {
+  description = "The secret key of the IAM user"
+  type        = string
+  # SC.005 Error: Variable is not sensitive
+}
+
+# Variable definitions for resources/data sources
 variable "availability_zone" {
   description = "The availability zone where the resources will be created"
   type        = string
