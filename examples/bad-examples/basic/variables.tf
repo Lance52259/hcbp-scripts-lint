@@ -179,12 +179,14 @@ variable "volumes_configurations" {
 }
 
 # IO.004 Error: Variable name starts with underscore
+# IO.009 Error: Variable defined but not used
 variable "_variable_starts_with_underscore" {
 # IO.006 Error: Variable block without description
   type    = string
   default = "incorrect_variable_naming"
 }
 
+# IO.009 Error: Variable defined but not used
 variable "BadVariableName" {
 # IO.006 Error: Variable block has an empty description
   description = ""
@@ -230,6 +232,7 @@ variable "instance_configurations" {
   ]
 }
 
+# IO.009 Error: Variable defined but not used
 variable "test_content" {
   description = "The content of the test json"
   type        = object({
@@ -284,6 +287,7 @@ variable "test_content" {
   })
 }
 
+# IO.009 Error: Variable defined but not used
 variable "test_json_content" {
   description = "The content of the test json"
   type        = string
