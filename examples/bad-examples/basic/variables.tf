@@ -229,3 +229,92 @@ variable "instance_configurations" {
     }
   ]
 }
+
+variable "test_content" {
+  description = "The content of the test json"
+  type        = object({
+    # ST.003 Error: Equals sign not aligned
+    cache_key = object({
+      system_params = list(string)
+      parameters    = list(string)
+      # ST.003 Error: Equals sign not aligned
+      headers = list(string)
+    })
+    cache_http_status_and_ttl = list(object({
+      http_status = list(number)
+      # ST.003 Error: Equals sign not aligned
+      ttl = number
+    }))
+    # ST.003 Error: Equals sign not aligned
+    client_cache_control = object({
+      mode  = string
+      datas = list(string)
+    })
+    cacheable_headers         = list(string)
+  })
+
+  default = jsonencode({
+    # ST.003 Error: Equals sign not aligned
+    cache_key = {
+      system_params = [],
+      parameters    = [
+        "custom_param"
+      ],
+      # ST.003 Error: Equals sign not aligned
+      headers = []
+    },
+    cache_http_status_and_ttl = [
+      {
+        http_status = [
+          202,
+          203
+        ],
+        # ST.003 Error: Equals sign not aligned
+        ttl = 5
+      }
+    ],
+    # ST.003 Error: Equals sign not aligned
+    client_cache_control = {
+      mode  = "off",
+      datas = []
+    },
+    cacheable_headers         = [
+      "X-Custom-Header"
+    ]
+  })
+}
+
+variable "test_json_content" {
+  description = "The content of the test json"
+  type        = string
+  default     = jsonencode({
+    # ST.003 Error: Equals sign not aligned
+    cache_key = {
+      system_params = [],
+      # ST.003 Error: Equals sign not aligned
+      parameters = [
+        "custom_param"
+      ],
+      # ST.003 Error: Equals sign not aligned
+      headers = []
+    },
+    cache_http_status_and_ttl = [
+      {
+        http_status = [
+          202,
+          203
+        ],
+        # ST.003 Error: Equals sign not aligned
+        ttl = 5
+      }
+    ],
+    # ST.003 Error: Equals sign not aligned
+    client_cache_control = {
+      mode  = "off",
+      datas = []
+    },
+    cacheable_headers         = [
+      "X-Custom-Header"
+    ]
+  })
+}
