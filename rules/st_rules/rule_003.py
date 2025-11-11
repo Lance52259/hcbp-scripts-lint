@@ -280,6 +280,10 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     """
     sections = []
     current_section = []
+    # Stack to track sections when entering object({ internal parameters
+    # When we enter object({ internal params, we push current_section to stack
+    # When we exit with }), we pop and continue with the previous section
+    section_stack = []
     brace_level = 0
     bracket_level = 0
 
@@ -307,53 +311,217 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                 elif char == ']':
                     bracket_level -= 1
             
+            # Check if we're entering an object within a list (list(object({ form))
+            # This happens in structures like: cache_http_status_and_ttl = list(object({
+            # When we encounter a line that contains list(object({, we should start a new section
+            # for the parameters inside the object (which will be on subsequent lines)
+            # This check must come BEFORE the simple object({ check to handle list(object({ correctly
+            if 'list(' in stripped_line and 'object(' in stripped_line and stripped_line.endswith('{'):
+                # This is a list(object({ declaration line
+                # Add it to current section, then start a new section for nested parameters
+                # Push current_section to stack so we can return to it after }))
+                current_section.append((line, line_idx))
+                sections.append(current_section)
+                section_stack.append(current_section)  # Remember the section with list(object({ declaration
+                current_section = []
+                continue
+            
             # Check if we're entering an object (parameter = { form)
-            # When encountering '{', enter a new grouping
-            if brace_level == 1 and stripped_line.endswith('{'):
-                # Check if this is a simple "parameter = {" form
+            # When encountering '{', we should NOT create new grouping for "param = {" declaration
+            # because "param = {" should align with other parameters at the same level
+            # Only "param = {" internal parameters should create new grouping
+            # Note: "param = object({" also should align with other parameters at the same level
+            if brace_level >= 1 and stripped_line.endswith('{'):
+                # Check if this is a simple "parameter = {" form (not "parameter = object({")
                 if '=' in stripped_line:
                     after_equals = stripped_line.split('=', 1)[1].strip()
+                    # Don't create new grouping for "param = {" declaration
+                    # It should stay in the same group to align with other params at the same level
+                    # Internal parameters will create new grouping when encountered
                     if after_equals == '{':
-                        # Entering object grouping
-                        current_section.append((line, line_idx))
-                        sections.append(current_section)
-                        current_section = []
-                        continue
+                        # "param = {" declaration - check if we need to split section by indent level
+                        # If current_section has parameters with different indent levels, we should split
+                        current_indent = len(line) - len(line.lstrip())
+                        if current_section:
+                            # Check if there are parameters with different indent levels in current_section
+                            has_different_indent = False
+                            for prev_line, _ in current_section:
+                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                    if prev_indent != current_indent:
+                                        has_different_indent = True
+                                        break
+                            
+                            if has_different_indent:
+                                # Split section: keep parameters with same indent as current line
+                                # Parameters with different indent should go to previous section
+                                same_indent_section = []
+                                different_indent_section = []
+                                for prev_line, prev_idx in current_section:
+                                    if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                        if prev_indent == current_indent:
+                                            same_indent_section.append((prev_line, prev_idx))
+                                        else:
+                                            different_indent_section.append((prev_line, prev_idx))
+                                    else:
+                                        # Non-parameter lines (comments, etc.) - keep with same indent section
+                                        same_indent_section.append((prev_line, prev_idx))
+                                
+                                if different_indent_section:
+                                    # Add different indent parameters to previous section
+                                    sections.append(different_indent_section)
+                                # Continue with same indent section
+                                current_section = same_indent_section
+                        # "param = {" declaration will be added to current section below
             
             # Check if we're entering an array (parameter = [ form)
-            # When encountering '[', enter a new grouping
+            # When encountering '[', we should NOT create new grouping for "param = [" declaration
+            # because "param = [" should align with other parameters at the same level
+            # Only "param = [" internal elements should create new grouping
+            # This is similar to "param = {" handling above
             if bracket_level == 1 and stripped_line.endswith('['):
                 # Check if this is a simple "parameter = [" form
                 if '=' in stripped_line:
                     after_equals = stripped_line.split('=', 1)[1].strip()
                     if after_equals == '[':
-                        # Entering array grouping
-                        current_section.append((line, line_idx))
-                        sections.append(current_section)
-                        current_section = []
-                        continue
+                        # "param = [" declaration - check if we need to split section by indent level
+                        # If current_section has parameters with different indent levels, we should split
+                        current_indent = len(line) - len(line.lstrip())
+                        if current_section:
+                            # Check if there are parameters with different indent levels in current_section
+                            has_different_indent = False
+                            for prev_line, _ in current_section:
+                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                    if prev_indent != current_indent:
+                                        has_different_indent = True
+                                        break
+                            
+                            if has_different_indent:
+                                # Split section: keep parameters with same indent as current line
+                                # Parameters with different indent should go to previous section
+                                same_indent_section = []
+                                different_indent_section = []
+                                for prev_line, prev_idx in current_section:
+                                    if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                        if prev_indent == current_indent:
+                                            same_indent_section.append((prev_line, prev_idx))
+                                        else:
+                                            different_indent_section.append((prev_line, prev_idx))
+                                    else:
+                                        # Non-parameter lines (comments, etc.) - keep with same indent section
+                                        same_indent_section.append((prev_line, prev_idx))
+                                
+                                if different_indent_section:
+                                    # Add different indent parameters to previous section
+                                    sections.append(different_indent_section)
+                                # Continue with same indent section
+                                current_section = same_indent_section
+                        # "param = [" declaration will be added to current section below
+                        # Don't create new section - it should align with other params at the same level
             
             # Check if we're in an array and encountering a standalone '{' (new object element)
             # This happens in structures like: default = [ { ... }, { ... } ]
+            # However, if we're still inside an object (brace_level > 0), we should NOT clear current_section
+            # because the array declaration and subsequent parameters should align with each other
             if bracket_level >= 1 and stripped_line == '{' and '=' not in stripped_line:
                 # Starting a new object within an array
+                # Only clear current_section if we're at the top level (brace_level == 0)
+                # If we're still inside an object, keep current_section so subsequent parameters can align
+                if brace_level == 0:
+                    # Top-level array with object elements
+                    if current_section:
+                        sections.append(current_section)
+                        current_section = []
+                # If brace_level > 0, we're still inside an object, so don't clear current_section
+                # The object element will be added to current_section below
+            
+            # Check if we're entering parameters inside object({, list(object({, or simple param = {
+            # When we encounter a parameter line inside these structures, we need to ensure it's in a new section
+            # But only if the previous line was the declaration, not if it's another parameter at the same level
+            if brace_level >= 1 and '=' in stripped_line and not stripped_line.endswith('{') and not stripped_line.endswith('['):
+                # We're inside an object, and this is a parameter line
+                # Check if the previous line in current_section contains "object(", "list(object(", or ends with "= {"
                 if current_section:
-                    sections.append(current_section)
-                    current_section = []
+                    last_line_content = current_section[-1][0] if current_section else ""
+                    # Check if the last line contains object({ pattern (but not list(object({ which is handled separately)
+                    if 'object(' in last_line_content and '{' in last_line_content:
+                        # Check if it's list(object({ (already handled above) or simple object({
+                        if not ('list(' in last_line_content):
+                            # The previous line was object({ declaration
+                            # Check if this parameter has more indentation (is actually inside the object)
+                            current_indent = len(line) - len(line.lstrip())
+                            last_indent = len(last_line_content) - len(last_line_content.lstrip())
+                            if current_indent > last_indent:
+                                # This parameter is inside the object
+                                # We need to create a new section for object({ internal params
+                                # But we should keep the object({ declaration in the previous section
+                                # so it can align with other parameters at the same level
+                                # Push current_section to stack so we can return to it after })
+                                sections.append(current_section)
+                                section_stack.append(current_section)  # Remember the section with object({ declaration
+                                current_section = []
+                        elif bracket_level >= 1:
+                            # The previous line was list(object({ declaration, start new section for nested params
+                            sections.append(current_section)
+                            current_section = []
+                    # Check if the last line is a simple "param = {" declaration
+                    elif '=' in last_line_content and last_line_content.endswith('{'):
+                        after_equals_last = last_line_content.split('=', 1)[1].strip()
+                        if after_equals_last == '{':
+                            # The previous line was "param = {" declaration
+                            # Check if this parameter has more indentation (is actually inside the object)
+                            current_indent = len(line) - len(line.lstrip())
+                            last_indent = len(last_line_content) - len(last_line_content.lstrip())
+                            if current_indent > last_indent:
+                                # This parameter is inside the "param = {" object
+                                # Create a new section for internal params
+                                # Push current_section to stack so we can return to it after })
+                                sections.append(current_section)
+                                section_stack.append(current_section)  # Remember the section with "param = {" declaration
+                                current_section = []
             
             # Check if we're exiting an object
-            if brace_level == 0 and stripped_line == '}':
-                # Exiting object grouping
-                if current_section:
-                    sections.append(current_section)
-                    current_section = []
+            # When we encounter }), })), }, etc., we need to check if we should return to previous section
+            # This happens when we were in object({ internal params and now exiting with })
+            # Check if line starts with } or contains }) pattern (like }), })), }, etc.)
+            if stripped_line.startswith('}') or '})' in stripped_line or (stripped_line.endswith(')') and '}' in stripped_line):
+                # If we have a section in the stack, it means we were in object({ internal params
+                # and we should return to the previous section (which contains object({ declaration)
+                # so that subsequent parameters at the same level can align with object({ declaration
+                if section_stack:
+                    # End current section (object({ internal params)
+                    if current_section:
+                        sections.append(current_section)
+                    # Return to previous section (which contains object({ declaration)
+                    current_section = section_stack.pop()
+                    # Add the }) or })) line to the previous section so it's part of the same group
+                    current_section.append((line, line_idx))
+                    continue
+                elif brace_level == 0:
+                    # Exiting top-level object grouping
+                    if current_section:
+                        sections.append(current_section)
+                        current_section = []
             
             # Check if we're exiting an array
-            if bracket_level == 0 and stripped_line == ']':
+            # When we encounter ], we need to check if we should exit array grouping
+            # Check if line starts with ] or is exactly ']'
+            # However, if we're still inside an object (brace_level > 0), we should NOT clear current_section
+            # because subsequent parameters at the same level should align with the array declaration
+            if bracket_level == 0 and (stripped_line == ']' or stripped_line.startswith(']')):
                 # Exiting array grouping
-                if current_section:
-                    sections.append(current_section)
-                    current_section = []
+                # Only clear current_section if we're also exiting the top-level object (brace_level == 0)
+                # If we're still inside an object, keep current_section so subsequent parameters can align
+                if brace_level == 0:
+                    # Exiting top-level array (not inside an object)
+                    if current_section:
+                        sections.append(current_section)
+                        current_section = []
+                # If brace_level > 0, we're still inside an object, so don't clear current_section
+                # The array closing line will be added to current_section below
             
             # Add line to current section
             current_section.append((line, line_idx))
