@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1] - 2025-11-12
+
+### 🔧 Rule Fixes & Improvements
+
+#### 📏 ST.003 - Parameter Alignment Check
+- **Enhanced Support for Complex Nested Structures**: Improved parameter alignment detection for complex nested HCL structures
+  - **Nested Object Support**: Correctly handles `object({` declarations and their internal parameters, ensuring proper grouping and alignment
+  - **List of Objects Support**: Properly processes `list(object({` structures, creating separate alignment groups for nested parameters
+  - **Advanced Parameter Blocks**: Enhanced handling for `param = {` declarations, ensuring they align with other parameters at the same level while maintaining separate groups for internal parameters
+  - **Section Stack Management**: Introduced section stack mechanism to correctly track nested contexts and return to parent sections when exiting nested structures
+  - **Array Declaration Alignment**: Fixed `param = [` declarations to align with other parameters at the same level instead of creating separate sections
+  - **Improved Exit Detection**: Enhanced logic for detecting when exiting nested structures (`}`, `})`, `],`) to properly return to parent alignment groups
+  - **Indentation-Aware Grouping**: Better handling of parameters with different indentation levels, ensuring correct alignment within nested structures
+
+#### 🔢 ST.007 - Parameter Block Spacing Check
+- **Function Call Context Awareness**: Fixed false positives for parameter block spacing within function calls
+  - **JSON Function Support**: Correctly ignores parameter blocks inside `jsonencode()`, `jsondecode()`, and other Terraform functions that contain object/array literals
+  - **Smart Detection**: Added `_is_inside_function_call()` function to detect when code is within a function call context
+  - **Brace Level Tracking**: Improved brace level tracking to distinguish between resource block braces and function call internal braces
+  - **Preserved Existing Functionality**: Maintains all existing spacing checks for actual parameter blocks outside function calls
+  - **Supported Functions**: Handles common Terraform functions including `jsonencode`, `jsondecode`, `merge`, `try`, `coalesce`, `coalescelist`, `concat`, `flatten`, `setintersection`, `setunion`, `setproduct`, and `zipmap`
+
+### 🐛 Bug Fixes
+
+- **ST.003**: Fixed incorrect alignment suggestions for parameters within nested `object({` and `list(object({` structures
+- **ST.003**: Resolved alignment issues when parameters are at different nesting levels within complex JSON structures
+- **ST.007**: Fixed false positive spacing errors for JSON objects within `jsonencode()` function calls
+- **ST.007**: Corrected detection logic to properly identify function call boundaries
+
 ## [2.6.0] - 2025-10-30
 
 ### 🚀 Features
