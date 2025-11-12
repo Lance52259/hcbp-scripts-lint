@@ -207,6 +207,93 @@ def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
     return resources
 
 
+def _is_inside_function_call(resource_lines: List[str], line_index: int) -> bool:
+    """
+    Check if the current line is inside a function call (e.g., jsonencode, jsondecode, etc.).
+    
+    This function looks backwards from the current line to find if we're inside
+    a function call that contains object/array literals. If we find a function
+    call pattern (like jsonencode({ or jsondecode([), we check if the current
+    line is within that function call's arguments.
+    
+    Args:
+        resource_lines (List[str]): Lines of the resource block
+        line_index (int): Current line index (0-based, relative to resource_lines)
+        
+    Returns:
+        bool: True if inside a function call, False otherwise
+    """
+    # Common Terraform functions that contain object/array literals
+    function_patterns = [
+        r'\bjsonencode\s*\(',
+        r'\bjsondecode\s*\(',
+        r'\bmerge\s*\(',
+        r'\btry\s*\(',
+        r'\bcoalesce\s*\(',
+        r'\bcoalescelist\s*\(',
+        r'\bconcat\s*\(',
+        r'\bflatten\s*\(',
+        r'\bsetintersection\s*\(',
+        r'\bsetunion\s*\(',
+        r'\bsetproduct\s*\(',
+        r'\bzipmap\s*\(',
+    ]
+    
+    # Track nesting levels - we'll scan from the beginning to current line
+    paren_level = 0
+    brace_level = 0
+    bracket_level = 0
+    in_function_call = False
+    function_start_line = -1
+    brace_level_at_function_start = 0  # Track brace level when function call starts
+    
+    # Scan from the beginning of the resource block to the current line
+    for i in range(0, line_index + 1):
+        if i >= len(resource_lines):
+            continue
+            
+        line = resource_lines[i]
+        
+        # Check if this line contains a function call pattern
+        if not in_function_call:
+            for pattern in function_patterns:
+                if re.search(pattern, line):
+                    in_function_call = True
+                    function_start_line = i
+                    brace_level_at_function_start = brace_level  # Remember brace level at function start
+                    break
+        
+        # Count parentheses, braces, and brackets
+        for char in line:
+            if char == '(':
+                paren_level += 1
+            elif char == ')':
+                paren_level -= 1
+            elif char == '{':
+                brace_level += 1
+            elif char == '}':
+                brace_level -= 1
+            elif char == '[':
+                bracket_level += 1
+            elif char == ']':
+                bracket_level -= 1
+        
+        # After processing all characters in the line, check if we've exited the function call
+        # We've exited if:
+        # 1. All parentheses are closed (paren_level == 0)
+        # 2. Brace level has returned to the level when function started (brace_level == brace_level_at_function_start)
+        # 3. All brackets are closed (bracket_level == 0)
+        if in_function_call and paren_level == 0 and brace_level == brace_level_at_function_start and bracket_level == 0:
+            # We've exited the function call
+            in_function_call = False
+        
+        # If we're at the current line and we're inside a function call, return True
+        if i == line_index and in_function_call:
+            return True
+    
+    return False
+
+
 def _extract_parameters_from_resource(resource_lines: List[str], resource_start_line: int, block_type: str = None) -> List[Dict]:
     """
     Extract all types of parameters from within a resource.
@@ -260,6 +347,17 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
             
             i = j
         else:
+            # Check if we're inside a function call - if so, skip parameter block detection
+            if _is_inside_function_call(resource_lines, i):
+                # Track nesting level but don't extract parameters
+                for char in line:
+                    if char == '{':
+                        nesting_level += 1
+                    elif char == '}':
+                        nesting_level -= 1
+                i += 1
+                continue
+            
             # Look for structure blocks (parameter_name { ... }) at any nesting level
             block_match = re.match(r'(\w+)\s*\{', line)
             
@@ -298,6 +396,17 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                 
                 i = j
             else:
+                # Check if we're inside a function call - if so, skip parameter block detection
+                if _is_inside_function_call(resource_lines, i):
+                    # Track nesting level but don't extract parameters
+                    for char in line:
+                        if char == '{':
+                            nesting_level += 1
+                        elif char == '}':
+                            nesting_level -= 1
+                    i += 1
+                    continue
+                
                 # Look for advanced parameter assignments (parameter_name = { ... }) first
                 advanced_assignment_match = re.match(r'(\w+)\s*=\s*\{', line)
                 
@@ -383,6 +492,11 @@ def _extract_nested_parameters(resource_lines: List[str], resource_start_line: i
         line = resource_lines[i].strip()
         
         if not line or line.startswith('#'):
+            i += 1
+            continue
+        
+        # Check if we're inside a function call - if so, skip parameter block detection
+        if _is_inside_function_call(resource_lines, i):
             i += 1
             continue
         
