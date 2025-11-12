@@ -167,6 +167,31 @@ resource "huaweicloud_compute_instance" "test" {
   security_groups   = [huaweicloud_security_group.test.name]
   # SC.001 Error: Array index access is unsafe
   availability_zone = local.queried_availability_zones[0]
+  user_data         = jsonencode({
+    cache_key                 = {
+      system_params = [],
+      parameters    = [
+        "custom_param"
+      ],
+      headers       = []
+    },
+    cache_http_status_and_ttl = [
+      {
+        http_status = [
+          202,
+          203
+        ],
+        ttl         = 5
+      }
+    ],
+    client_cache_control      = {
+      mode  = "off",
+      datas = []
+    },
+    cacheable_headers         = [
+      "X-Custom-Header"
+    ]
+  })
   # ST.007 Error: Missing blank lines between difference parameter blocks even they are basic parameters and blocks (1 blank line is expected)
   dynamic "data_disks" {
     for_each = var.data_disks_configurations
