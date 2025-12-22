@@ -989,10 +989,38 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     """
     lines = content.split('\n')
     
+    # Track heredoc state to skip content inside heredoc blocks
+    in_heredoc = False
+    heredoc_terminator = None
+    
     # Find all variable assignment lines and boundary markers
     assignment_lines = []
     for i, line in enumerate(lines):
-        stripped = line.strip()
+        # Check heredoc state
+        line_stripped = line.strip()
+        
+        # Check for heredoc end pattern first (before checking start)
+        # The terminator must be at the beginning of the line (after stripping)
+        if in_heredoc and heredoc_terminator:
+            if line_stripped == heredoc_terminator:
+                in_heredoc = False
+                heredoc_terminator = None
+                # Continue to process the terminator line if it contains '=' or boundary markers
+        
+        # Skip lines inside heredoc blocks (but not the heredoc start line itself)
+        if in_heredoc:
+            continue
+        
+        # Check for heredoc start pattern (<<EOF, <<-EOF, etc.)
+        # This must be checked AFTER we've processed the line (if it contains '=' or boundary markers)
+        # Match <<EOF or <<-EOF at the end of a line
+        heredoc_match = re.search(r'<<-?([A-Z]+)\s*$', line)
+        if heredoc_match:
+            in_heredoc = True
+            heredoc_terminator = heredoc_match.group(1)
+            # Continue to process the heredoc start line if it contains '=' or boundary markers
+        
+        stripped = line_stripped
         if stripped and '=' in stripped:
             # Include all assignment lines (comments already removed)
             assignment_lines.append((i + 1, line))
