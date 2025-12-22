@@ -1041,23 +1041,16 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 prev_brace_level = prev_brace_level_saved
                 prev_bracket_level = prev_bracket_level_saved
                 
-                # For top-level array declarations, check blank lines before splitting
+                # For top-level array declarations, don't split section
+                # Top-level array declarations should be in the same group as previous top-level parameters
+                # They will be aligned together, with the longest parameter name determining the alignment position
                 is_top_level_array = (line_indent == 0 and 
                                     prev_brace_level == 0 and 
                                     prev_bracket_level == 0)
                 
-                if is_top_level_array and current_section:
-                    # Check if there's a blank line before this array declaration
-                    prev_line_num = current_section[-1][0]
-                    has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
-                    
-                    if has_gap:
-                        # Blank line before top-level array - split section
-                        sections.append(current_section)
-                        current_section = [(line_num, line)]
-                        continue
-                
-                # No gap or not top-level - add to current section but don't split
+                # Add to current section without splitting
+                # This allows top-level parameters, array declarations, and object declarations
+                # to be in the same group if they're not separated by other top-level parameters
                 current_section.append((line_num, line))
                 continue
         
@@ -1186,6 +1179,8 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     processed_lines = set()  # Track processed lines to avoid duplicates
     
     last_top_level_expected: Optional[int] = None
+    last_top_level_group_size: Optional[int] = None
+    last_multi_param_section_idx: Optional[int] = None
     for section_idx, section in enumerate(sections):
         # Convert (line_num, line) to (line, relative_line_idx) format
         # For tfvars, we need to preserve original line numbers
@@ -1210,10 +1205,45 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             # Recompute expected for this section's top-level group
             group_lines = [(n, l) for n, l in top_level_params]
             last_top_level_expected = _compute_expected_equals_location_tfvars(group_lines, 0)
+            last_top_level_group_size = len(top_level_params)
+            last_multi_param_section_idx = section_idx
         elif len(top_level_params) == 1 and last_top_level_expected is not None:
-            top_level_override = last_top_level_expected
+            # Only use override if:
+            # 1. The previous section had at least 2 top-level parameters
+            # 2. There are no other top-level parameters between the previous section and current section
+            # This ensures that single-parameter groups separated by blank lines don't incorrectly
+            # align with previous single-parameter groups, and that parameters with other top-level
+            # parameters between them don't align
+            if last_top_level_group_size is not None and last_top_level_group_size >= 2 and last_multi_param_section_idx is not None:
+                # Check if there are other top-level object declarations (param = {) between the last multi-param section and current section
+                # Array declarations (param = [) should not prevent alignment
+                has_other_top_level_object_decls = False
+                last_multi_param_section = sections[last_multi_param_section_idx]
+                last_multi_param_last_line_num = last_multi_param_section[-1][0] if last_multi_param_section else 0
+                current_first_line_num = section[0][0] if section else 0
+                # Check all sections between last multi-param section and current section
+                for check_idx in range(last_multi_param_section_idx + 1, section_idx):
+                    check_section = sections[check_idx]
+                    for check_line_num, check_line in check_section:
+                        if check_line_num > last_multi_param_last_line_num and check_line_num < current_first_line_num:
+                            if '=' in check_line:
+                                check_indent = len(check_line) - len(check_line.lstrip())
+                                if check_indent == 0 and not check_line.strip().startswith('#'):
+                                    # Check if this is an object declaration (param = {), not array (param = [)
+                                    check_equals_pos = check_line.find('=')
+                                    if check_equals_pos != -1:
+                                        check_after_equals = check_line[check_equals_pos + 1:].strip()
+                                        if check_after_equals.startswith('{'):
+                                            has_other_top_level_object_decls = True
+                                            break
+                    if has_other_top_level_object_decls:
+                        break
+                
+                if not has_other_top_level_object_decls:
+                    top_level_override = last_top_level_expected
+            # Don't update last_top_level_group_size here - preserve it for subsequent sections
 
-        errors = _check_tfvars_parameter_alignment_in_section(converted_section, "tfvars", top_level_expected_override=top_level_override)
+        errors = _check_tfvars_parameter_alignment_in_section(converted_section, "tfvars", top_level_expected_override=top_level_override, original_lines=lines)
         
         # Only add errors for lines that haven't been processed yet
         for line_num, msg in errors:
@@ -1229,7 +1259,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         log_error_func(file_path, "ST.003", error_msg, line_num)
 
 
-def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]], block_type: str, top_level_expected_override: Optional[int] = None) -> List[Tuple[int, str]]:
+def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]], block_type: str, top_level_expected_override: Optional[int] = None, original_lines: Optional[List[str]] = None) -> List[Tuple[int, str]]:
     """
     Check parameter alignment in a tfvars section.
     
@@ -1256,59 +1286,105 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
     if len(parameter_lines) == 0:
         return errors
     
-    # Group by indentation level
+    # Group by indentation level, but also split groups on blank lines
+    # Blank lines reset grouping, so parameters separated by blank lines should be in different groups
+    # groups[indent_level] is a list of groups, where each group is a list of (line_num, line) tuples
     groups = {}
+    current_groups = {}  # Track current group for each indent level
+    prev_line_num = None
+    
     for line, actual_line_num in parameter_lines:
         indent = len(line) - len(line.lstrip())
         indent_level = indent // 2
         # Skip odd indent (indent not multiple of 2) - these are ST.005 issues
         if indent % 2 != 0:
             continue
+        
+        # Check if there's a blank line between this parameter and the previous one
+        # We need to access the original file content to check for blank lines
+        if prev_line_num is not None and original_lines is not None:
+            has_gap = _has_blank_line_between(original_lines, prev_line_num - 1, actual_line_num - 1)
+            if has_gap:
+                # There is a blank line between parameters - split groups
+                if indent_level in current_groups and current_groups[indent_level]:
+                    if indent_level not in groups:
+                        groups[indent_level] = []
+                    groups[indent_level].append(current_groups[indent_level])
+                    current_groups[indent_level] = []
+        
         if indent_level not in groups:
             groups[indent_level] = []
-        groups[indent_level].append((actual_line_num, line))
+        if indent_level not in current_groups:
+            current_groups[indent_level] = []
+        
+        current_groups[indent_level].append((actual_line_num, line))
+        prev_line_num = actual_line_num
+    
+    # Finalize any remaining groups
+    for indent_level, group in current_groups.items():
+        if group:
+            if indent_level not in groups:
+                groups[indent_level] = []
+            groups[indent_level].append(group)
     
     # Check alignment and spacing for each group
-    for indent_level, group_lines in groups.items():
-        # Sort by line number to maintain order
-        group_lines.sort()
-        # If this is a top-level group with only one parameter and we have an override, apply it
-        if indent_level == 0 and len(group_lines) == 1 and top_level_expected_override is not None:
-            actual_line_num, line = group_lines[0]
-            display_line = line.expandtabs(2)
-            equals_pos = display_line.find('=')
-            # Only apply override for top-level object declarations (param = {), not arrays
-            after_equals_strip = display_line[equals_pos + 1:].strip() if equals_pos != -1 else ''
-            if equals_pos != -1 and after_equals_strip.startswith('{') and '\t' not in line and equals_pos != top_level_expected_override:
-                # Compute param display length with quotes if any for message spacing
-                before_equals = display_line[:equals_pos]
-                if before_equals.strip().startswith('"') or before_equals.strip().startswith("'"):
-                    name_match = re.match(r"^\s*([\"\'])([^\"'\s=]+)\1", before_equals)
-                    param_name = name_match.group(2) if name_match else before_equals.strip().strip("\"'")
-                    name_len = len(param_name) + 2
-                else:
-                    param_name = before_equals.strip()
-                    name_len = len(param_name)
-                indent_spaces = indent_level * 2
-                required_spaces_before_equals = top_level_expected_override - indent_spaces - name_len
-                errors.append((
-                    actual_line_num,
-                    f"Parameter assignment equals sign not aligned in {block_type}. "
-                    f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
-                    f"equals sign should be at column {top_level_expected_override + 1}"
-                ))
-            # Always check spacing after '=' as usual
-            spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
-            errors.extend(spacing_errors)
-            continue
-
-        alignment_errors = _check_group_alignment_tfvars(group_lines, indent_level, block_type)
-        errors.extend(alignment_errors)
+    for indent_level, group_list in groups.items():
+        # group_list is a list of groups, where each group is a list of (line_num, line) tuples
+        for group_lines in group_list:
+            # Sort by line number to maintain order
+            group_lines.sort()
         
-        # Check spacing for each line in the group
-        for actual_line_num, line in group_lines:
-            spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
-            errors.extend(spacing_errors)
+            # If this is a top-level group with only one parameter and we have an override, apply it
+            # This allows top-level parameters separated by blank lines to still align with previous top-level parameters
+            if indent_level == 0 and len(group_lines) == 1 and top_level_expected_override is not None:
+                actual_line_num, line = group_lines[0]
+                display_line = line.expandtabs(2)
+                equals_pos = display_line.find('=')
+                # Only apply override for top-level object declarations (param = {), not arrays
+                after_equals_strip = display_line[equals_pos + 1:].strip() if equals_pos != -1 else ''
+                if equals_pos != -1 and after_equals_strip.startswith('{') and '\t' not in line and equals_pos != top_level_expected_override:
+                    # Compute param display length with quotes if any for message spacing
+                    before_equals = display_line[:equals_pos]
+                    if before_equals.strip().startswith('"') or before_equals.strip().startswith("'"):
+                        name_match = re.match(r"^\s*([\"\'])([^\"'\s=]+)\1", before_equals)
+                        param_name = name_match.group(2) if name_match else before_equals.strip().strip("\"'")
+                        name_len = len(param_name) + 2
+                    else:
+                        param_name = before_equals.strip()
+                        name_len = len(param_name)
+                    indent_spaces = indent_level * 2
+                    required_spaces_before_equals = top_level_expected_override - indent_spaces - name_len
+                    
+                    # If using override would result in negative spaces, it means current param is longer
+                    # than the previous longest param. In this case, don't use override, let it fall through
+                    # to normal alignment check which will use current param's own length
+                    if required_spaces_before_equals < 0:
+                        # Don't use override, fall through to normal alignment check
+                        pass
+                    else:
+                        errors.append((
+                            actual_line_num,
+                            f"Parameter assignment equals sign not aligned in {block_type}. "
+                            f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                            f"equals sign should be at column {top_level_expected_override + 1}"
+                        ))
+                        # Always check spacing after '=' as usual
+                        spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
+                        errors.extend(spacing_errors)
+                        continue
+                # If we didn't use override (either not an object declaration or would result in negative spaces),
+                # fall through to normal alignment check. But still check spacing after '=' as usual
+                spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
+                errors.extend(spacing_errors)
+                # Don't continue here - let it fall through to normal alignment check
+
+            alignment_errors = _check_group_alignment_tfvars(group_lines, indent_level, block_type)
+            errors.extend(alignment_errors)
+            
+            # Check spacing for each line in the group
+            for actual_line_num, line in group_lines:
+                spacing_errors = _check_parameter_spacing_tfvars(line, actual_line_num, block_type)
+                errors.extend(spacing_errors)
     
     return errors
 
