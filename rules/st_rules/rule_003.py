@@ -286,9 +286,33 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     section_stack = []
     brace_level = 0
     bracket_level = 0
+    
+    # Track heredoc state to skip content inside heredoc blocks
+    in_heredoc = False
+    heredoc_terminator = None
 
     for line_idx, line in enumerate(block_lines):
         stripped_line = line.strip()
+        
+        # Check for heredoc end pattern first (before checking start)
+        # The terminator must be at the beginning of the line (after stripping)
+        if in_heredoc and heredoc_terminator:
+            if stripped_line == heredoc_terminator:
+                in_heredoc = False
+                heredoc_terminator = None
+                # Continue to process the terminator line if it contains '=' or boundary markers
+        
+        # Skip lines inside heredoc blocks (but not the heredoc start line itself)
+        if in_heredoc:
+            continue
+        
+        # Check for heredoc start pattern (<<EOF, <<-EOF, etc.)
+        # Match <<EOF or <<-EOF at the end of a line
+        heredoc_match = re.search(r'<<-?([A-Z]+)\s*$', line)
+        if heredoc_match:
+            in_heredoc = True
+            heredoc_terminator = heredoc_match.group(1)
+            # Continue to process the heredoc start line if it contains '=' or boundary markers
         
         if stripped_line == '':
             # Empty line always splits sections, regardless of brace/bracket level
@@ -582,11 +606,37 @@ def _check_parameter_alignment_in_section(
     """
     errors = []
     parameter_lines = []
+    
+    # Track heredoc state to skip content inside heredoc blocks
+    in_heredoc = False
+    heredoc_terminator = None
 
     # Extract parameter lines from section
     for line_content, relative_line_idx in section:
         line = line_content.rstrip()
-        if '=' in line and not line.strip().startswith('#'):
+        line_stripped = line.strip()
+        
+        # Check for heredoc end pattern first (before checking start)
+        # The terminator must be at the beginning of the line (after stripping)
+        if in_heredoc and heredoc_terminator:
+            if line_stripped == heredoc_terminator:
+                in_heredoc = False
+                heredoc_terminator = None
+                # Continue to process the terminator line if it contains '=' or boundary markers
+        
+        # Skip lines inside heredoc blocks (but not the heredoc start line itself)
+        if in_heredoc:
+            continue
+        
+        # Check for heredoc start pattern (<<EOF, <<-EOF, etc.)
+        # Match <<EOF or <<-EOF at the end of a line
+        heredoc_match = re.search(r'<<-?([A-Z]+)\s*$', line)
+        if heredoc_match:
+            in_heredoc = True
+            heredoc_terminator = heredoc_match.group(1)
+            # Continue to process the heredoc start line if it contains '=' or boundary markers
+        
+        if '=' in line and not line_stripped.startswith('#'):
             # Skip block declarations
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
                 # Skip provider declarations in required_providers blocks
