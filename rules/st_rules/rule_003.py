@@ -1162,8 +1162,50 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 
                 if is_top_level or is_object_param:
                     # This is another top-level parameter, array object parameter, or object parameter
-                    prev_line_num = current_section[-1][0]
-                    has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                    # Find the previous parameter at the same level (top-level for top-level, nested for nested)
+                    prev_line_num = None
+                    for prev_ln, prev_l in reversed(current_section):
+                        prev_stripped = prev_l.strip()
+                        prev_stripped_boundary = prev_stripped.rstrip(',')
+                        # Skip pure boundary markers (lines that are only ], }, [, or {)
+                        # But include parameter declarations like "param = [" or "param = {"
+                        if '=' in prev_l:
+                            # This is a parameter declaration
+                            # For top-level parameters, only use previous top-level parameters
+                            # For nested parameters, use any previous parameter
+                            if is_top_level:
+                                prev_indent = len(prev_l) - len(prev_l.lstrip())
+                                if prev_indent == 0:
+                                    # Previous parameter is also top-level, use it
+                                    prev_line_num = prev_ln
+                                    break
+                            else:
+                                # For nested parameters, use any previous parameter
+                                prev_line_num = prev_ln
+                                break
+                        elif prev_stripped_boundary not in ['{', '}', '[', ']']:
+                            # Not a boundary marker, but also not a parameter - skip
+                            continue
+                    
+                    # If no previous parameter found at same level, check previous section for top-level params
+                    if prev_line_num is None and is_top_level and len(sections) > 0:
+                        # Look for last top-level param in previous section
+                        prev_section = sections[-1] if sections else None
+                        if prev_section:
+                            for prev_ln, prev_l in reversed(prev_section):
+                                if '=' in prev_l:
+                                    prev_indent = len(prev_l) - len(prev_l.lstrip())
+                                    if prev_indent == 0:
+                                        prev_line_num = prev_ln
+                                        break
+                    
+                    # If still no previous parameter found, use the last line in section
+                    if prev_line_num is None and current_section:
+                        prev_line_num = current_section[-1][0]
+                    
+                    has_gap = False
+                    if prev_line_num is not None:
+                        has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
                     
                     # For tfvars, split on blank lines unless they're inside arrays/objects
                     # If there's a blank line and we're both at the top level, always split
@@ -1181,7 +1223,44 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                                 if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
                                     return True
                             return False
-                        if is_object_param and _section_has_top_level_param(current_section):
+                        # If this is a top-level parameter and we're currently in a section with nested params,
+                        # we should return to the previous section with top-level params (if it exists)
+                        # BUT only if there's no blank line between the previous section and current line
+                        # Otherwise, if this is a nested param and current section has top-level params, split for nested params
+                        if is_top_level and not _section_has_top_level_param(current_section) and len(sections) > 0:
+                            # Current line is top-level param, but current section only has nested params
+                            # Check if previous section has top-level params - if so, check for blank line before merging
+                            prev_section = sections[-1] if sections else None
+                            if prev_section and _section_has_top_level_param(prev_section):
+                                # Find the last top-level parameter in previous section
+                                last_top_level_line_num = None
+                                for prev_ln, prev_l in reversed(prev_section):
+                                    if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                                        last_top_level_line_num = prev_ln
+                                        break
+                                
+                                # Check if there's a blank line between last top-level param and current line
+                                has_blank_line = False
+                                if last_top_level_line_num is not None:
+                                    has_blank_line = _has_blank_line_between(lines, last_top_level_line_num - 1, line_num - 1)
+                                
+                                if not has_blank_line:
+                                    # No blank line - add to previous section with top-level params
+                                    sections.pop()
+                                    prev_section.append((line_num, line))
+                                    current_section = prev_section
+                                else:
+                                    # Blank line separates - start new section
+                                    if current_section:
+                                        sections.append(current_section)
+                                    current_section = [(line_num, line)]
+                            else:
+                                # No previous section with top-level params, start new section
+                                if current_section:
+                                    sections.append(current_section)
+                                current_section = [(line_num, line)]
+                        elif is_object_param and _section_has_top_level_param(current_section) and not is_top_level:
+                            # Current line is object param (nested), and section has top-level params - split for nested params
                             sections.append(current_section)
                             current_section = [(line_num, line)]
                         else:
@@ -1239,6 +1318,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             # Only use override if:
             # 1. The previous section had at least 2 top-level parameters
             # 2. There are no other top-level parameters between the previous section and current section
+            # 3. There's NO blank line between the previous section's last top-level param and current section's first param
             # This ensures that single-parameter groups separated by blank lines don't incorrectly
             # align with previous single-parameter groups, and that parameters with other top-level
             # parameters between them don't align
@@ -1267,7 +1347,32 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                     if has_other_top_level_object_decls:
                         break
                 
+                # Check if there's a blank line between last multi-param section's last top-level param and current section's first param
+                has_blank_line_between_sections = False
                 if not has_other_top_level_object_decls:
+                    # Find the last top-level parameter in last_multi_param_section
+                    last_top_level_param_line_num = None
+                    for check_line_num, check_line in reversed(last_multi_param_section):
+                        if '=' in check_line:
+                            check_indent = len(check_line) - len(check_line.lstrip())
+                            if check_indent == 0 and not check_line.strip().startswith('#'):
+                                last_top_level_param_line_num = check_line_num
+                                break
+                    
+                    # Find the first top-level parameter in current section
+                    current_first_top_level_param_line_num = None
+                    for check_line_num, check_line in section:
+                        if '=' in check_line:
+                            check_indent = len(check_line) - len(check_line.lstrip())
+                            if check_indent == 0 and not check_line.strip().startswith('#'):
+                                current_first_top_level_param_line_num = check_line_num
+                                break
+                    
+                    # Check if there's a blank line between them
+                    if last_top_level_param_line_num is not None and current_first_top_level_param_line_num is not None:
+                        has_blank_line_between_sections = _has_blank_line_between(lines, last_top_level_param_line_num - 1, current_first_top_level_param_line_num - 1)
+                
+                if not has_other_top_level_object_decls and not has_blank_line_between_sections:
                     top_level_override = last_top_level_expected
             # Don't update last_top_level_group_size here - preserve it for subsequent sections
 
@@ -1330,15 +1435,35 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
         
         # Check if there's a blank line between this parameter and the previous one
         # We need to access the original file content to check for blank lines
+        # Only check for blank lines if the previous parameter has the same indent level
+        # This ensures that parameters at different indent levels don't affect each other's grouping
         if prev_line_num is not None and original_lines is not None:
-            has_gap = _has_blank_line_between(original_lines, prev_line_num - 1, actual_line_num - 1)
-            if has_gap:
-                # There is a blank line between parameters - split groups
-                if indent_level in current_groups and current_groups[indent_level]:
-                    if indent_level not in groups:
-                        groups[indent_level] = []
-                    groups[indent_level].append(current_groups[indent_level])
-                    current_groups[indent_level] = []
+            # Find the previous parameter with the same indent level
+            prev_same_level_line_num = None
+            # Find the index of current parameter in parameter_lines
+            current_idx = None
+            for idx, (pl_line, pl_line_num) in enumerate(parameter_lines):
+                if pl_line_num == actual_line_num and pl_line == line:
+                    current_idx = idx
+                    break
+            
+            if current_idx is not None:
+                for prev_line, prev_actual_line_num in reversed(parameter_lines[:current_idx]):
+                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+                    prev_indent_level = prev_indent // 2
+                    if prev_indent_level == indent_level:
+                        prev_same_level_line_num = prev_actual_line_num
+                        break
+            
+            if prev_same_level_line_num is not None:
+                has_gap = _has_blank_line_between(original_lines, prev_same_level_line_num - 1, actual_line_num - 1)
+                if has_gap:
+                    # There is a blank line between parameters at the same indent level - split groups
+                    if indent_level in current_groups and current_groups[indent_level]:
+                        if indent_level not in groups:
+                            groups[indent_level] = []
+                        groups[indent_level].append(current_groups[indent_level])
+                        current_groups[indent_level] = []
         
         if indent_level not in groups:
             groups[indent_level] = []
@@ -1700,10 +1825,10 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
     
     if most_common_count > total_params / 2 or (total_params == 2 and most_common_count == 2):
         # Check if most_common position is close to the expected position based on longest parameter
-        # If they differ significantly (>2 columns), use the longest-based position instead
+        # If they differ significantly (>=2 columns), use the longest-based position instead
         # This prevents cases where a majority of parameters from different objects are aligned
         # but we need to align with an object declaration in the same group
-        if abs(most_common_pos[0] - expected_based_on_longest) > 2:
+        if abs(most_common_pos[0] - expected_based_on_longest) >= 2:
             # Most common position differs significantly from expected - use expected position
             # This handles cases like: multiple size params at position 9, but extend_param at 17
             use_most_common = False
@@ -1714,21 +1839,17 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
         # Only execute this branch if we're actually using most_common position
         # Otherwise, fall through to the normal alignment check loop below
         if use_most_common:
-            # Only check spacing after equals, not alignment
-            # Skip alignment checks for parameters that are already aligned
+            # Check alignment for all parameters
             for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
                 # Skip nested object/array declaration lines from alignment check
                 if should_skip:
                     continue
                 
                 if equals_pos != expected_equals_location:
-                    # Check if this parameter is already aligned with other parameters
-                    # If most params are aligned at a different position, this might be a different alignment group
-                    if most_common_count > 1:
-                        # Check if this parameter is aligned with the majority
-                        if equals_pos == most_common_pos[0]:
-                            # This parameter is aligned with the majority, skip check
-                            continue
+                    # Check if this parameter is aligned with the majority
+                    if most_common_count > 1 and equals_pos == most_common_pos[0]:
+                        # This parameter is aligned with the majority, skip check
+                        continue
                     
                     # Check if it's close enough to be considered aligned
                     if abs(equals_pos - expected_equals_location) <= 1:
@@ -1839,47 +1960,67 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
             # but the expected position is based on an object declaration in a different context
             # However, don't skip if this parameter should align with an object declaration
             # (i.e., if it's immediately followed by an object declaration parameter)
+            # IMPORTANT: Only skip if this position is actually the most common position (has the most parameters)
+            # AND the most common count is significantly more than other positions
+            # This prevents small groups (like 2 parameters) from incorrectly skipping alignment checks
             elif not use_most_common and unique_equals_positions and equals_pos == most_common_pos[0]:
-                # Check if this parameter should align with an object declaration
-                # Find the index of current parameter in param_data
-                current_idx = None
-                for idx, (_, _, ln, _, _) in enumerate(param_data):
-                    if ln == actual_line_num:
-                        current_idx = idx
-                        break
-                
-                # Check if next parameter is an object declaration and should be used for alignment
-                should_align_with_next_decl = False
-                if current_idx is not None and current_idx + 1 < len(param_data):
-                    next_param = param_data[current_idx + 1]
-                    if next_param[4]:  # next_param[4] is should_skip (object declaration)
-                        # Check if there's a blank line between current and next parameter
-                        # Find the line numbers from group_lines
-                        next_line_num = next_param[2]  # next_param[2] is actual_line_num
-                        current_line_num = actual_line_num
-                        
-                        # If line numbers differ by more than 1, there might be blank lines
-                        # But we need to check group_lines to see the actual lines
-                        # For now, if next_line_num - current_line_num == 1, they're adjacent
-                        if next_line_num - current_line_num == 1:
-                            # Adjacent lines, check if object declaration length was used for expected position
-                            skipped_params_len = [len(p[0]) for p in param_data if p[4] and '\t' not in p[1]]
-                            if skipped_params_len:
-                                longest_skipped_len = max(skipped_params_len)
-                                non_skipped_params = [p for p in param_data if not p[4] and '\t' not in p[1]]
-                                non_skipped_len = max(len(p[0]) for p in non_skipped_params) if non_skipped_params else 0
-                                if longest_skipped_len > non_skipped_len and longest_skipped_len - non_skipped_len >= 4:
-                                    # Object declaration length was used, and this param is immediately before it
-                                    should_align_with_next_decl = True
-                        # If line numbers differ by more than 1, they're not adjacent, don't align
-                
-                if not should_align_with_next_decl:
-                    # Most parameters are aligned at a position different from expected
-                    # This parameter is aligned with the majority, skip check
-                    continue
-                # Otherwise, should align with next declaration, continue to report error
-            # Otherwise, this parameter is aligned incorrectly with other parameters
-            # Report the error instead of skipping
+                # Only skip if the most common position has significantly more parameters than this position
+                # This ensures that small alignment groups don't incorrectly skip checks
+                # For example, if 5 params are at position 23 and 2 params are at position 17,
+                # the 2 params at position 17 should still be checked for alignment
+                # However, if this position IS the most common position, we should still check alignment
+                # unless it matches the expected location or is close to it
+                # So we should NOT skip if this position is the most common but doesn't match expected
+                # Actually, if this position is the most common but doesn't match expected, we should report an error
+                # So we should only skip if this position matches expected or is close to it
+                # IMPORTANT: If the difference between equals_pos and expected_equals_location is > 1,
+                # we should NOT skip, even if this position is the most common, because it's clearly misaligned
+                # Also, if most_common_count is not significantly more than non_tab_aligned_count (i.e., they're equal),
+                # we should NOT skip, because this means the current parameter is part of a small group that should be checked
+                if most_common_count > non_tab_aligned_count and (equals_pos == expected_equals_location or abs(equals_pos - expected_equals_location) <= 1):
+                    # Most common position has more parameters than this position, skip check
+                    # Check if this parameter should align with an object declaration
+                    # Find the index of current parameter in param_data
+                    current_idx = None
+                    for idx, (_, _, ln, _, _) in enumerate(param_data):
+                        if ln == actual_line_num:
+                            current_idx = idx
+                            break
+                    
+                    # Check if next parameter is an object declaration and should be used for alignment
+                    should_align_with_next_decl = False
+                    if current_idx is not None and current_idx + 1 < len(param_data):
+                        next_param = param_data[current_idx + 1]
+                        if next_param[4]:  # next_param[4] is should_skip (object declaration)
+                            # Check if there's a blank line between current and next parameter
+                            # Find the line numbers from group_lines
+                            next_line_num = next_param[2]  # next_param[2] is actual_line_num
+                            current_line_num = actual_line_num
+                            
+                            # If line numbers differ by more than 1, there might be blank lines
+                            # But we need to check group_lines to see the actual lines
+                            # For now, if next_line_num - current_line_num == 1, they're adjacent
+                            if next_line_num - current_line_num == 1:
+                                # Adjacent lines, check if object declaration length was used for expected position
+                                skipped_params_len = [len(p[0]) for p in param_data if p[4] and '\t' not in p[1]]
+                                if skipped_params_len:
+                                    longest_skipped_len = max(skipped_params_len)
+                                    non_skipped_params = [p for p in param_data if not p[4] and '\t' not in p[1]]
+                                    non_skipped_len = max(len(p[0]) for p in non_skipped_params) if non_skipped_params else 0
+                                    if longest_skipped_len > non_skipped_len and longest_skipped_len - non_skipped_len >= 4:
+                                        # Object declaration length was used, and this param is immediately before it
+                                        should_align_with_next_decl = True
+                            # If line numbers differ by more than 1, they're not adjacent, don't align
+                    
+                    if not should_align_with_next_decl:
+                        # Most parameters are aligned at a position different from expected
+                        # This parameter is aligned with the majority, skip check
+                        continue
+                    # Otherwise, should align with next declaration, continue to report error
+                # If the condition above is not met (i.e., equals_pos differs from expected by more than 1),
+                # fall through to report the error below
+            # If none of the skip conditions are met, this parameter is aligned incorrectly
+            # with other parameters but not at the expected location - report the error
         
         required_spaces_before_equals = expected_equals_location - indent_spaces - param_display_length
         
