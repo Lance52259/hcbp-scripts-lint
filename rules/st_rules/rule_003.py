@@ -468,6 +468,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                             sections.append(current_section)
                             current_section = []
                     # Check if the last line is a simple "param = {" declaration
+                    # OR if the last line ends with '{' (could be "param = {", "param = flatten([...])", etc.)
                     elif '=' in last_line_content and last_line_content.endswith('{'):
                         after_equals_last = last_line_content.split('=', 1)[1].strip()
                         if after_equals_last == '{':
@@ -481,6 +482,18 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                 # Push current_section to stack so we can return to it after })
                                 sections.append(current_section)
                                 section_stack.append(current_section)  # Remember the section with "param = {" declaration
+                                current_section = []
+                        else:
+                            # The previous line ends with '{' but is not "param = {" (e.g., "param = flatten([...])")
+                            # Check if this parameter has more indentation (is actually inside the object/expression)
+                            current_indent = len(line) - len(line.lstrip())
+                            last_indent = len(last_line_content) - len(last_line_content.lstrip())
+                            if current_indent > last_indent:
+                                # This parameter is inside the object/expression
+                                # Create a new section for internal params
+                                # Push current_section to stack so we can return to it after })
+                                sections.append(current_section)
+                                section_stack.append(current_section)  # Remember the section with the declaration
                                 current_section = []
             
             # Check if we're exiting an object
@@ -502,9 +515,29 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                     continue
                 elif brace_level == 0:
                     # Exiting top-level object grouping
-                    if current_section:
-                        sections.append(current_section)
-                        current_section = []
+                    # However, don't split section if the next line is a parameter at the same indent level
+                    # This handles cases like locals blocks where a parameter value ends with }]]) 
+                    # but the next line is another parameter that should be in the same section
+                    should_split = True
+                    if line_idx + 1 < len(block_lines):
+                        next_line = block_lines[line_idx + 1]
+                        next_stripped = next_line.strip()
+                        # Check if next line is a parameter (contains '=' and not a comment)
+                        if '=' in next_line and not next_stripped.startswith('#'):
+                            # Check if next line has the same indent as parameters in current_section
+                            next_indent = len(next_line) - len(next_line.lstrip())
+                            # Find the indent of parameters in current_section
+                            for prev_line, _ in current_section:
+                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                    if prev_indent == next_indent:
+                                        # Next line is a parameter at the same indent level, don't split
+                                        should_split = False
+                                        break
+                    if should_split:
+                        if current_section:
+                            sections.append(current_section)
+                            current_section = []
             
             # Check if we're exiting an array
             # When we encounter ], we need to check if we should exit array grouping
