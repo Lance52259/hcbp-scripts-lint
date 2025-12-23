@@ -324,6 +324,15 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # Skip comment lines but don't split sections
             continue
         else:
+            # Check if braces/brackets are balanced on the same line (e.g., {for ...}, [for ...] expressions)
+            # This check should be done before tracking brace/bracket levels to avoid false positives
+            open_braces = line.count('{')
+            close_braces = line.count('}')
+            open_brackets = line.count('[')
+            close_brackets = line.count(']')
+            braces_balanced_on_line = (open_braces == close_braces and open_braces > 0)
+            brackets_balanced_on_line = (open_brackets == close_brackets and open_brackets > 0)
+            
             # Track brace and bracket levels before processing
             for char in line:
                 if char == '{':
@@ -355,7 +364,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # because "param = {" should align with other parameters at the same level
             # Only "param = {" internal parameters should create new grouping
             # Note: "param = object({" also should align with other parameters at the same level
-            if brace_level >= 1 and stripped_line.endswith('{'):
+            # Also skip if braces are balanced on the same line (e.g., {for ...} expressions)
+            if brace_level >= 1 and stripped_line.endswith('{') and not braces_balanced_on_line:
                 # Check if this is a simple "parameter = {" form (not "parameter = object({")
                 if '=' in stripped_line:
                     after_equals = stripped_line.split('=', 1)[1].strip()
@@ -365,46 +375,102 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                     if after_equals == '{':
                         # "param = {" declaration - check if we need to split section by indent level
                         # If current_section has parameters with different indent levels, we should split
+                        # However, don't split if we're inside a function call (e.g., jsonencode({...}))
+                        # Check if any ancestor line contains a function call ending with {
                         current_indent = len(line) - len(line.lstrip())
-                        if current_section:
-                            # Check if there are parameters with different indent levels in current_section
-                            has_different_indent = False
-                            for prev_line, _ in current_section:
+                        is_inside_function_call = False
+                        
+                        # Search backwards through block_lines to find if we're inside a function call
+                        # Look for a line with lower indent that has a function call
+                        search_idx = line_idx - 1
+                        while search_idx >= 0:
+                            search_line = block_lines[search_idx]
+                            search_stripped = search_line.strip()
+                            if search_stripped == '' or search_stripped.startswith('#'):
+                                search_idx -= 1
+                                continue
+                            search_indent = len(search_line) - len(search_line.lstrip())
+                            # If we find a line with lower indent, check if it's a function call
+                            if search_indent < current_indent:
+                                if '=' in search_line:
+                                    search_after_equals = search_line.split('=', 1)[1].strip()
+                                    # Match common Terraform functions that can contain objects/arrays
+                                    function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
+                                                         'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
+                                    if search_after_equals and any(search_after_equals.startswith(pattern) for pattern in function_patterns):
+                                        if '{' in search_after_equals or '[' in search_after_equals:
+                                            is_inside_function_call = True
+                                            break
+                                # If we find a parameter at lower indent, stop searching
+                                break
+                            search_idx -= 1
+                        
+                        # Also check current_section for function calls
+                        if not is_inside_function_call and current_section:
+                            # Check if the last line in current_section contains a function call ending with {
+                            # We need to check all previous lines in the section, not just the last one
+                            for prev_line, _ in reversed(current_section):
                                 if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    # Check if this is a function call like jsonencode({, merge({, etc.
+                                    prev_after_equals = prev_line.split('=', 1)[1].strip() if '=' in prev_line else ''
+                                    # Match common Terraform functions that can contain objects/arrays
+                                    function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
+                                                         'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
+                                    if prev_after_equals and any(prev_after_equals.startswith(pattern) for pattern in function_patterns):
+                                        if '{' in prev_after_equals or '[' in prev_after_equals:
+                                            is_inside_function_call = True
+                                            break
+                                    # If we find a parameter at the same indent level, we're not inside a function call
                                     prev_indent = len(prev_line) - len(prev_line.lstrip())
-                                    if prev_indent != current_indent:
-                                        has_different_indent = True
+                                    if prev_indent == current_indent:
                                         break
-                            
-                            if has_different_indent:
-                                # Split section: keep parameters with same indent as current line
-                                # Parameters with different indent should go to previous section
-                                same_indent_section = []
-                                different_indent_section = []
-                                for prev_line, prev_idx in current_section:
+                        
+                        if not is_inside_function_call:
+                            if current_section:
+                                # Check if there are parameters with different indent levels in current_section
+                                has_different_indent = False
+                                for prev_line, _ in current_section:
                                     if '=' in prev_line and not prev_line.strip().startswith('#'):
                                         prev_indent = len(prev_line) - len(prev_line.lstrip())
-                                        if prev_indent == current_indent:
-                                            same_indent_section.append((prev_line, prev_idx))
-                                        else:
-                                            different_indent_section.append((prev_line, prev_idx))
-                                    else:
-                                        # Non-parameter lines (comments, etc.) - keep with same indent section
-                                        same_indent_section.append((prev_line, prev_idx))
+                                        if prev_indent != current_indent:
+                                            has_different_indent = True
+                                            break
                                 
-                                if different_indent_section:
-                                    # Add different indent parameters to previous section
-                                    sections.append(different_indent_section)
-                                # Continue with same indent section
-                                current_section = same_indent_section
+                                if has_different_indent:
+                                    # Split section: keep parameters with same indent as current line
+                                    # Parameters with different indent should go to previous section
+                                    same_indent_section = []
+                                    different_indent_section = []
+                                    for prev_line, prev_idx in current_section:
+                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                            prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                            if prev_indent == current_indent:
+                                                same_indent_section.append((prev_line, prev_idx))
+                                            else:
+                                                different_indent_section.append((prev_line, prev_idx))
+                                        else:
+                                            # Non-parameter lines (comments, etc.) - keep with same indent section
+                                            same_indent_section.append((prev_line, prev_idx))
+                                    
+                                    if different_indent_section:
+                                        # Add different indent parameters to previous section
+                                        sections.append(different_indent_section)
+                                    # Continue with same indent section
+                                    current_section = same_indent_section
                         # "param = {" declaration will be added to current section below
+                        # If we're inside a function call, don't split section even if there are different indent levels
+                        # This ensures parameters inside function calls stay together
+                        elif is_inside_function_call:
+                            # Inside function call, don't split section - keep all parameters together
+                            pass
             
             # Check if we're entering an array (parameter = [ form)
             # When encountering '[', we should NOT create new grouping for "param = [" declaration
             # because "param = [" should align with other parameters at the same level
             # Only "param = [" internal elements should create new grouping
             # This is similar to "param = {" handling above
-            if bracket_level == 1 and stripped_line.endswith('['):
+            # Also skip if brackets are balanced on the same line (e.g., [for ...] expressions)
+            if bracket_level == 1 and stripped_line.endswith('[') and not brackets_balanced_on_line:
                 # Check if this is a simple "parameter = [" form
                 if '=' in stripped_line:
                     after_equals = stripped_line.split('=', 1)[1].strip()
@@ -450,7 +516,20 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # This happens in structures like: default = [ { ... }, { ... } ]
             # However, if we're still inside an object (brace_level > 0), we should NOT clear current_section
             # because the array declaration and subsequent parameters should align with each other
-            if bracket_level >= 1 and stripped_line == '{' and '=' not in stripped_line:
+            # Also skip if braces/brackets are balanced on the same line (e.g., {for ...}, [for ...] expressions)
+            # Also skip if we're inside a function call (e.g., jsonencode({...}))
+            is_inside_function_call_for_array = False
+            if line_idx > 0:
+                prev_line_in_block = block_lines[line_idx - 1]
+                if '=' in prev_line_in_block and not prev_line_in_block.strip().startswith('#'):
+                    prev_after_equals = prev_line_in_block.split('=', 1)[1].strip() if '=' in prev_line_in_block else ''
+                    function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
+                                         'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
+                    if prev_after_equals and any(prev_after_equals.startswith(pattern) for pattern in function_patterns):
+                        if '{' in prev_after_equals or '[' in prev_after_equals:
+                            is_inside_function_call_for_array = True
+            
+            if bracket_level >= 1 and stripped_line == '{' and '=' not in stripped_line and not braces_balanced_on_line and not is_inside_function_call_for_array:
                 # Starting a new object within an array
                 # Only clear current_section if we're at the top level (brace_level == 0)
                 # If we're still inside an object, keep current_section so subsequent parameters can align
@@ -465,66 +544,71 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # Check if we're entering parameters inside object({, list(object({, or simple param = {
             # When we encounter a parameter line inside these structures, we need to ensure it's in a new section
             # But only if the previous line was the declaration, not if it's another parameter at the same level
-            if brace_level >= 1 and '=' in stripped_line and not stripped_line.endswith('{') and not stripped_line.endswith('['):
+            # Also skip if the braces/brackets are balanced on the same line (e.g., {for ...}, [for ...] expressions)
+            # If braces/brackets are balanced on the same line, skip this check entirely
+            if (brace_level >= 1 and '=' in stripped_line and not stripped_line.endswith('{') and not stripped_line.endswith('[') and 
+                not braces_balanced_on_line and not brackets_balanced_on_line):
                 # We're inside an object, and this is a parameter line
                 # Check if the previous line in current_section contains "object(", "list(object(", or ends with "= {"
                 if current_section:
-                    last_line_content = current_section[-1][0] if current_section else ""
-                    # Check if the last line contains object({ pattern (but not list(object({ which is handled separately)
-                    if 'object(' in last_line_content and '{' in last_line_content:
-                        # Check if it's list(object({ (already handled above) or simple object({
-                        if not ('list(' in last_line_content):
-                            # The previous line was object({ declaration
-                            # Check if this parameter has more indentation (is actually inside the object)
-                            current_indent = len(line) - len(line.lstrip())
-                            last_indent = len(last_line_content) - len(last_line_content.lstrip())
-                            if current_indent > last_indent:
-                                # This parameter is inside the object
-                                # We need to create a new section for object({ internal params
-                                # But we should keep the object({ declaration in the previous section
-                                # so it can align with other parameters at the same level
-                                # Push current_section to stack so we can return to it after })
+                        last_line_content = current_section[-1][0] if current_section else ""
+                        # Check if the last line contains object({ pattern (but not list(object({ which is handled separately)
+                        if 'object(' in last_line_content and '{' in last_line_content:
+                            # Check if it's list(object({ (already handled above) or simple object({
+                            if not ('list(' in last_line_content):
+                                # The previous line was object({ declaration
+                                # Check if this parameter has more indentation (is actually inside the object)
+                                current_indent = len(line) - len(line.lstrip())
+                                last_indent = len(last_line_content) - len(last_line_content.lstrip())
+                                if current_indent > last_indent:
+                                    # This parameter is inside the object
+                                    # We need to create a new section for object({ internal params
+                                    # But we should keep the object({ declaration in the previous section
+                                    # so it can align with other parameters at the same level
+                                    # Push current_section to stack so we can return to it after })
+                                    sections.append(current_section)
+                                    section_stack.append(current_section)  # Remember the section with object({ declaration
+                                    current_section = []
+                            elif bracket_level >= 1:
+                                # The previous line was list(object({ declaration, start new section for nested params
                                 sections.append(current_section)
-                                section_stack.append(current_section)  # Remember the section with object({ declaration
                                 current_section = []
-                        elif bracket_level >= 1:
-                            # The previous line was list(object({ declaration, start new section for nested params
-                            sections.append(current_section)
-                            current_section = []
-                    # Check if the last line is a simple "param = {" declaration
-                    # OR if the last line ends with '{' (could be "param = {", "param = flatten([...])", etc.)
-                    elif '=' in last_line_content and last_line_content.endswith('{'):
-                        after_equals_last = last_line_content.split('=', 1)[1].strip()
-                        if after_equals_last == '{':
-                            # The previous line was "param = {" declaration
-                            # Check if this parameter has more indentation (is actually inside the object)
-                            current_indent = len(line) - len(line.lstrip())
-                            last_indent = len(last_line_content) - len(last_line_content.lstrip())
-                            if current_indent > last_indent:
-                                # This parameter is inside the "param = {" object
-                                # Create a new section for internal params
-                                # Push current_section to stack so we can return to it after })
-                                sections.append(current_section)
-                                section_stack.append(current_section)  # Remember the section with "param = {" declaration
-                                current_section = []
-                        else:
-                            # The previous line ends with '{' but is not "param = {" (e.g., "param = flatten([...])")
-                            # Check if this parameter has more indentation (is actually inside the object/expression)
-                            current_indent = len(line) - len(line.lstrip())
-                            last_indent = len(last_line_content) - len(last_line_content.lstrip())
-                            if current_indent > last_indent:
-                                # This parameter is inside the object/expression
-                                # Create a new section for internal params
-                                # Push current_section to stack so we can return to it after })
-                                sections.append(current_section)
-                                section_stack.append(current_section)  # Remember the section with the declaration
-                                current_section = []
+                        # Check if the last line is a simple "param = {" declaration
+                        # OR if the last line ends with '{' (could be "param = {", "param = flatten([...])", etc.)
+                        elif '=' in last_line_content and last_line_content.endswith('{'):
+                            after_equals_last = last_line_content.split('=', 1)[1].strip()
+                            if after_equals_last == '{':
+                                # The previous line was "param = {" declaration
+                                # Check if this parameter has more indentation (is actually inside the object)
+                                current_indent = len(line) - len(line.lstrip())
+                                last_indent = len(last_line_content) - len(last_line_content.lstrip())
+                                if current_indent > last_indent:
+                                    # This parameter is inside the "param = {" object
+                                    # Create a new section for internal params
+                                    # Push current_section to stack so we can return to it after })
+                                    sections.append(current_section)
+                                    section_stack.append(current_section)  # Remember the section with "param = {" declaration
+                                    current_section = []
+                            else:
+                                # The previous line ends with '{' but is not "param = {" (e.g., "param = flatten([...])")
+                                # Check if this parameter has more indentation (is actually inside the object/expression)
+                                current_indent = len(line) - len(line.lstrip())
+                                last_indent = len(last_line_content) - len(last_line_content.lstrip())
+                                if current_indent > last_indent:
+                                    # This parameter is inside the object/expression
+                                    # Create a new section for internal params
+                                    # Push current_section to stack so we can return to it after })
+                                    sections.append(current_section)
+                                    section_stack.append(current_section)  # Remember the section with the declaration
+                                    current_section = []
             
             # Check if we're exiting an object
             # When we encounter }), })), }, etc., we need to check if we should return to previous section
             # This happens when we were in object({ internal params and now exiting with })
             # Check if line starts with } or contains }) pattern (like }), })), }, etc.)
-            if stripped_line.startswith('}') or '})' in stripped_line or (stripped_line.endswith(')') and '}' in stripped_line):
+            # Skip if braces/brackets are balanced on the same line (e.g., {for ...} or [for ...] expressions)
+            if ((stripped_line.startswith('}') or '})' in stripped_line or (stripped_line.endswith(')') and '}' in stripped_line)) and
+                not braces_balanced_on_line and not brackets_balanced_on_line):
                 # If we have a section in the stack, it means we were in object({ internal params
                 # and we should return to the previous section (which contains object({ declaration)
                 # so that subsequent parameters at the same level can align with object({ declaration
@@ -610,6 +694,52 @@ def _check_parameter_alignment_in_section(
     # Track heredoc state to skip content inside heredoc blocks
     in_heredoc = False
     heredoc_terminator = None
+    
+    # Check if this section is inside a function call (e.g., jsonencode({...}))
+    # If so, skip alignment checks for parameters inside the function call
+    is_inside_function_call = False
+    
+    if block_lines and section:
+        # Check each parameter line in the section to see if any is inside a function call
+        # We need to check all lines, not just the first one
+        for line_content, relative_line_idx in section:
+            if '=' not in line_content or line_content.strip().startswith('#'):
+                continue
+            
+            current_indent = len(block_lines[relative_line_idx]) - len(block_lines[relative_line_idx].lstrip())
+            
+            # Search backwards through block_lines to find if this line is inside a function call
+            search_idx = relative_line_idx - 1
+            while search_idx >= 0:
+                search_line = block_lines[search_idx]
+                search_stripped = search_line.strip()
+                if search_stripped == '' or search_stripped.startswith('#'):
+                    search_idx -= 1
+                    continue
+                search_indent = len(search_line) - len(search_line.lstrip())
+                # If we find a line with lower or equal indent, check if it's a function call
+                if search_indent <= current_indent:
+                    if '=' in search_line:
+                        search_after_equals = search_line.split('=', 1)[1].strip()
+                        # Match common Terraform functions that can contain objects/arrays
+                        function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
+                                             'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
+                        if search_after_equals and any(search_after_equals.startswith(pattern) for pattern in function_patterns):
+                            if '{' in search_after_equals or '[' in search_after_equals:
+                                is_inside_function_call = True
+                                break
+                    # If we find a parameter at lower indent that's not a function call, stop searching
+                    if search_indent < current_indent:
+                        break
+                search_idx -= 1
+            
+            # If we found a function call for ANY line in this section, skip the whole section
+            if is_inside_function_call:
+                break
+    
+    # If we're inside a function call, skip alignment checks
+    if is_inside_function_call:
+        return errors
 
     # Extract parameter lines from section
     for line_content, relative_line_idx in section:
