@@ -1836,6 +1836,13 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     bracket_level = 0
     top_level_indent = 0  # Track the indent of the current top-level section
     
+    # Helper function to check if a section contains top-level parameters
+    def _section_has_top_level_param(sec):
+        for _ln, _l in sec:
+            if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
+                return True
+        return False
+    
     for idx, (line_num, line) in enumerate(assignment_lines):
         stripped_line = line.strip()
         # Also strip trailing comma for boundary checks
@@ -1918,11 +1925,6 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         # Split sections when encountering a standalone '{' inside any array level
         if bracket_level >= 1 and stripped_for_boundary == '{' and '=' not in stripped_line:
             # Only split if current_section is not tracking top-level parameters
-            def _section_has_top_level_param(sec):
-                for _ln, _l in sec:
-                    if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
-                        return True
-                return False
             if current_section and not _section_has_top_level_param(current_section):
                 sections.append(current_section)
                 current_section = []
@@ -2069,11 +2071,6 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                     else:
                         # If current_section tracks top-level params, and this line is an object param
                         # within an array/object, start a new section for nested params
-                        def _section_has_top_level_param(sec):
-                            for _ln, _l in sec:
-                                if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
-                                    return True
-                            return False
                         # If this is a top-level parameter and we're currently in a section with nested params,
                         # we should return to the previous section with top-level params (if it exists)
                         # BUT only if there's no blank line between the previous section and current line
@@ -2205,12 +2202,6 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     # - Current section has top-level params
     # - No blank line between them
     # - The last top-level param in prev_section is an array/object declaration (not a simple assignment)
-    def _section_has_top_level_param(sec):
-        for _ln, _l in sec:
-            if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
-                return True
-        return False
-    
     merged_sections = []
     for i, section in enumerate(sections):
         if i == 0:
