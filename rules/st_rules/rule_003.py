@@ -511,13 +511,18 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     current_section = same_indent_section
                             else:
                                 # current_section is empty, but we're inside a function call
-                                # Check if there's a previous section with parameters at the same indent level
-                                # If so, we should merge with that section instead of creating a new one
-                                # However, if no such section exists yet, we should NOT create a new section
-                                # Instead, we should wait for the next parameter to join the same section
-                                # This ensures that parameters at the same indent level within a function call
-                                # are grouped together, even if they're separated by closing braces
-                                if sections:
+                                # Check if the previous line was an empty line (which splits sections)
+                                # If so, we should NOT merge with previous section, even if we're in a function call
+                                # Empty lines should always create new sections
+                                prev_line_was_empty = False
+                                if line_idx > 0:
+                                    prev_line = block_lines[line_idx - 1]
+                                    if prev_line.strip() == '':
+                                        prev_line_was_empty = True
+                                
+                                # Only merge if previous line was NOT empty
+                                # Empty lines should always split sections, even in function calls
+                                if not prev_line_was_empty and sections:
                                     # Look for the last section that has parameters at the same indent level
                                     # We need to check all sections, not just the last one, because
                                     # sections might have been split due to closing braces
@@ -537,10 +542,10 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                                     break
                                         if found_section_to_merge:
                                             break
-                                # If no section with same indent was found, don't create a new section
-                                # Instead, start a new current_section that will be merged later
-                                # This ensures that parameters at the same indent level within a function call
-                                # are grouped together, even if they're separated by closing braces
+                                # If no section with same indent was found, or previous line was empty,
+                                # start a new current_section
+                                # This ensures that parameters separated by empty lines are in different sections
+                                # even if they're at the same indent level within a function call
             
             # Check if we're entering an array (parameter = [ form)
             # When encountering '[', we should NOT create new grouping for "param = [" declaration
@@ -1404,6 +1409,30 @@ def _check_group_alignment(
             param_data.append((param_name, line, relative_line_idx, equals_pos, is_nested_block))
     
     if len(param_data) < 1:
+        return errors
+    
+    # Special case: if there's only one parameter in the section, only check that there's exactly 1 space before '='
+    # This handles cases where a parameter is in its own section (e.g., separated by empty lines)
+    if len(param_data) == 1:
+        param_name, line, relative_line_idx, equals_pos, is_nested_block = param_data[0]
+        actual_line_num = block_start_line + relative_line_idx + 1
+        
+        # Check if should skip due to ST.004, ST.005, or ST.008 issues
+        if _should_skip_alignment_check(line, param_name, relative_line_idx, indent_level, block_lines):
+            return errors
+        
+        # Check that there's exactly 1 space before '='
+        before_equals = line[:equals_pos]
+        param_name_end = before_equals.rstrip()
+        spaces_before_equals = len(before_equals) - len(param_name_end)
+        
+        if spaces_before_equals != 1:
+            errors.append((
+                actual_line_num,
+                f"Parameter assignment equals sign spacing incorrect in {block_type}. "
+                f"Expected exactly 1 space between parameter name and '='"
+            ))
+        
         return errors
     
     # Find longest parameter name
