@@ -1263,6 +1263,13 @@ def _check_parameter_alignment_in_section(
                     any('required_providers' in prev_line for prev_line, _ in section)):
                     continue
                 
+                # Skip lines that are part of expression content (e.g., inside condition = (...))
+                # These lines start with '(' and contain comparison operators (==, !=) which are not parameter assignments
+                # Examples: "(var.source_availability_zone == "" && ...)" inside condition expressions
+                if line_stripped.startswith('(') and ('==' in line or '!=' in line):
+                    # This is expression content, not a parameter assignment
+                    continue
+                
                 parameter_lines.append((line, relative_line_idx))
 
     if len(parameter_lines) == 0:
@@ -1395,6 +1402,13 @@ def _check_group_alignment(
         # Skip array/list declarations
         before_equals = line[:equals_pos]
         if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
+            continue
+        
+        # Skip lines that are part of expression content (e.g., inside condition = (...))
+        # These lines start with '(' and contain comparison operators (==, !=) which are not parameter assignments
+        line_stripped = line.strip()
+        if line_stripped.startswith('(') and ('==' in line or '!=' in line):
+            # This is expression content, not a parameter assignment
             continue
         
         # Check if this is a nested block declaration (e.g., "extend_param = {")
