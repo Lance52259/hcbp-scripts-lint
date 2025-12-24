@@ -1717,6 +1717,60 @@ def _has_blank_line_between(lines: List[str], start_line_idx: int, end_line_idx:
     return False
 
 
+def _is_equals_in_string_value(line: str) -> bool:
+    """
+    Check if the equals sign is inside a string value (quotes).
+    
+    This function identifies cases where '=' is part of a string value like "==", "!=", ">=", "<=",
+    rather than a parameter assignment operator.
+    
+    Args:
+        line: The line to check
+        
+    Returns:
+        bool: True if the equals sign is inside a string value, False otherwise
+    """
+    equals_pos = line.find('=')
+    if equals_pos == -1:
+        return False
+    
+    line_stripped = line.strip()
+    
+    # List of comparison operators that might appear in string values
+    # These include: ==, !=, >=, <=, and variations
+    comparison_ops = ['==', '!=', '>=', '<=', '==', '!=', '>=', '<=']
+    
+    # If the line starts with a quote and contains comparison operators, it's likely a string value
+    # Examples: '"=="', '"!="', '">="', '"<="', '      "==",'
+    if line_stripped.startswith('"'):
+        for op in comparison_ops:
+            if f'"{op}' in line or f'{op}"' in line:
+                return True
+    if line_stripped.startswith("'"):
+        for op in comparison_ops:
+            if f"'{op}" in line or f"{op}'" in line:
+                return True
+    
+    # Check if after equals starts with quote and contains comparison operators
+    after_equals = line[equals_pos + 1:].strip()
+    if after_equals.startswith('"'):
+        for op in comparison_ops:
+            if f'"{op}' in after_equals or f'{op}"' in after_equals:
+                # Check if before_equals is empty or just whitespace (meaning this is a value, not assignment)
+                before_equals = line[:equals_pos].strip()
+                if not before_equals or before_equals == '':
+                    return True
+    
+    if after_equals.startswith("'"):
+        for op in comparison_ops:
+            if f"'{op}" in after_equals or f"{op}'" in after_equals:
+                before_equals = line[:equals_pos].strip()
+                if not before_equals or before_equals == '':
+                    return True
+    
+    return False
+
+
 def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
     Check parameter alignment in terraform.tfvars files.
@@ -1848,6 +1902,15 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         # Don't split section on ] or } - just exit the grouping level
         # Sections should only be split on blank lines or when entering new structures
         
+        # When exiting an array (bracket_level becomes 0), check if we should merge with previous section
+        # This handles cases where a top-level array declaration is followed by other top-level params
+        # Example: rule_conditions = [...] followed by approval_content = ...
+        # They should be in the same section for alignment
+        if bracket_level == 0 and prev_bracket_level_saved > 0:
+            # We just exited an array - check if next top-level param should join current section
+            # This will be handled in the regular grouping logic below
+            pass
+        
         # Don't clear current_section when exiting array
         # This allows subsequent top-level params to join the same section
         # Check if we're starting a new object element inside an array (standalone '{')
@@ -1864,12 +1927,57 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 sections.append(current_section)
                 current_section = []
         
+        # When exiting an array at top level, ensure subsequent top-level params join the same section
+        # This handles cases like: rule_conditions = [...] followed by approval_content = ...
+        # This check must happen BEFORE processing regular grouping, so the merge happens before
+        # the next line (line 23) is processed
+        # Note: This check happens when we encounter the closing bracket ']', so bracket_level just became 0
+        if bracket_level == 0 and prev_bracket_level_saved > 0 and prev_brace_level_saved == 0:
+            # We just exited a top-level array
+            # Check if we need to merge sections to ensure subsequent top-level params can join
+            # The key insight: when a top-level array closes, we want subsequent top-level params
+            # to be in the same section as the array declaration, so they can align together
+            if len(sections) > 0:
+                prev_section = sections[-1] if sections else None
+                if prev_section and _section_has_top_level_param(prev_section):
+                    # Previous section has top-level params (like rule_conditions = [)
+                    # Merge current_section with prev_section so subsequent top-level params can join
+                    sections.pop()
+                    if current_section:
+                        # Add nested params from current_section to prev_section
+                        prev_section.extend(current_section)
+                    # Set current_section to prev_section so subsequent top-level params join it
+                    current_section = prev_section
+            elif current_section and _section_has_top_level_param(current_section):
+                # current_section already has top-level params, no need to merge
+                # This handles the case where the array content didn't cause section splitting
+                pass
+            elif not current_section and len(sections) > 0:
+                # current_section is empty, check if we should restore from previous section
+                prev_section = sections[-1] if sections else None
+                if prev_section and _section_has_top_level_param(prev_section):
+                    sections.pop()
+                    current_section = prev_section
+            # If current_section doesn't have top-level params and there's no previous section with top-level params,
+            # we'll handle the merge when the next top-level param is processed (in the regular grouping logic below)
+        
         # Regular grouping logic (handles gaps between lines)
         # Check if we should process this line for regular grouping
         process_regular_grouping = True
-        if stripped_for_boundary in ['{', '}', '[', ']'] and '=' not in stripped_line:
+        is_boundary_marker = stripped_for_boundary in ['{', '}', '[', ']'] and '=' not in stripped_line
+        if is_boundary_marker:
             # Standalone braces/brackets are handled above, skip regular grouping
             process_regular_grouping = False
+            # But still add boundary markers to current_section (they may be needed for section tracking)
+            # Especially important for array closing brackets that affect section grouping
+            if current_section:
+                current_section.append((line_num, line))
+            elif not current_section and len(sections) > 0:
+                # If current_section is empty, add to the last section
+                sections[-1].append((line_num, line))
+            else:
+                # No current_section and no sections, create a new one
+                current_section = [(line_num, line)]
         
         if process_regular_grouping:
             # Calculate current line's indent
@@ -1976,11 +2084,40 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                             prev_section = sections[-1] if sections else None
                             if prev_section and _section_has_top_level_param(prev_section):
                                 # Find the last top-level parameter in previous section
+                                # Also check for array/object declarations that might be the last top-level element
                                 last_top_level_line_num = None
+                                # First, try to find the last top-level param in prev_section
                                 for prev_ln, prev_l in reversed(prev_section):
-                                    if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
-                                        last_top_level_line_num = prev_ln
-                                        break
+                                    if '=' in prev_l:
+                                        prev_indent = len(prev_l) - len(prev_l.lstrip())
+                                        if prev_indent == 0:
+                                            last_top_level_line_num = prev_ln
+                                            break
+                                
+                                # If we still haven't found a top-level param, check the current_section
+                                # for array closing brackets that might help us find the last top-level param
+                                if last_top_level_line_num is None:
+                                    for prev_ln, prev_l in reversed(current_section):
+                                        if prev_l.strip().rstrip(',') == ']' and len(prev_l) - len(prev_l.lstrip()) == 0:
+                                            # This is a top-level array closing in current_section
+                                            # The array declaration should be in prev_section
+                                            for prev_ln2, prev_l2 in reversed(prev_section):
+                                                if '=' in prev_l2 and (len(prev_l2) - len(prev_l2.lstrip())) == 0:
+                                                    equals_pos = prev_l2.find('=')
+                                                    after_equals = prev_l2[equals_pos + 1:].strip()
+                                                    if after_equals.startswith('['):
+                                                        last_top_level_line_num = prev_ln2
+                                                        break
+                                            if last_top_level_line_num:
+                                                break
+                                
+                                # If still not found, just use the last top-level param in prev_section
+                                # This handles cases where the array closing bracket logic didn't work
+                                if last_top_level_line_num is None:
+                                    for prev_ln, prev_l in reversed(prev_section):
+                                        if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                                            last_top_level_line_num = prev_ln
+                                            break
                                 
                                 # Check if there's a blank line between last top-level param and current line
                                 has_blank_line = False
@@ -1988,8 +2125,12 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                                     has_blank_line = _has_blank_line_between(lines, last_top_level_line_num - 1, line_num - 1)
                                 
                                 if not has_blank_line:
-                                    # No blank line - add to previous section with top-level params
+                                    # No blank line - merge previous section with current_section and add this line
                                     sections.pop()
+                                    # Add nested params from current_section to prev_section
+                                    if current_section:
+                                        prev_section.extend(current_section)
+                                    # Add the current top-level param
                                     prev_section.append((line_num, line))
                                     current_section = prev_section
                                 else:
@@ -2002,6 +2143,39 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                                 if current_section:
                                     sections.append(current_section)
                                 current_section = [(line_num, line)]
+                        elif is_top_level and _section_has_top_level_param(current_section):
+                            # Current line is top-level param and current section has top-level params
+                            # Check for blank line to decide if we should split
+                            prev_line_num = None
+                            for prev_ln, prev_l in reversed(current_section):
+                                if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                                    prev_line_num = prev_ln
+                                    break
+                                # Also check for array closing brackets at top level
+                                elif prev_l.strip().rstrip(',') == ']' and len(prev_l) - len(prev_l.lstrip()) == 0:
+                                    # This is a top-level array closing - find the array declaration before it
+                                    for prev_ln2, prev_l2 in reversed(current_section):
+                                        if '=' in prev_l2 and (len(prev_l2) - len(prev_l2.lstrip())) == 0:
+                                            equals_pos = prev_l2.find('=')
+                                            after_equals = prev_l2[equals_pos + 1:].strip()
+                                            if after_equals.startswith('['):
+                                                prev_line_num = prev_ln2
+                                                break
+                                    if prev_line_num:
+                                        break
+                            
+                            has_gap = False
+                            if prev_line_num is not None:
+                                has_gap = _has_blank_line_between(lines, prev_line_num - 1, line_num - 1)
+                            
+                            if has_gap and prev_brace_level == 0 and prev_bracket_level == 0:
+                                # Both are top-level parameters separated by a blank line
+                                # Split into separate sections
+                                sections.append(current_section)
+                                current_section = [(line_num, line)]
+                            else:
+                                # Same group, add to current section
+                                current_section.append((line_num, line))
                         elif is_object_param and _section_has_top_level_param(current_section) and not is_top_level:
                             # Current line is object param (nested), and section has top-level params - split for nested params
                             sections.append(current_section)
@@ -2023,6 +2197,71 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     
     if current_section:
         sections.append(current_section)
+    
+    # Final merge pass: ensure top-level parameters that should be in the same section are merged
+    # This handles cases where the merge logic during processing didn't work correctly
+    # Specifically, merge sections where:
+    # - Previous section has top-level params ending with an array/object declaration
+    # - Current section has top-level params
+    # - No blank line between them
+    # - The last top-level param in prev_section is an array/object declaration (not a simple assignment)
+    def _section_has_top_level_param(sec):
+        for _ln, _l in sec:
+            if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
+                return True
+        return False
+    
+    merged_sections = []
+    for i, section in enumerate(sections):
+        if i == 0:
+            merged_sections.append(section)
+            continue
+        
+        prev_section = merged_sections[-1] if merged_sections else None
+        if prev_section and _section_has_top_level_param(prev_section):
+            # Find the last top-level param in prev_section
+            last_top_level_line_num = None
+            last_top_level_line = None
+            for prev_ln, prev_l in reversed(prev_section):
+                if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                    last_top_level_line_num = prev_ln
+                    last_top_level_line = prev_l
+                    break
+            
+            # Check if the last top-level param is an array/object declaration
+            # Only merge if it's an array/object declaration (ends with [ or {)
+            is_array_or_object_decl = False
+            if last_top_level_line is not None:
+                equals_pos = last_top_level_line.find('=')
+                if equals_pos != -1:
+                    after_equals = last_top_level_line[equals_pos + 1:].strip()
+                    is_array_or_object_decl = after_equals.startswith('[') or after_equals.startswith('{')
+            
+            # Find the first top-level param in current section
+            # Only merge if current section also has top-level params
+            first_top_level_line_num = None
+            current_section_has_top_level = False
+            for curr_ln, curr_l in section:
+                if '=' in curr_l and (len(curr_l) - len(curr_l.lstrip())) == 0:
+                    current_section_has_top_level = True
+                    if first_top_level_line_num is None:
+                        first_top_level_line_num = curr_ln
+                    break
+            
+            # Only merge if:
+            # 1. The last top-level param in prev_section is an array/object declaration
+            # 2. Current section also has top-level params (not just nested params)
+            # 3. There's no blank line between them
+            if is_array_or_object_decl and last_top_level_line_num is not None and first_top_level_line_num is not None and current_section_has_top_level:
+                has_blank_line = _has_blank_line_between(lines, last_top_level_line_num - 1, first_top_level_line_num - 1)
+                if not has_blank_line:
+                    # Merge sections
+                    merged_sections[-1].extend(section)
+                    continue
+        
+        merged_sections.append(section)
+    
+    sections = merged_sections
     
     # Check alignment in each section
     all_errors = []
@@ -2157,6 +2396,9 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
         if '=' in line and not line.strip().startswith('#'):
             # Skip block declarations
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
+                # Skip lines where equals sign is inside a string value (e.g., "==", "!=")
+                if _is_equals_in_string_value(line):
+                    continue
                 parameter_lines.append((line, actual_line_num))
     
     if len(parameter_lines) == 0:
@@ -2200,8 +2442,41 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
             
             if prev_same_level_line_num is not None:
                 has_gap = _has_blank_line_between(original_lines, prev_same_level_line_num - 1, actual_line_num - 1)
-                if has_gap:
-                    # There is a blank line between parameters at the same indent level - split groups
+                
+                # For nested parameters (indent_level > 0), also check for structural boundaries
+                # Parameters in different objects (separated by } and {) should be in different groups
+                has_structural_boundary = False
+                if indent_level > 0 and original_lines is not None:
+                    # Check if there's a closing brace followed by an opening brace between the two parameters
+                    # This indicates they're in different objects
+                    for check_line_idx in range(prev_same_level_line_num - 1, actual_line_num - 1):
+                        if check_line_idx < len(original_lines):
+                            check_line_raw = original_lines[check_line_idx]
+                            check_line = check_line_raw.strip().rstrip(',')
+                            # Skip comment lines
+                            if check_line.startswith('#'):
+                                continue
+                            # Check for closing brace at same or higher indent level
+                            if check_line == '}':
+                                check_indent = len(check_line_raw) - len(check_line_raw.lstrip())
+                                # If the closing brace is at a lower indent level than our parameters, it's a boundary
+                                if check_indent < indent:
+                                    # Look for an opening brace after this closing brace
+                                    for next_line_idx in range(check_line_idx + 1, actual_line_num - 1):
+                                        if next_line_idx < len(original_lines):
+                                            next_line_raw = original_lines[next_line_idx]
+                                            next_line = next_line_raw.strip().rstrip(',')
+                                            # Skip comment lines
+                                            if next_line.startswith('#'):
+                                                continue
+                                            if next_line == '{':
+                                                has_structural_boundary = True
+                                                break
+                                    if has_structural_boundary:
+                                        break
+                
+                if has_gap or has_structural_boundary:
+                    # There is a blank line or structural boundary between parameters at the same indent level - split groups
                     if indent_level in current_groups and current_groups[indent_level]:
                         if indent_level not in groups:
                             groups[indent_level] = []
@@ -2354,6 +2629,10 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
         if equals_pos == -1:
             continue
         
+        # Skip lines where equals sign is inside a string value (e.g., "==", "!=")
+        if _is_equals_in_string_value(display_line):
+            continue
+        
         before_equals = display_line[:equals_pos]
         if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
             continue
@@ -2440,20 +2719,23 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
     # and skip lines with tabs (ST.004) - but still check alignment based on longest param
     if len(unique_equals_positions) == 1:
         # Check if the aligned position matches the expected position based on longest parameter
-        longest_param_len = max(len(param_name) for param_name, _, _, _, _ in param_data)
+        # Use the same longest_param_name_length that was calculated earlier, which properly
+        # considers skipped parameters and special cases
         # Check if any parameter has quotes and add quote length
         has_quoted_params = any(
             line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
             for _, line, _, _, _ in param_data
         )
         quote_chars = 2 if has_quoted_params else 0
-        expected_equals_location = indent_spaces + longest_param_len + quote_chars + 1
+        expected_equals_location = indent_spaces + longest_param_name_length + quote_chars + 1
         
         # If the aligned position doesn't match the expected position, they need realignment
         aligned_position = list(unique_equals_positions.keys())[0]
         
-        if aligned_position != expected_equals_location:
-            # Parameters are aligned but not to the longest parameter
+        # If all parameters are aligned together at a position >= expected, accept it
+        # This handles cases where parameters are consistently aligned even if slightly more than minimum
+        if aligned_position < expected_equals_location:
+            # Parameters are aligned but not to the longest parameter - need realignment
             # Check alignment for all parameters
             for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
                 # Skip nested object/array declaration lines from alignment check
@@ -2466,19 +2748,17 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
                 
                 if equals_pos != expected_equals_location:
                     required_spaces_before_equals = expected_equals_location - indent_spaces - len(param_name)
-                    if equals_pos < expected_equals_location:
-                        errors.append((
-                            actual_line_num,
-                            f"Parameter assignment equals sign not aligned in {block_type}. "
-                            f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
-                            f"equals sign should be at column {expected_equals_location + 1}"
-                        ))
-                    elif equals_pos > expected_equals_location:
-                        errors.append((
-                            actual_line_num,
-                            f"Parameter assignment equals sign not aligned in {block_type}. "
-                            f"Too many spaces before '=', equals sign should be at column {expected_equals_location + 1}"
-                        ))
+                    errors.append((
+                        actual_line_num,
+                        f"Parameter assignment equals sign not aligned in {block_type}. "
+                        f"Expected {required_spaces_before_equals} spaces between parameter name and '=', "
+                        f"equals sign should be at column {expected_equals_location + 1}"
+                    ))
+        elif aligned_position > expected_equals_location:
+            # Parameters are aligned but with more spacing than minimum - this is acceptable
+            # as long as they're all consistently aligned together
+            # No error needed - consistency is maintained
+            pass
         
         # Also check spacing after equals for all parameters
         for param_name, line, actual_line_num, equals_pos, should_skip in param_data:
