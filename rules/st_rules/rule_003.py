@@ -271,6 +271,13 @@ def _extract_code_blocks(content: str) -> List[Tuple[str, int, List[str]]]:
 def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, int]]]:
     """
     Split code block by empty lines and object boundaries into multiple sections.
+    
+    Note: block_lines is stored in the function closure for use in post-processing.
+    """
+    # Store block_lines for use in post-processing merge logic
+    _split_into_code_sections._block_lines = block_lines
+    """
+    Split code block by empty lines and object boundaries into multiple sections.
 
     Args:
         block_lines (List[str]): Lines within a code block
@@ -286,12 +293,16 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     section_stack = []
     brace_level = 0
     bracket_level = 0
+    prev_brace_level = 0
+    prev_bracket_level = 0
     
     # Track heredoc state to skip content inside heredoc blocks
     in_heredoc = False
     heredoc_terminator = None
 
     for line_idx, line in enumerate(block_lines):
+        prev_brace_level = brace_level
+        prev_bracket_level = bracket_level
         stripped_line = line.strip()
         
         # Check for heredoc end pattern first (before checking start)
@@ -594,26 +605,52 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                         break
                             
                             if has_different_indent:
-                                # Split section: keep parameters with same indent as current line
-                                # Parameters with different indent should go to previous section
-                                same_indent_section = []
-                                different_indent_section = []
-                                for prev_line, prev_idx in current_section:
-                                    if '=' in prev_line and not prev_line.strip().startswith('#'):
-                                        prev_indent = len(prev_line) - len(prev_line.lstrip())
-                                        if prev_indent == current_indent:
-                                            same_indent_section.append((prev_line, prev_idx))
-                                        else:
-                                            different_indent_section.append((prev_line, prev_idx))
-                                    else:
-                                        # Non-parameter lines (comments, etc.) - keep with same indent section
-                                        same_indent_section.append((prev_line, prev_idx))
+                                # Check if we just exited a top-level array and this is a top-level param
+                                # If so, keep them in the same section for alignment
+                                # This handles cases like: flattened_data_volumes = [...] followed by default_data_volumes_configuration_with_virtual_spaces = [...]
+                                should_keep_together = False
+                                if current_indent == 2:
+                                    # Check if the previous line was closing a top-level array
+                                    # Look for closing bracket/brace patterns in the previous line
+                                    if line_idx > 0:
+                                        prev_line_content = block_lines[line_idx - 1]
+                                        prev_line_stripped = prev_line_content.strip()
+                                        # Check if previous line closes an array (contains ']' or '])')
+                                        # Accept patterns like ']', '])', '])', etc.
+                                        if ']' in prev_line_stripped:
+                                            # Check if current_section has top-level params at the same indent
+                                            has_top_level_in_section = False
+                                            for prev_line, _ in current_section:
+                                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                                    if prev_indent == current_indent:
+                                                        has_top_level_in_section = True
+                                                        break
+                                            if has_top_level_in_section:
+                                                should_keep_together = True
                                 
-                                if different_indent_section:
-                                    # Add different indent parameters to previous section
-                                    sections.append(different_indent_section)
-                                # Continue with same indent section
-                                current_section = same_indent_section
+                                if not should_keep_together:
+                                    # Split section: keep parameters with same indent as current line
+                                    # Parameters with different indent should go to previous section
+                                    same_indent_section = []
+                                    different_indent_section = []
+                                    for prev_line, prev_idx in current_section:
+                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                            prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                            if prev_indent == current_indent:
+                                                same_indent_section.append((prev_line, prev_idx))
+                                            else:
+                                                different_indent_section.append((prev_line, prev_idx))
+                                        else:
+                                            # Non-parameter lines (comments, etc.) - keep with same indent section
+                                            same_indent_section.append((prev_line, prev_idx))
+                                    
+                                    if different_indent_section:
+                                        # Add different indent parameters to previous section
+                                        sections.append(different_indent_section)
+                                    # Continue with same indent section
+                                    current_section = same_indent_section
+                                # If should_keep_together is True, don't split - keep current_section as is
                         elif is_inside_function_call:
                             # current_section is empty, but we're inside a function call
                             # Check if there's a previous section with parameters at the same indent level
@@ -912,9 +949,44 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                 # If we're still inside an object, keep current_section so subsequent parameters can align
                 if brace_level == 0:
                     # Exiting top-level array (not inside an object)
-                    if current_section:
-                        sections.append(current_section)
-                        current_section = []
+                    # Check if we need to keep current_section for subsequent top-level params to align
+                    # This handles cases like: flattened_data_volumes = [...] followed by default_data_volumes_configuration_with_virtual_spaces = ...
+                    # They should be in the same section for alignment
+                    if prev_bracket_level > 0:
+                        # We just exited a top-level array
+                        # Check if current_section has top-level parameters (parameters at the same indent as the array declaration)
+                        has_top_level_params = False
+                        if current_section:
+                            for prev_line, prev_idx in current_section:
+                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+                                    # Check if this is a top-level parameter (indent of 2 spaces in locals/resource blocks)
+                                    if prev_indent == 2:
+                                        has_top_level_params = True
+                                        break
+                        
+                        if has_top_level_params:
+                            # Keep current_section so subsequent top-level params can join it for alignment
+                            # The array closing line will be added to current_section below
+                            # Check if the next line is a top-level param - if so, ensure it stays in the same section
+                            if line_idx + 1 < len(block_lines):
+                                next_line = block_lines[line_idx + 1]
+                                next_stripped = next_line.strip()
+                                if '=' in next_line and not next_stripped.startswith('#'):
+                                    next_indent = len(next_line) - len(next_line.lstrip())
+                                    if next_indent == 2:
+                                        # Next line is a top-level param - keep current_section so it can join
+                                        pass
+                        else:
+                            # No top-level params in current_section, split normally
+                            if current_section:
+                                sections.append(current_section)
+                                current_section = []
+                    else:
+                        # Not exiting from an array, split normally
+                        if current_section:
+                            sections.append(current_section)
+                            current_section = []
                 # If brace_level > 0, we're still inside an object, so don't clear current_section
                 # The array closing line will be added to current_section below
             
@@ -924,6 +996,128 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     # Add final section if exists
     if current_section:
         sections.append(current_section)
+    
+    # Post-process: Merge sections with top-level parameters that were separated by array closures
+    # This handles cases like: flattened_data_volumes = [...] followed by default_data_volumes_configuration_with_virtual_spaces = [...]
+    # They should be in the same section for alignment
+    merged_top_level_sections = []
+    i = 0
+    while i < len(sections):
+        current_sec = sections[i]
+        # Check if this section has top-level parameters (indent=2)
+        has_top_level = False
+        top_level_params = []
+        for line, idx in current_sec:
+            if '=' in line and not line.strip().startswith('#'):
+                indent = len(line) - len(line.lstrip())
+                if indent == 2:
+                    has_top_level = True
+                    top_level_params.append((line, idx))
+        
+        if has_top_level and len(top_level_params) > 0:
+            # This section has top-level params - check if any subsequent section also has top-level params
+            # Skip intermediate sections without top-level params (they may contain nested params or empty lines)
+            # If so, merge them
+            merged_sec = list(current_sec)
+            j = i + 1
+            while j < len(sections):
+                next_sec = sections[j]
+                next_has_top_level = False
+                for line, idx in next_sec:
+                    if '=' in line and not line.strip().startswith('#'):
+                        indent = len(line) - len(line.lstrip())
+                        if indent == 2:
+                            next_has_top_level = True
+                            break
+                
+                if next_has_top_level:
+                    # Check if there's a gap in line indices between current_sec and next_sec
+                    # A gap due to empty lines should prevent merging, but gaps due to array/object content should allow merging
+                    # This ensures that parameters separated by empty lines stay in different sections,
+                    # but parameters separated by array closures can be merged (for alignment)
+                    current_sec_last_idx = max(idx for _, idx in current_sec) if current_sec else -1
+                    next_sec_first_idx = min(idx for _, idx in next_sec) if next_sec else -1
+                    
+                    # If there's a gap, check if it's due to an empty line
+                    if current_sec_last_idx >= 0 and next_sec_first_idx >= 0:
+                        gap = next_sec_first_idx - current_sec_last_idx
+                        if gap > 1:
+                            # Check if the gap contains an empty line
+                            # Access block_lines from function closure
+                            block_lines = getattr(_split_into_code_sections, '_block_lines', [])
+                            has_empty_line_in_gap = False
+                            for gap_idx in range(current_sec_last_idx + 1, next_sec_first_idx):
+                                if gap_idx < len(block_lines):
+                                    if block_lines[gap_idx].strip() == '':
+                                        has_empty_line_in_gap = True
+                                        break
+                            
+                            if has_empty_line_in_gap:
+                                # Gap contains an empty line - don't merge (empty lines should split sections)
+                                break
+                            # Gap doesn't contain empty line (likely array/object content) - allow merging
+                    
+                    # Merge next section into current section
+                    merged_sec_set = {(line, idx) for line, idx in merged_sec}
+                    for line, idx in next_sec:
+                        if (line, idx) not in merged_sec_set:
+                            merged_sec.append((line, idx))
+                            merged_sec_set.add((line, idx))
+                    sections.pop(j)
+                    # Don't increment j since we removed an element - continue checking next section
+                    continue
+                else:
+                    # Next section doesn't have top-level params
+                    # Only skip it if ALL its parameters are nested (indent > 2) or it has no parameters
+                    # If it has any parameters at indent=2, we should stop merging (they belong to a different group)
+                    has_top_level_like_params = False
+                    has_any_params = False
+                    for line, _ in next_sec:
+                        if '=' in line and not line.strip().startswith('#'):
+                            has_any_params = True
+                            indent = len(line) - len(line.lstrip())
+                            if indent == 2:
+                                # Found a parameter at indent=2 - this might be a different top-level group
+                                # Stop merging to avoid incorrectly merging different groups
+                                has_top_level_like_params = True
+                                break
+                    
+                    # First check if this section is empty (contains only empty lines)
+                    # Empty sections should prevent merging (empty lines should split sections)
+                    is_empty_section = True
+                    for line, _ in next_sec:
+                        stripped = line.strip()
+                        if stripped and not stripped.startswith('#'):
+                            is_empty_section = False
+                            break
+                    
+                    if is_empty_section:
+                        # Empty section - stop merging (empty lines should split sections)
+                        break
+                    
+                    if has_top_level_like_params:
+                        # This section has parameters at indent=2 - stop merging
+                        # They might belong to a different group (e.g., different resource blocks)
+                        break
+                    elif has_any_params:
+                        # This section has parameters but all are nested (indent > 2)
+                        # Skip it and continue searching for the next top-level section
+                        j += 1
+                        continue
+                    else:
+                        # This section has no parameters but is not empty (might be only comments)
+                        # Skip it and continue searching
+                        j += 1
+                        continue
+            
+            merged_top_level_sections.append(merged_sec)
+            i += 1
+        else:
+            # No top-level params, add as is
+            merged_top_level_sections.append(current_sec)
+            i += 1
+    
+    sections = merged_top_level_sections
     
     # Post-process: Merge sections that contain parameters at the same indent level within function calls
     # This handles cases where parameters like cache_key = { are separated from other parameters
