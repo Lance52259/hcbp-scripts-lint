@@ -257,6 +257,17 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
     net_close_braces = close_braces - open_braces
     net_close_brackets = close_brackets - open_brackets
     
+    # Check if brackets/braces are balanced on the same line (e.g., [array], {object})
+    # Balanced brackets/braces don't affect nesting level and should be treated as normal lines
+    brackets_balanced = (open_brackets == close_brackets and open_brackets > 0)
+    braces_balanced = (open_braces == close_braces and open_braces > 0)
+    
+    # If brackets/braces are balanced on the same line, they don't affect nesting
+    # Treat as a normal line (not a closing/opening line)
+    if brackets_balanced or braces_balanced:
+        has_closing = False
+        has_opening = False
+    
     # If this is a parameter assignment and braces/brackets are likely in strings, ignore them
     is_parameter_assignment = '=' in line_content and not line_content.startswith('#')
     if is_parameter_assignment and net_close_braces <= 0 and net_close_brackets <= 0:
@@ -272,18 +283,18 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
         # Special case: if total_net_close = 0, it means the line closes and opens at the same time
         # In this case, use special logic to align with the closing part
         if total_net_close == 0 and has_opening:
-            # Line closes and opens at the same time (e.g., "] : {")
-            # The closing part should align with where it was opened
-            if close_brackets > 0:
-                bracket_level_after_close = max(0, bracket_level - close_brackets)
-                brace_level_before_open = brace_level
-                expected_indent = (brace_level_before_open + bracket_level_after_close) * 2
-            elif close_braces > 0:
-                brace_level_after_close = max(0, brace_level - close_braces)
-                bracket_level_before_open = bracket_level
-                expected_indent = (brace_level_after_close + bracket_level_before_open) * 2
-            else:
-                expected_indent = max(0, (current_nesting_level - total_net_close) * 2)
+                # Line closes and opens at the same time (e.g., "] : {")
+                # The closing part should align with where it was opened
+                if close_brackets > 0:
+                    bracket_level_after_close = max(0, bracket_level - close_brackets)
+                    brace_level_before_open = brace_level
+                    expected_indent = (brace_level_before_open + bracket_level_after_close) * 2
+                elif close_braces > 0:
+                    brace_level_after_close = max(0, brace_level - close_braces)
+                    bracket_level_before_open = bracket_level
+                    expected_indent = (brace_level_after_close + bracket_level_before_open) * 2
+                else:
+                    expected_indent = max(0, (current_nesting_level - total_net_close) * 2)
         else:
             expected_indent = max(0, (current_nesting_level - total_net_close) * 2)
     elif has_closing and has_opening:
