@@ -259,12 +259,15 @@ def _validate_line_indentation(file_path: str, line_num: int, line_content: str,
     
     # Check if brackets/braces are balanced on the same line (e.g., [array], {object})
     # Balanced brackets/braces don't affect nesting level and should be treated as normal lines
+    # However, if there are also unmatched closing brackets/braces, we still need to process them
     brackets_balanced = (open_brackets == close_brackets and open_brackets > 0)
     braces_balanced = (open_braces == close_braces and open_braces > 0)
     
-    # If brackets/braces are balanced on the same line, they don't affect nesting
-    # Treat as a normal line (not a closing/opening line)
-    if brackets_balanced or braces_balanced:
+    # If brackets/braces are fully balanced AND there are no unmatched closes/opens,
+    # they don't affect nesting - treat as a normal line
+    # But if there are unmatched closes (net_close > 0), we still need to process them
+    if (brackets_balanced or braces_balanced) and net_close_braces <= 0 and net_close_brackets <= 0:
+        # Fully balanced with no unmatched closes - treat as normal line
         has_closing = False
         has_opening = False
     
