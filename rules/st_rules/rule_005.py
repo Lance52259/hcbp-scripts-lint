@@ -353,10 +353,12 @@ def _check_heredoc_state(line: str, current_in_heredoc: bool, current_terminator
     """
     line_stripped = line.strip()
     
-    # Check for heredoc start pattern (<<EOT, <<EOF, etc.)
-    # This can appear at the end of a line like: locals = <<EOT
+    # Check for heredoc start pattern (<<EOT, <<EOF, <<-JSON, etc.)
+    # This can appear at the end of a line like: locals = <<EOT or conditions = <<-JSON
+    # Terraform supports both <<TERMINATOR and <<-TERMINATOR formats
     if not current_in_heredoc:
-        heredoc_match = re.search(r'<<([A-Z]+)\s*$', line)
+        # Match both <<TERMINATOR and <<-TERMINATOR formats
+        heredoc_match = re.search(r'<<-?([A-Z]+)\s*$', line)
         if heredoc_match:
             return {
                 "in_heredoc": True,
