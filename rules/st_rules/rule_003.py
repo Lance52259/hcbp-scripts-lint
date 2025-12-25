@@ -2452,7 +2452,7 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
                                 check_indent = len(check_line_raw) - len(check_line_raw.lstrip())
                                 # If the closing brace is at a lower indent level than our parameters, it's a boundary
                                 if check_indent < indent:
-                                    # Look for an opening brace after this closing brace
+                                    # Look for an opening brace or object declaration after this closing brace
                                     for next_line_idx in range(check_line_idx + 1, actual_line_num - 1):
                                         if next_line_idx < len(original_lines):
                                             next_line_raw = original_lines[next_line_idx]
@@ -2460,9 +2460,17 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
                                             # Skip comment lines
                                             if next_line.startswith('#'):
                                                 continue
+                                            # Check for standalone opening brace
                                             if next_line == '{':
                                                 has_structural_boundary = True
                                                 break
+                                            # Check for object declaration (param = {)
+                                            if '=' in next_line:
+                                                equals_pos = next_line.find('=')
+                                                after_equals = next_line[equals_pos + 1:].strip()
+                                                if after_equals.startswith('{'):
+                                                    has_structural_boundary = True
+                                                    break
                                     if has_structural_boundary:
                                         break
                 
