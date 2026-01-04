@@ -790,14 +790,6 @@ def _find_previous_available_version(current_version: str, available_versions: L
     """
     # Known problematic versions to exclude
     problematic_versions = {
-        "1.52.0",
-        "1.63.0",
-        "1.63.1",
-        "1.63.2",
-        "1.64.0",
-        "1.64.1",
-        "1.64.2",
-        "1.75.4",
         "1.77.0"
     }
     
