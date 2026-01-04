@@ -1464,6 +1464,13 @@ def _check_parameter_alignment_in_section(
                     # This is expression content, not a parameter assignment
                     continue
                 
+                # Skip Terraform for expressions (e.g., for image in collection : image if condition)
+                # These lines start with 'for' and contain ':' which are not parameter assignments
+                # Examples: "for image in data.images.test.images : image if image.status == \"active\""
+                if re.match(r'^\s*for\s+', line):
+                    # This is a for expression, not a parameter assignment
+                    continue
+                
                 parameter_lines.append((line, relative_line_idx))
 
     if len(parameter_lines) == 0:
