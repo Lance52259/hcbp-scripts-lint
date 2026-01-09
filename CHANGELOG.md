@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-01-09
+
+### 🏢 Repository Ownership Transfer
+
+**Major Change: Repository ownership transferred from personal account to organization**
+
+#### 📦 Repository Migration
+- **Change Description**: Repository has been migrated from `Lance52259/hcbp-scripts-lint` to `chnsz/hcbp-scripts-lint`
+- **Scope of Impact**: All GitHub Actions references, documentation links, and installation script URLs have been updated
+
+#### 🔄 Updated References
+- **GitHub Actions**: All action references in workflow files have been updated to `chnsz/hcbp-scripts-lint@v3`
+- **Documentation Links**: Repository links in README.md, CHANGELOG.md, and all documents in the docs directory have been updated
+- **Installation Scripts**: Repository URLs in `tools/en-us/quick_install.sh` and `tools/zh-cn/quick_install.sh` have been updated
+- **Example Files**: All examples in `.github/workflows/README.md` have been updated
+
+#### 📝 Breaking Changes
+- **GitHub Actions Usage**: Projects using this action need to update references from `Lance52259/hcbp-scripts-lint@v2` to `chnsz/hcbp-scripts-lint@v3`
+- **Installation Scripts**: Users using quick installation scripts will automatically download from the new repository address
+- **Documentation Links**: All Issues and Discussions links in documentation now point to the new repository
+
+#### ✅ Migration Checklist
+- [x] Updated all GitHub Actions workflow references
+- [x] Updated repository links and badges in README.md
+- [x] Updated support links in CHANGELOG.md
+- [x] Updated repository references in all documents under docs directory
+- [x] Updated repository URLs in installation scripts
+- [x] Updated example files in .github/workflows directory
+- [x] Verified correctness of all links and references
+
+#### 🔗 New Repository Information
+- **Repository**: https://github.com/chnsz/hcbp-scripts-lint
+- **Issues**: https://github.com/chnsz/hcbp-scripts-lint/issues
+- **Discussions**: https://github.com/chnsz/hcbp-scripts-lint/discussions
+- **Releases**: https://github.com/chnsz/hcbp-scripts-lint/releases
+
+#### 📌 Migration Guide
+For projects using this action, please follow these steps to update:
+
+1. **Update GitHub Actions workflow files**:
+   ```yaml
+   # Old version
+   - uses: Lance52259/hcbp-scripts-lint@v2
+   
+   # New version
+   - uses: chnsz/hcbp-scripts-lint@v3
+   ```
+
+2. **Update installation script references** (if applicable):
+   ```bash
+   # Old version
+   curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
+   
+   # New version
+   curl -fsSL https://raw.githubusercontent.com/chnsz/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
+   ```
+
+3. **Verify functionality**: After updating, please verify that the lint functionality works correctly
+
+#### ⚠️ Important Notes
+- This is a major version update (Major Version) following semantic versioning specifications
+- Previous versions (v2.x.x) will continue to be available, but migration to v3.0.0 is recommended as soon as possible
+- Functionality remains unchanged; only repository location and reference paths have changed
+- All feature functionality and rule checking logic remain consistent
+
 ## [2.6.4] - 2025-12-29
 
 ### 🔧 Rule Fixes & Improvements
