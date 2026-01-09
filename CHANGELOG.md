@@ -236,7 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   ```yaml
   - name: Lint Terraform
-    uses: Lance52259/hcbp-scripts-lint@v2
+    uses: chnsz/hcbp-scripts-lint@v2
     with:
       report-file: 'true'
       report-format: 'both' # or text/json
@@ -246,7 +246,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   ```yaml
   - name: Lint Terraform
-    uses: Lance52259/hcbp-scripts-lint@v2
+    uses: chnsz/hcbp-scripts-lint@v2
     with:
       report-format: 'both' # or text/json
   ```
@@ -2749,7 +2749,7 @@ The initial release provides a **complete Terraform linting solution** with comp
 ```yaml
 # Update version in your workflow
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.2.0  # Updated from v1.1.2
+  uses: chnsz/hcbp-scripts-lint@v1.2.0  # Updated from v1.1.2
   with:
     # All existing parameters remain the same
     changed-files-only: 'true'
@@ -2760,7 +2760,7 @@ The initial release provides a **complete Terraform linting solution** with comp
 ```yaml
 # Temporarily ignore new rules during transition
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.2.0
+  uses: chnsz/hcbp-scripts-lint@v1.2.0
   with:
     # Ignore new rules initially
     ignore-rules: 'ST.004,ST.005,ST.006,ST.007,ST.008,ST.009,IO.006,IO.007,IO.008'
@@ -2800,7 +2800,7 @@ ignore-rules: 'ST.009'
 ```yaml
 # Update version in your workflow
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.2  # Changed from v1.1.1
+  uses: chnsz/hcbp-scripts-lint@v1.1.2  # Changed from v1.1.1
   with:
     changed-files-only: 'true'  # Now works correctly in all GitHub Actions scenarios
     base-ref: 'origin/main'     # Supports multiple base-ref formats
@@ -2815,7 +2815,7 @@ ignore-rules: 'ST.009'
 ```yaml
 # Update version in your workflow
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.2  # Skip v1.1.1, go directly to v1.1.2
+  uses: chnsz/hcbp-scripts-lint@v1.1.2  # Skip v1.1.1, go directly to v1.1.2
   with:
     changed-files-only: 'true'  # Now fully functional
     base-ref: 'origin/main'     # Enhanced base-ref support
@@ -2830,7 +2830,7 @@ No breaking changes. All existing configurations remain compatible.
 ```yaml
 # Add to existing workflows for better performance
 - name: Terraform Scripts Lint
-  uses: Lance52259/hcbp-scripts-lint@v1.1.0
+  uses: chnsz/hcbp-scripts-lint@v1.1.0
   with:
     changed-files-only: 'true'  # New feature
     base-ref: 'origin/main'     # New feature
@@ -2848,7 +2848,7 @@ No breaking changes. All existing configurations remain compatible.
 
 ## Support and Feedback
 
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/chnsz/hcbp-scripts-lint/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/chnsz/hcbp-scripts-lint/discussions)
 - 📖 **Documentation**: [Project README](README.md)
 - 🚀 **Quick Start**: [QUICKSTART.md](QUICKSTART.md)

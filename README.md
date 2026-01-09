@@ -1,6 +1,6 @@
 # Terraform Scripts Lint - Unified Rules Management System
 
-[![GitHub Release](https://img.shields.io/github/v/release/Lance52259/hcbp-scripts-lint)](https://github.com/Lance52259/hcbp-scripts-lint/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/chnsz/hcbp-scripts-lint)](https://github.com/chnsz/hcbp-scripts-lint/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-compatible-green.svg)](action.yml)
 
@@ -33,7 +33,7 @@ Add the following step to your GitHub Actions workflow:
 ```yaml
 - name: Lint Terraform Examples
   id: terraform-lint
-  uses: Lance52259/hcbp-scripts-lint@v2
+  uses: chnsz/hcbp-scripts-lint@v2
   with:
     directory: 'examples'
     fail-on-error: 'true'
@@ -70,7 +70,7 @@ Add the following step to your GitHub Actions workflow:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Lance52259/hcbp-scripts-lint.git
+   git clone https://github.com/chnsz/hcbp-scripts-lint.git
    cd hcbp-scripts-lint
    ```
 
@@ -110,7 +110,7 @@ Download the tool to the local execution machine using a shell script.
 You can then run the tool using the encapsulated `hcbp-lint` command. For more information, see `hcbp-lint --help`.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/chnsz/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
 ```
 
 The command options are as follows:
@@ -267,7 +267,7 @@ This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) fo
 
 ## Support
 
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/chnsz/hcbp-scripts-lint/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/chnsz/hcbp-scripts-lint/discussions)
 - 📖 **Documentation**: [Complete Documentation](docs/README.md)
 - 🚀 **Quick Start**: [docs/guides/quickstart.md](docs/guides/quickstart.md)

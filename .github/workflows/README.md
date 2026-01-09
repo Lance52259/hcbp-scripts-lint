@@ -46,7 +46,7 @@ GitHub Actions pipeline. It includes:
        steps:
          - uses: actions/checkout@v4
          - name: Terraform Lint
-           uses: Lance52259/hcbp-scripts-lint@v1
+           uses: chnsz/hcbp-scripts-lint@v1
            with:
              directory: './terraform'
              fail-on-error: 'true'
@@ -58,7 +58,7 @@ GitHub Actions pipeline. It includes:
 
 ```yaml
 - name: Development Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: chnsz/hcbp-scripts-lint@v1
   with:
     directory: './dev'
     ignore-rules: 'ST.001,ST.003'  # Allow flexible naming
@@ -69,7 +69,7 @@ GitHub Actions pipeline. It includes:
 
 ```yaml
 - name: Production Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: chnsz/hcbp-scripts-lint@v1
   with:
     directory: './prod'
     fail-on-error: 'true'  # Enforce all rules
@@ -79,7 +79,7 @@ GitHub Actions pipeline. It includes:
 
 ```yaml
 - name: Module Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: chnsz/hcbp-scripts-lint@v1
   with:
     include-paths: './modules'
     exclude-paths: 'modules/*/examples/*'

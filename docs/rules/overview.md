@@ -692,4 +692,4 @@ For questions about rules or adding new rules:
 
 - Check the [Troubleshooting Guide](../guides/troubleshooting.md)
 - Review existing rule implementations
-- Open an issue in the [project repository](https://github.com/Lance52259/hcbp-scripts-lint/issues)
+- Open an issue in the [project repository](https://github.com/chnsz/hcbp-scripts-lint/issues)

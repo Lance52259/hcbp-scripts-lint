@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration variables
-REPO_URL="https://github.com/Lance52259/hcbp-scripts-lint.git"
+REPO_URL="https://github.com/chnsz/hcbp-scripts-lint.git"
 INSTALL_BASE_DIR="$HOME/.local"
 INSTALL_DIR="$INSTALL_BASE_DIR/bin"
 TOOL_DIR="$INSTALL_BASE_DIR/share/terraform-linter"
