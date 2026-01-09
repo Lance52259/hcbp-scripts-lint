@@ -48,9 +48,9 @@ resources for using and contributing to the project.
 
 - **Main Project**: [README.md](../README.md) - Project overview and basic usage
 - **Changelog**: [CHANGELOG.md](../CHANGELOG.md) - Version history and updates
-- **GitHub Repository**: [hcbp-scripts-lint](https://github.com/Lance52259/hcbp-scripts-lint)
-- **Issues**: [Report bugs or request features](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-- **Discussions**: [Community discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+- **GitHub Repository**: [hcbp-scripts-lint](https://github.com/chnsz/hcbp-scripts-lint)
+- **Issues**: [Report bugs or request features](https://github.com/chnsz/hcbp-scripts-lint/issues)
+- **Discussions**: [Community discussions](https://github.com/chnsz/hcbp-scripts-lint/discussions)
 
 ## 🔍 Finding What You Need
 
@@ -98,6 +98,6 @@ details on how to:
 If you can't find what you're looking for:
 
 1. Check the [Troubleshooting Guide](guides/troubleshooting.md)
-2. Search existing [GitHub Issues](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-3. Start a [Discussion](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
+2. Search existing [GitHub Issues](https://github.com/chnsz/hcbp-scripts-lint/issues)
+3. Start a [Discussion](https://github.com/chnsz/hcbp-scripts-lint/discussions)
 4. Create a new issue with the `documentation` label

@@ -134,7 +134,7 @@ git push origin v1
 ### Usage
 ``yaml
 - name: Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v1
+  uses: chnsz/hcbp-scripts-lint@v1
   with:
     directory: '.'
     ignore-rules: 'ST.001,ST.003'
@@ -173,10 +173,10 @@ git push origin v1 -f
 
 ### Recommended Tag Usage for Users
 
-- **Specific version**: `Lance52259/hcbp-scripts-lint@v1.2.3` (most stable)
-- **Minor version**: `Lance52259/hcbp-scripts-lint@v1.2` (get patches)
-- **Major version**: `Lance52259/hcbp-scripts-lint@v1` (get features)
-- **Latest**: `Lance52259/hcbp-scripts-lint@main` (bleeding edge, not recommended)
+- **Specific version**: `chnsz/hcbp-scripts-lint@v1.2.3` (most stable)
+- **Minor version**: `chnsz/hcbp-scripts-lint@v1.2` (get patches)
+- **Major version**: `chnsz/hcbp-scripts-lint@v1` (get features)
+- **Latest**: `chnsz/hcbp-scripts-lint@main` (bleeding edge, not recommended)
 
 ## Usage Options
 
@@ -184,13 +184,13 @@ git push origin v1 -f
 
 ```yaml
 # Use specific version (most stable)
-- uses: Lance52259/hcbp-scripts-lint@v1.0.0
+- uses: chnsz/hcbp-scripts-lint@v1.0.0
 
 # Use major version (get updates)
-- uses: Lance52259/hcbp-scripts-lint@v1
+- uses: chnsz/hcbp-scripts-lint@v1
 
 # Use minor version (balance stability and updates)
-- uses: Lance52259/hcbp-scripts-lint@v1.0
+- uses: chnsz/hcbp-scripts-lint@v1.0
 ```
 
 ### 2. Local Action (Copy to Repository)
@@ -217,7 +217,7 @@ git push origin v1 -f
 
 ```yaml
 # Reference the original repository directly
-- uses: Lance52259/hcbp-scripts-lint@main
+- uses: chnsz/hcbp-scripts-lint@main
 ```
 
 **Pros**: Always latest version

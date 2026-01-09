@@ -170,7 +170,7 @@ jobs:
         terraform_version: '1.9.0'
     
     - name: Run Terraform Lint
-      uses: Lance52259/hcbp-scripts-lint@v2.3.5
+      uses: chnsz/hcbp-scripts-lint@v2.3.5
       with:
         directory: '.'
         rule-categories: 'ST,IO,DC,SC'
@@ -185,7 +185,7 @@ jobs:
 
 ```yaml
 - name: Run Terraform Lint
-  uses: Lance52259/hcbp-scripts-lint@v2.3.5
+  uses: chnsz/hcbp-scripts-lint@v2.3.5
   with:
     directory: '.'
     rule-categories: 'ST,IO,DC,SC'
@@ -198,7 +198,7 @@ jobs:
 
 ```yaml
 - name: Run Terraform Lint with Retry
-  uses: Lance52259/hcbp-scripts-lint@v2.3.5
+  uses: chnsz/hcbp-scripts-lint@v2.3.5
   with:
     directory: '.'
     rule-categories: 'ST,IO,DC,SC'
@@ -232,7 +232,7 @@ jobs:
         terraform_version: ${{ matrix.terraform-version }}
     
     - name: Run Terraform Lint for ${{ matrix.environment }}
-      uses: Lance52259/hcbp-scripts-lint@v2.3.5
+      uses: chnsz/hcbp-scripts-lint@v2.3.5
       with:
         directory: './environments/${{ matrix.environment }}'
         rule-categories: 'ST,IO,DC,SC'
@@ -321,7 +321,7 @@ jobs:
         fetch-depth: 0
     
     - name: Run Terraform Lint
-      uses: Lance52259/hcbp-scripts-lint@v2.3.5
+      uses: chnsz/hcbp-scripts-lint@v2.3.5
       with:
         directory: './${{ matrix.directory }}'
         rule-categories: 'ST,IO,DC,SC'
@@ -346,4 +346,4 @@ For additional help:
 
 - Check the [Troubleshooting Guide](../guides/troubleshooting.md)
 - Review [GitHub API Documentation](https://docs.github.com/en/rest)
-- Open an issue in the [project repository](https://github.com/Lance52259/hcbp-scripts-lint/issues)
+- Open an issue in the [project repository](https://github.com/chnsz/hcbp-scripts-lint/issues)

@@ -12,20 +12,20 @@ you get started quickly with improving your Terraform configurations.
 **English Version:**
 ```bash
 # Download and run the English installation script
-curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/chnsz/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
 ```
 
 **Chinese Version:**
 ```bash
 # Download and run the Chinese installation script
-curl -fsSL https://raw.githubusercontent.com/Lance52259/hcbp-scripts-lint/master/tools/zh-cn/quick_install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/chnsz/hcbp-scripts-lint/master/tools/zh-cn/quick_install.sh | bash
 ```
 
 #### Manual Installation
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/Lance52259/hcbp-scripts-lint.git
+git clone https://github.com/chnsz/hcbp-scripts-lint.git
 cd hcbp-scripts-lint
 ```
 
@@ -54,10 +54,10 @@ python main.py --version
 
 ```bash
 # Pull the Docker image
-docker pull lance52259/hcbp-scripts-lint:latest
+docker pull chnsz/hcbp-scripts-lint:latest
 
 # Run linting on your Terraform files
-docker run -v $(pwd):/workspace lance52259/hcbp-scripts-lint:latest /workspace
+docker run -v $(pwd):/workspace chnsz/hcbp-scripts-lint:latest /workspace
 ```
 
 ### Option 3: GitHub Actions Integration
@@ -92,7 +92,7 @@ jobs:
         terraform_version: 1.9.0
         
     - name: Run Terraform Lint
-      uses: Lance52259/hcbp-scripts-lint@v1
+      uses: chnsz/hcbp-scripts-lint@v1
       with:
         path: '.'
         rules: 'all'
@@ -403,9 +403,9 @@ jobs:
 
 ## 🆘 Getting Help
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/Lance52259/hcbp-scripts-lint/issues)
-- **Discussions**: [Community discussions](https://github.com/Lance52259/hcbp-scripts-lint/discussions)
-- **Documentation**: [Complete documentation](https://github.com/Lance52259/hcbp-scripts-lint/wiki)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/chnsz/hcbp-scripts-lint/issues)
+- **Discussions**: [Community discussions](https://github.com/chnsz/hcbp-scripts-lint/discussions)
+- **Documentation**: [Complete documentation](https://github.com/chnsz/hcbp-scripts-lint/wiki)
 
 ## 🎉 What's Next?
 
