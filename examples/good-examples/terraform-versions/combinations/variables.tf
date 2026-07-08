@@ -45,7 +45,7 @@ variable "vpc_cidr" {
 variable "subnets_configuration" {
   description = "The configuration for the subnet resources to which the VPC belongs"
 
-  type = list(object({
+  type     = list(object({
     name         = string
     cidr         = string
     gateway_ip   = optional(string, "")

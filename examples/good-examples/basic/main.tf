@@ -93,17 +93,17 @@ resource "huaweicloud_obs_bucket_object" "test" {
 
 resource "huaweicloud_obs_bucket_policy" "test" {
   bucket = huaweicloud_obs_bucket.test.id
-  policy = <<POLICY
-{
-    "Statement": [
-        {
-            "Sid": "",
-            "Effect": "Allow",
-            "Principal": {"ID": "*"},
-            "Action": ["GetObject"],
-            "Resource": "${huaweicloud_obs_bucket.test.id}/*"
-        }
-    ]
-}
-POLICY
+  policy = <<-POLICY
+  {
+      "Statement": [
+          {
+              "Sid": "",
+              "Effect": "Allow",
+              "Principal": {"ID": "*"},
+              "Action": ["GetObject"],
+              "Resource": "${huaweicloud_obs_bucket.test.id}/*"
+          }
+      ]
+  }
+  POLICY
 }

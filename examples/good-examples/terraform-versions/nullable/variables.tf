@@ -28,7 +28,7 @@ variable "vpc_name" {
 variable "vpc_cidr" {
   description = "The CIDR block of the VPC resource"
 
-  type    = string
-  default = "192.168.0.0/16"
+  type     = string
+  default  = "192.168.0.0/16"
   nullable = false
 }

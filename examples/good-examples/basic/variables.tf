@@ -22,7 +22,7 @@ variable "vpc_name" {
   type        = string
 
   validation {
-    condition = can(regex("^[a-zA-Z0-9_-]+$", var.vpc_name))
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.vpc_name))
     error_message = "VPC name must contain only alphanumeric characters, underscores, and hyphens."
   }
 }
