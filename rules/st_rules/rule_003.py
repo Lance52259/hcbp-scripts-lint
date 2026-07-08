@@ -393,8 +393,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # Also skip if braces are balanced on the same line (e.g., {for ...} expressions)
             if brace_level >= 1 and stripped_line.endswith('{') and not braces_balanced_on_line:
                 # Check if this is a simple "parameter = {" form (not "parameter = object({")
-                if '=' in stripped_line:
-                    after_equals = stripped_line.split('=', 1)[1].strip()
+                if _has_assignment_equals(stripped_line):
+                    after_equals = _get_after_assignment_equals(stripped_line)
                     # Don't create new grouping for "param = {" declaration
                     # It should stay in the same group to align with other params at the same level
                     # Internal parameters will create new grouping when encountered
@@ -418,8 +418,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                             search_indent = len(search_line) - len(search_line.lstrip())
                             # If we find a line with lower indent, check if it's a function call
                             if search_indent < current_indent:
-                                if '=' in search_line:
-                                    search_after_equals = search_line.split('=', 1)[1].strip()
+                                if _has_assignment_equals(search_line):
+                                    search_after_equals = _get_after_assignment_equals(search_line)
                                     # Match common Terraform functions that can contain objects/arrays
                                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
@@ -436,9 +436,9 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                             # Check if the last line in current_section contains a function call ending with {
                             # We need to check all previous lines in the section, not just the last one
                             for prev_line, _ in reversed(current_section):
-                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                     # Check if this is a function call like jsonencode({, merge({, etc.
-                                    prev_after_equals = prev_line.split('=', 1)[1].strip() if '=' in prev_line else ''
+                                    prev_after_equals = _get_after_assignment_equals(prev_line)
                                     # Match common Terraform functions that can contain objects/arrays
                                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
@@ -456,7 +456,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                 # Check if there are parameters with different indent levels in current_section
                                 has_different_indent = False
                                 for prev_line, _ in current_section:
-                                    if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                         prev_indent = len(prev_line) - len(prev_line.lstrip())
                                         if prev_indent != current_indent:
                                             has_different_indent = True
@@ -468,7 +468,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     same_indent_section = []
                                     different_indent_section = []
                                     for prev_line, prev_idx in current_section:
-                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                             prev_indent = len(prev_line) - len(prev_line.lstrip())
                                             if prev_indent == current_indent:
                                                 same_indent_section.append((prev_line, prev_idx))
@@ -493,7 +493,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                 # Check if there are parameters with different indent levels in current_section
                                 has_different_indent = False
                                 for prev_line, _ in current_section:
-                                    if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                         prev_indent = len(prev_line) - len(prev_line.lstrip())
                                         if prev_indent != current_indent:
                                             has_different_indent = True
@@ -505,7 +505,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     same_indent_section = []
                                     different_indent_section = []
                                     for prev_line, prev_idx in current_section:
-                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                             prev_indent = len(prev_line) - len(prev_line.lstrip())
                                             if prev_indent == current_indent:
                                                 same_indent_section.append((prev_line, prev_idx))
@@ -542,7 +542,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                         prev_section = sections[sec_idx]
                                         # Check if this section has parameters at the same indent level
                                         for prev_line, prev_idx in prev_section:
-                                            if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                            if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                                 prev_indent = len(prev_line) - len(prev_line.lstrip())
                                                 if prev_indent == current_indent:
                                                     # Found a section with parameters at the same indent level
@@ -566,8 +566,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # Also skip if brackets are balanced on the same line (e.g., [for ...] expressions)
             if bracket_level == 1 and stripped_line.endswith('[') and not brackets_balanced_on_line:
                 # Check if this is a simple "parameter = [" form
-                if '=' in stripped_line:
-                    after_equals = stripped_line.split('=', 1)[1].strip()
+                if _has_assignment_equals(stripped_line):
+                    after_equals = _get_after_assignment_equals(stripped_line)
                     if after_equals == '[':
                         # "param = [" declaration - check if we need to split section by indent level
                         # If current_section has parameters with different indent levels, we should split
@@ -582,8 +582,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                 search_idx -= 1
                                 continue
                             search_indent = len(search_line) - len(search_line.lstrip())
-                            if '=' in search_line:
-                                search_after_equals = search_line.split('=', 1)[1].strip()
+                            if _has_assignment_equals(search_line):
+                                search_after_equals = _get_after_assignment_equals(search_line)
                                 function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                                      'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
                                 if search_after_equals and any(search_after_equals.startswith(pattern) for pattern in function_patterns):
@@ -598,7 +598,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                             # Check if there are parameters with different indent levels in current_section
                             has_different_indent = False
                             for prev_line, _ in current_section:
-                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                     prev_indent = len(prev_line) - len(prev_line.lstrip())
                                     if prev_indent != current_indent:
                                         has_different_indent = True
@@ -621,7 +621,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                             # Check if current_section has top-level params at the same indent
                                             has_top_level_in_section = False
                                             for prev_line, _ in current_section:
-                                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                                if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                                     prev_indent = len(prev_line) - len(prev_line.lstrip())
                                                     if prev_indent == current_indent:
                                                         has_top_level_in_section = True
@@ -635,7 +635,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     same_indent_section = []
                                     different_indent_section = []
                                     for prev_line, prev_idx in current_section:
-                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                             prev_indent = len(prev_line) - len(prev_line.lstrip())
                                             if prev_indent == current_indent:
                                                 same_indent_section.append((prev_line, prev_idx))
@@ -664,7 +664,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     prev_section = sections[sec_idx]
                                     # Check if this section has parameters at the same indent level
                                     for prev_line, prev_idx in prev_section:
-                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                             prev_indent = len(prev_line) - len(prev_line.lstrip())
                                             if prev_indent == current_indent:
                                                 # Found a section with parameters at the same indent level
@@ -687,8 +687,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             is_inside_function_call_for_array = False
             if line_idx > 0:
                 prev_line_in_block = block_lines[line_idx - 1]
-                if '=' in prev_line_in_block and not prev_line_in_block.strip().startswith('#'):
-                    prev_after_equals = prev_line_in_block.split('=', 1)[1].strip() if '=' in prev_line_in_block else ''
+                if _has_assignment_equals(prev_line_in_block) and not prev_line_in_block.strip().startswith('#'):
+                    prev_after_equals = _get_after_assignment_equals(prev_line_in_block)
                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
                     if prev_after_equals and any(prev_after_equals.startswith(pattern) for pattern in function_patterns):
@@ -712,7 +712,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
             # But only if the previous line was the declaration, not if it's another parameter at the same level
             # Also skip if the braces/brackets are balanced on the same line (e.g., {for ...}, [for ...] expressions)
             # If braces/brackets are balanced on the same line, skip this check entirely
-            if (brace_level >= 1 and '=' in stripped_line and not stripped_line.endswith('{') and not stripped_line.endswith('[') and 
+            if (brace_level >= 1 and _has_assignment_equals(stripped_line) and not stripped_line.endswith('{') and not stripped_line.endswith('[') and 
                 not braces_balanced_on_line and not brackets_balanced_on_line):
                 # We're inside an object, and this is a parameter line
                 # Check if the previous line in current_section contains "object(", "list(object(", or ends with "= {"
@@ -756,8 +756,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     pass
                         # Check if the last line is a simple "param = {" declaration
                         # OR if the last line ends with '{' (could be "param = {", "param = flatten([...])", etc.)
-                        elif '=' in last_line_content and last_line_content.endswith('{'):
-                            after_equals_last = last_line_content.split('=', 1)[1].strip()
+                        elif _has_assignment_equals(last_line_content) and last_line_content.endswith('{'):
+                            after_equals_last = _get_after_assignment_equals(last_line_content)
                             if after_equals_last == '{':
                                 # The previous line was "param = {" declaration
                                 # Check if this parameter has more indentation (is actually inside the object)
@@ -816,13 +816,13 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                         next_line = block_lines[line_idx + 1]
                         next_stripped = next_line.strip()
                         # Check if next line is a parameter (contains '=' and not a comment)
-                        if '=' in next_line and not next_stripped.startswith('#'):
+                        if _has_assignment_equals(next_line) and not next_stripped.startswith('#'):
                             next_indent = len(next_line) - len(next_line.lstrip())
                             # Find the indent of the declaration parameter in current_section
                             # Look for the parameter that contains object({ or list(object({
                             declaration_indent = None
                             for prev_line, prev_idx in current_section:
-                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                     if 'object(' in prev_line or ('list(' in prev_line and 'object(' in prev_line):
                                         declaration_indent = len(prev_line) - len(prev_line.lstrip())
                                         break
@@ -865,7 +865,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                         next_line = block_lines[line_idx + 1]
                         next_stripped = next_line.strip()
                         # Check if next line is a parameter (contains '=' and not a comment)
-                        if '=' in next_line and not next_stripped.startswith('#'):
+                        if _has_assignment_equals(next_line) and not next_stripped.startswith('#'):
                             # Check if next line has the same indent as parameters in current_section
                             next_indent = len(next_line) - len(next_line.lstrip())
                             # Find the indent of parameters in current_section
@@ -881,8 +881,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     search_idx -= 1
                                     continue
                                 search_indent = len(search_line) - len(search_line.lstrip())
-                                if '=' in search_line:
-                                    search_after_equals = search_line.split('=', 1)[1].strip()
+                                if _has_assignment_equals(search_line):
+                                    search_after_equals = _get_after_assignment_equals(search_line)
                                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
                                     if search_after_equals and any(search_after_equals.startswith(pattern) for pattern in function_patterns):
@@ -898,7 +898,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                 if current_section:
                                     # Check if next line has the same indent as parameters in current_section
                                     for prev_line, prev_idx in current_section:
-                                        if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                        if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                             prev_indent = len(prev_line) - len(prev_line.lstrip())
                                             if prev_indent == next_indent:
                                                 # Next line is a parameter at the same indent level, don't split
@@ -914,7 +914,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                             # Check if this section has parameters at the same indent level
                                             found_same_indent = False
                                             for prev_line, prev_idx in prev_section:
-                                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                                if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                                     prev_indent = len(prev_line) - len(prev_line.lstrip())
                                                     if prev_indent == next_indent:
                                                         # Found a section with parameters at the same indent level
@@ -927,7 +927,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                             else:
                                 # Not inside function call, check normally
                                 for prev_line, prev_idx in current_section:
-                                    if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                    if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                         prev_indent = len(prev_line) - len(prev_line.lstrip())
                                         if prev_indent == next_indent:
                                             # Next line is a parameter at the same indent level, don't split
@@ -958,7 +958,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                         has_top_level_params = False
                         if current_section:
                             for prev_line, prev_idx in current_section:
-                                if '=' in prev_line and not prev_line.strip().startswith('#'):
+                                if _has_assignment_equals(prev_line) and not prev_line.strip().startswith('#'):
                                     prev_indent = len(prev_line) - len(prev_line.lstrip())
                                     # Check if this is a top-level parameter (indent of 2 spaces in locals/resource blocks)
                                     if prev_indent == 2:
@@ -972,7 +972,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                             if line_idx + 1 < len(block_lines):
                                 next_line = block_lines[line_idx + 1]
                                 next_stripped = next_line.strip()
-                                if '=' in next_line and not next_stripped.startswith('#'):
+                                if _has_assignment_equals(next_line) and not next_stripped.startswith('#'):
                                     next_indent = len(next_line) - len(next_line.lstrip())
                                     if next_indent == 2:
                                         # Next line is a top-level param - keep current_section so it can join
@@ -1008,7 +1008,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
         has_top_level = False
         top_level_params = []
         for line, idx in current_sec:
-            if '=' in line and not line.strip().startswith('#'):
+            if _has_assignment_equals(line) and not line.strip().startswith('#'):
                 indent = len(line) - len(line.lstrip())
                 if indent == 2:
                     has_top_level = True
@@ -1024,7 +1024,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                 next_sec = sections[j]
                 next_has_top_level = False
                 for line, idx in next_sec:
-                    if '=' in line and not line.strip().startswith('#'):
+                    if _has_assignment_equals(line) and not line.strip().startswith('#'):
                         indent = len(line) - len(line.lstrip())
                         if indent == 2:
                             next_has_top_level = True
@@ -1073,7 +1073,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                     has_top_level_like_params = False
                     has_any_params = False
                     for line, _ in next_sec:
-                        if '=' in line and not line.strip().startswith('#'):
+                        if _has_assignment_equals(line) and not line.strip().startswith('#'):
                             has_any_params = True
                             indent = len(line) - len(line.lstrip())
                             if indent == 2:
@@ -1128,7 +1128,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     # Step 1: Separate parameters inside function calls from those outside
     separated_sections = []
     for current_sec in sections:
-        param_lines = [(line, idx) for line, idx in current_sec if '=' in line and not line.strip().startswith('#')]
+        param_lines = [(line, idx) for line, idx in current_sec if _has_assignment_equals(line) and not line.strip().startswith('#')]
         
         if len(param_lines) == 0:
             # No parameters, keep as is
@@ -1155,8 +1155,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                     search_idx -= 1
                     continue
                 search_indent = len(search_line) - len(search_line.lstrip())
-                if '=' in search_line:
-                    search_after_equals = search_line.split('=', 1)[1].strip()
+                if _has_assignment_equals(search_line):
+                    search_after_equals = _get_after_assignment_equals(search_line)
                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
                     if search_after_equals and any(search_after_equals.startswith(pattern) for pattern in function_patterns):
@@ -1229,7 +1229,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     i = 0
     while i < len(separated_sections):
         current_sec = separated_sections[i]
-        param_lines = [(line, idx) for line, idx in current_sec if '=' in line and not line.strip().startswith('#')]
+        param_lines = [(line, idx) for line, idx in current_sec if _has_assignment_equals(line) and not line.strip().startswith('#')]
         
         if len(param_lines) == 1:
             # Single parameter section - check if it's inside a function call
@@ -1247,8 +1247,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                     search_idx -= 1
                     continue
                 search_indent = len(search_line) - len(search_line.lstrip())
-                if '=' in search_line:
-                    search_after_equals = search_line.split('=', 1)[1].strip()
+                if _has_assignment_equals(search_line):
+                    search_after_equals = _get_after_assignment_equals(search_line)
                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
                     if search_after_equals and any(search_after_equals.startswith(pattern) for pattern in function_patterns):
@@ -1271,7 +1271,7 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                 while j < len(separated_sections):
                     next_sec = separated_sections[j]
                     # Check if next section has parameters at the same indent level
-                    next_param_lines = [(line, idx) for line, idx in next_sec if '=' in line and not line.strip().startswith('#')]
+                    next_param_lines = [(line, idx) for line, idx in next_sec if _has_assignment_equals(line) and not line.strip().startswith('#')]
                     if not next_param_lines:
                         # No parameters in this section, skip it
                         j += 1
@@ -1291,8 +1291,8 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
                                     next_search_idx -= 1
                                     continue
                                 next_search_indent = len(next_search_line) - len(next_search_line.lstrip())
-                                if '=' in next_search_line:
-                                    next_search_after_equals = next_search_line.split('=', 1)[1].strip()
+                                if _has_assignment_equals(next_search_line):
+                                    next_search_after_equals = _get_after_assignment_equals(next_search_line)
                                     function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                                          'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
                                     if next_search_after_equals and any(next_search_after_equals.startswith(pattern) for pattern in function_patterns):
@@ -1350,6 +1350,56 @@ def _split_into_code_sections(block_lines: List[str]) -> List[List[Tuple[str, in
     return merged_sections
 
 
+def _find_assignment_equals_pos(line: str) -> int:
+    """
+    Find the position of the assignment '=' operator in a line.
+
+    Comparison operators (==, !=, <=, >=) are ignored so expression content
+    is not misidentified as parameter assignments.
+    """
+    in_quotes = False
+    quote_char = None
+    i = 0
+    while i < len(line):
+        char = line[i]
+        if char in ('"', "'") and (i == 0 or line[i - 1] != '\\'):
+            if not in_quotes:
+                in_quotes = True
+                quote_char = char
+            elif char == quote_char:
+                in_quotes = False
+                quote_char = None
+        elif not in_quotes and char == '=':
+            prev_char = line[i - 1] if i > 0 else ''
+            next_char = line[i + 1] if i + 1 < len(line) else ''
+            if next_char == '=':
+                i += 2
+                continue
+            if prev_char in '!<>':
+                i += 1
+                continue
+            return i
+        i += 1
+    return -1
+
+
+def _has_assignment_equals(line: str) -> bool:
+    """Return True if the line contains an assignment '=' operator."""
+    return _find_assignment_equals_pos(line) != -1
+
+
+def _get_after_assignment_equals(line: str) -> str:
+    """Return the text after the assignment '=' operator, stripped."""
+    pos = _find_assignment_equals_pos(line)
+    return line[pos + 1:].strip() if pos != -1 else ''
+
+
+def _get_before_assignment_equals(line: str) -> str:
+    """Return the text before the assignment '=' operator."""
+    pos = _find_assignment_equals_pos(line)
+    return line[:pos] if pos != -1 else ''
+
+
 def _check_parameter_alignment_in_section(
     section: List[Tuple[str, int]], block_type: str, block_start_line: int, block_lines: List[str] = None
 ) -> List[Tuple[int, str]]:
@@ -1397,8 +1447,8 @@ def _check_parameter_alignment_in_section(
                 search_indent = len(search_line) - len(search_line.lstrip())
                 # If we find a line with lower or equal indent, check if it's a function call
                 if search_indent <= current_indent:
-                    if '=' in search_line:
-                        search_after_equals = search_line.split('=', 1)[1].strip()
+                    if _has_assignment_equals(search_line):
+                        search_after_equals = _get_after_assignment_equals(search_line)
                         # Match common Terraform functions that can contain objects/arrays
                         function_patterns = ['jsonencode(', 'merge(', 'try(', 'lookup(', 'alltrue(', 'anytrue(', 
                                              'cidrsubnet(', 'cidrhost(', 'flatten(', 'keys(', 'values(', 'zipmap(']
@@ -1449,7 +1499,7 @@ def _check_parameter_alignment_in_section(
             heredoc_terminator = heredoc_match.group(1)
             # Continue to process the heredoc start line if it contains '=' or boundary markers
         
-        if '=' in line and not line_stripped.startswith('#'):
+        if _has_assignment_equals(line) and not line_stripped.startswith('#'):
             # Skip block declarations
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
                 # Skip provider declarations in required_providers blocks
@@ -1457,18 +1507,8 @@ def _check_parameter_alignment_in_section(
                     any('required_providers' in prev_line for prev_line, _ in section)):
                     continue
                 
-                # Skip lines that are part of expression content (e.g., inside condition = (...))
-                # These lines start with '(' and contain comparison operators (==, !=) which are not parameter assignments
-                # Examples: "(var.source_availability_zone == "" && ...)" inside condition expressions
-                if line_stripped.startswith('(') and ('==' in line or '!=' in line):
-                    # This is expression content, not a parameter assignment
-                    continue
-                
                 # Skip Terraform for expressions (e.g., for image in collection : image if condition)
-                # These lines start with 'for' and contain ':' which are not parameter assignments
-                # Examples: "for image in data.images.test.images : image if image.status == \"active\""
                 if re.match(r'^\s*for\s+', line):
-                    # This is a for expression, not a parameter assignment
                     continue
                 
                 parameter_lines.append((line, relative_line_idx))
@@ -1595,7 +1635,7 @@ def _check_equals_after_spacing(line: str, relative_line_idx: int, block_type: s
     errors = []
     actual_line_num = block_start_line + relative_line_idx + 1
     
-    equals_pos = line.find('=')
+    equals_pos = _find_assignment_equals_pos(line)
     if equals_pos == -1:
         return errors
     
@@ -1629,20 +1669,13 @@ def _check_group_alignment(
     # Extract parameter names and find longest
     param_data = []
     for line, relative_line_idx in group_lines:
-        equals_pos = line.find('=')
+        equals_pos = _find_assignment_equals_pos(line)
         if equals_pos == -1:
             continue
         
         # Skip array/list declarations
         before_equals = line[:equals_pos]
         if before_equals.strip().startswith('[') or (before_equals.strip() == '' and line.strip().startswith('[')):
-            continue
-        
-        # Skip lines that are part of expression content (e.g., inside condition = (...))
-        # These lines start with '(' and contain comparison operators (==, !=) which are not parameter assignments
-        line_stripped = line.strip()
-        if line_stripped.startswith('(') and ('==' in line or '!=' in line):
-            # This is expression content, not a parameter assignment
             continue
         
         # Check if this is a nested block declaration (e.g., "extend_param = {")
@@ -1738,7 +1771,7 @@ def _check_group_alignment(
         # Check if ANY parameter in the group has quotes
         # This ensures we use correct quote_chars even if longest param doesn't have quotes
         has_quoted_params = any(
-            line[:line.find('=')].strip().startswith('"') 
+            _get_before_assignment_equals(line).strip().startswith('"') 
             for _, line, _, _, _ in param_data
         )
         longest_quote_chars = 2 if has_quoted_params else 0
@@ -1964,7 +1997,7 @@ def _is_equals_in_string_value(line: str) -> bool:
     Returns:
         bool: True if the equals sign is inside a string value, False otherwise
     """
-    equals_pos = line.find('=')
+    equals_pos = _find_assignment_equals_pos(line)
     if equals_pos == -1:
         return False
     
@@ -2052,7 +2085,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             # Continue to process the heredoc start line if it contains '=' or boundary markers
         
         stripped = line_stripped
-        if stripped and '=' in stripped:
+        if stripped and _has_assignment_equals(stripped):
             # Include all assignment lines (comments already removed)
             assignment_lines.append((i + 1, line))
         elif stripped.rstrip(',') in ['{', '}', '[', ']']:
@@ -2073,7 +2106,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
     # Helper function to check if a section contains top-level parameters
     def _section_has_top_level_param(sec):
         for _ln, _l in sec:
-            if '=' in _l and (len(_l) - len(_l.lstrip())) == 0:
+            if _has_assignment_equals(_l) and (len(_l) - len(_l.lstrip())) == 0:
                 return True
         return False
     
@@ -2099,8 +2132,8 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 bracket_level = max(0, bracket_level - 1)
         
         # Check if we're entering an array (line ends with [)
-        if stripped_line.endswith('[') and bracket_level == 1 and '=' in stripped_line:
-            after_equals = stripped_line.split('=', 1)[1].strip()
+        if stripped_line.endswith('[') and bracket_level == 1 and _has_assignment_equals(stripped_line):
+            after_equals = _get_after_assignment_equals(stripped_line)
             if after_equals == '[':
                 # Array declaration line - check if we should split based on blank lines
                 line_indent = len(line) - len(line.lstrip())
@@ -2122,8 +2155,8 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         
         # Check if we're entering an object (parameter = {)
         # But only if it's NOT a top-level parameter (top-level should be aligned first)
-        if stripped_line.endswith('{') and '=' in stripped_line:
-            after_equals = stripped_line.split('=', 1)[1].strip()
+        if stripped_line.endswith('{') and _has_assignment_equals(stripped_line):
+            after_equals = _get_after_assignment_equals(stripped_line)
             if after_equals == '{':
                 # Check if this is a top-level parameter
                 # We need to use levels BEFORE this line updates them
@@ -2237,13 +2270,13 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                 # Also include parameters inside array objects that have the same indent level
                 # For tfvars, top-level parameters have indent level 0
                 is_top_level = (line_indent == top_level_indent and 
-                              '=' in stripped_line and
+                              _has_assignment_equals(stripped_line) and
                               ((prev_brace_level == 0 and prev_bracket_level == 0) or line_indent == 0))
                 
                 # Check if this is a parameter inside an object (regardless of indent level)
                 # This handles cases where parameters have different indentation within the same object
                 # For tfvars, parameters in the same object should be grouped together
-                is_object_param = ('=' in stripped_line and
+                is_object_param = (_has_assignment_equals(stripped_line) and
                                  prev_brace_level >= 1 and
                                  not stripped_line.strip().startswith('#'))
                 
@@ -2256,7 +2289,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                         prev_stripped_boundary = prev_stripped.rstrip(',')
                         # Skip pure boundary markers (lines that are only ], }, [, or {)
                         # But include parameter declarations like "param = [" or "param = {"
-                        if '=' in prev_l:
+                        if _has_assignment_equals(prev_l):
                             # This is a parameter declaration
                             # For top-level parameters, only use previous top-level parameters
                             # For nested parameters, use any previous parameter
@@ -2280,7 +2313,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                         prev_section = sections[-1] if sections else None
                         if prev_section:
                             for prev_ln, prev_l in reversed(prev_section):
-                                if '=' in prev_l:
+                                if _has_assignment_equals(prev_l):
                                     prev_indent = len(prev_l) - len(prev_l.lstrip())
                                     if prev_indent == 0:
                                         prev_line_num = prev_ln
@@ -2319,7 +2352,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                                 last_top_level_line_num = None
                                 # First, try to find the last top-level param in prev_section
                                 for prev_ln, prev_l in reversed(prev_section):
-                                    if '=' in prev_l:
+                                    if _has_assignment_equals(prev_l):
                                         prev_indent = len(prev_l) - len(prev_l.lstrip())
                                         if prev_indent == 0:
                                             last_top_level_line_num = prev_ln
@@ -2333,8 +2366,8 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                                             # This is a top-level array closing in current_section
                                             # The array declaration should be in prev_section
                                             for prev_ln2, prev_l2 in reversed(prev_section):
-                                                if '=' in prev_l2 and (len(prev_l2) - len(prev_l2.lstrip())) == 0:
-                                                    equals_pos = prev_l2.find('=')
+                                                if _has_assignment_equals(prev_l2) and (len(prev_l2) - len(prev_l2.lstrip())) == 0:
+                                                    equals_pos = _find_assignment_equals_pos(prev_l2)
                                                     after_equals = prev_l2[equals_pos + 1:].strip()
                                                     if after_equals.startswith('['):
                                                         last_top_level_line_num = prev_ln2
@@ -2346,7 +2379,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                                 # This handles cases where the array closing bracket logic didn't work
                                 if last_top_level_line_num is None:
                                     for prev_ln, prev_l in reversed(prev_section):
-                                        if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                                        if _has_assignment_equals(prev_l) and (len(prev_l) - len(prev_l.lstrip())) == 0:
                                             last_top_level_line_num = prev_ln
                                             break
                                 
@@ -2379,15 +2412,15 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                             # Check for blank line to decide if we should split
                             prev_line_num = None
                             for prev_ln, prev_l in reversed(current_section):
-                                if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                                if _has_assignment_equals(prev_l) and (len(prev_l) - len(prev_l.lstrip())) == 0:
                                     prev_line_num = prev_ln
                                     break
                                 # Also check for array closing brackets at top level
                                 elif prev_l.strip().rstrip(',') == ']' and len(prev_l) - len(prev_l.lstrip()) == 0:
                                     # This is a top-level array closing - find the array declaration before it
                                     for prev_ln2, prev_l2 in reversed(current_section):
-                                        if '=' in prev_l2 and (len(prev_l2) - len(prev_l2.lstrip())) == 0:
-                                            equals_pos = prev_l2.find('=')
+                                        if _has_assignment_equals(prev_l2) and (len(prev_l2) - len(prev_l2.lstrip())) == 0:
+                                            equals_pos = _find_assignment_equals_pos(prev_l2)
                                             after_equals = prev_l2[equals_pos + 1:].strip()
                                             if after_equals.startswith('['):
                                                 prev_line_num = prev_ln2
@@ -2448,7 +2481,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             last_top_level_line_num = None
             last_top_level_line = None
             for prev_ln, prev_l in reversed(prev_section):
-                if '=' in prev_l and (len(prev_l) - len(prev_l.lstrip())) == 0:
+                if _has_assignment_equals(prev_l) and (len(prev_l) - len(prev_l.lstrip())) == 0:
                     last_top_level_line_num = prev_ln
                     last_top_level_line = prev_l
                     break
@@ -2457,7 +2490,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             # Only merge if it's an array/object declaration (ends with [ or {)
             is_array_or_object_decl = False
             if last_top_level_line is not None:
-                equals_pos = last_top_level_line.find('=')
+                equals_pos = _find_assignment_equals_pos(last_top_level_line)
                 if equals_pos != -1:
                     after_equals = last_top_level_line[equals_pos + 1:].strip()
                     is_array_or_object_decl = after_equals.startswith('[') or after_equals.startswith('{')
@@ -2467,7 +2500,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
             first_top_level_line_num = None
             current_section_has_top_level = False
             for curr_ln, curr_l in section:
-                if '=' in curr_l and (len(curr_l) - len(curr_l.lstrip())) == 0:
+                if _has_assignment_equals(curr_l) and (len(curr_l) - len(curr_l.lstrip())) == 0:
                     current_section_has_top_level = True
                     if first_top_level_line_num is None:
                         first_top_level_line_num = curr_ln
@@ -2509,7 +2542,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
         # Build groups quickly to detect counts
         temp_params = []
         for line, actual_line_num in converted_section:
-            if '=' in line and not line.strip().startswith('#'):
+            if _has_assignment_equals(line) and not line.strip().startswith('#'):
                 indent = len(line) - len(line.lstrip())
                 indent_level = indent // 2
                 temp_params.append((indent_level, actual_line_num, line))
@@ -2541,11 +2574,11 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                     check_section = sections[check_idx]
                     for check_line_num, check_line in check_section:
                         if check_line_num > last_multi_param_last_line_num and check_line_num < current_first_line_num:
-                            if '=' in check_line:
+                            if _has_assignment_equals(check_line):
                                 check_indent = len(check_line) - len(check_line.lstrip())
                                 if check_indent == 0 and not check_line.strip().startswith('#'):
                                     # Check if this is an object declaration (param = {), not array (param = [)
-                                    check_equals_pos = check_line.find('=')
+                                    check_equals_pos = _find_assignment_equals_pos(check_line)
                                     if check_equals_pos != -1:
                                         check_after_equals = check_line[check_equals_pos + 1:].strip()
                                         if check_after_equals.startswith('{'):
@@ -2560,7 +2593,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                     # Find the last top-level parameter in last_multi_param_section
                     last_top_level_param_line_num = None
                     for check_line_num, check_line in reversed(last_multi_param_section):
-                        if '=' in check_line:
+                        if _has_assignment_equals(check_line):
                             check_indent = len(check_line) - len(check_line.lstrip())
                             if check_indent == 0 and not check_line.strip().startswith('#'):
                                 last_top_level_param_line_num = check_line_num
@@ -2569,7 +2602,7 @@ def _check_tfvars_parameter_alignment(file_path: str, content: str, log_error_fu
                     # Find the first top-level parameter in current section
                     current_first_top_level_param_line_num = None
                     for check_line_num, check_line in section:
-                        if '=' in check_line:
+                        if _has_assignment_equals(check_line):
                             check_indent = len(check_line) - len(check_line.lstrip())
                             if check_indent == 0 and not check_line.strip().startswith('#'):
                                 current_first_top_level_param_line_num = check_line_num
@@ -2618,7 +2651,7 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
     # Extract parameter lines from section
     for line_content, actual_line_num in section:
         line = line_content.rstrip()
-        if '=' in line and not line.strip().startswith('#'):
+        if _has_assignment_equals(line) and not line.strip().startswith('#'):
             # Skip block declarations
             if not re.match(r'^\s*(data|resource|variable|output|locals|module)\s+', line):
                 # Skip lines where equals sign is inside a string value (e.g., "==", "!=")
@@ -2699,8 +2732,8 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
                                                 has_structural_boundary = True
                                                 break
                                             # Check for object declaration (param = {)
-                                            if '=' in next_line:
-                                                equals_pos = next_line.find('=')
+                                            if _has_assignment_equals(next_line):
+                                                equals_pos = _find_assignment_equals_pos(next_line)
                                                 after_equals = next_line[equals_pos + 1:].strip()
                                                 if after_equals.startswith('{'):
                                                     has_structural_boundary = True
@@ -2743,7 +2776,7 @@ def _check_tfvars_parameter_alignment_in_section(section: List[Tuple[str, int]],
             if indent_level == 0 and len(group_lines) == 1 and top_level_expected_override is not None:
                 actual_line_num, line = group_lines[0]
                 display_line = line.expandtabs(2)
-                equals_pos = display_line.find('=')
+                equals_pos = _find_assignment_equals_pos(display_line)
                 # Only apply override for top-level object declarations (param = {), not arrays
                 after_equals_strip = display_line[equals_pos + 1:].strip() if equals_pos != -1 else ''
                 if equals_pos != -1 and after_equals_strip.startswith('{') and '\t' not in line and equals_pos != top_level_expected_override:
@@ -2799,7 +2832,7 @@ def _compute_expected_equals_location_tfvars(group_lines: List[Tuple[int, str]],
     param_data = []
     for actual_line_num, line in group_lines:
         display_line = line.expandtabs(2)
-        equals_pos = display_line.find('=')
+        equals_pos = _find_assignment_equals_pos(display_line)
         if equals_pos == -1:
             continue
         before_equals = display_line[:equals_pos]
@@ -2835,7 +2868,7 @@ def _compute_expected_equals_location_tfvars(group_lines: List[Tuple[int, str]],
             longest_param_len = max(len(p[0]) for p in non_tab_params)
         else:
             longest_param_len = max(len(p[0]) for p in param_data)
-    has_quoted_params = any(line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'") for _, line, _, _, _ in param_data)
+    has_quoted_params = any(_get_before_assignment_equals(line).strip().startswith('"') or _get_before_assignment_equals(line).strip().startswith("'") for _, line, _, _, _ in param_data)
     quote_chars = 2 if has_quoted_params else 0
     return indent_spaces + longest_param_len + quote_chars + 1
 
@@ -2858,7 +2891,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
     param_data = []
     for actual_line_num, line in group_lines:
         display_line = line.expandtabs(2)
-        equals_pos = display_line.find('=')
+        equals_pos = _find_assignment_equals_pos(display_line)
         if equals_pos == -1:
             continue
         
@@ -2956,7 +2989,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
         # considers skipped parameters and special cases
         # Check if any parameter has quotes and add quote length
         has_quoted_params = any(
-            line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
+            _get_before_assignment_equals(line).strip().startswith('"') or _get_before_assignment_equals(line).strip().startswith("'")
             for _, line, _, _, _ in param_data
         )
         quote_chars = 2 if has_quoted_params else 0
@@ -3004,7 +3037,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
                 continue
             
             # Use the original line to find equals and check spacing
-            original_equals_pos = line.find('=')
+            original_equals_pos = _find_assignment_equals_pos(line)
             if original_equals_pos == -1:
                 continue
                 
@@ -3062,7 +3095,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
             longest_param_len = max(len(p[0]) for p in param_data)
     # Check if any parameter has quotes and add quote length
     has_quoted_params = any(
-        line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
+        _get_before_assignment_equals(line).strip().startswith('"') or _get_before_assignment_equals(line).strip().startswith("'")
         for _, line, _, _, _ in param_data
     )
     quote_chars = 2 if has_quoted_params else 0
@@ -3147,7 +3180,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
     # For tfvars files, always align to longest parameter name
     # Check if any parameter has quotes
     has_quoted_params = any(
-        line[:line.find('=')].strip().startswith('"') or line[:line.find('=')].strip().startswith("'")
+        _get_before_assignment_equals(line).strip().startswith('"') or _get_before_assignment_equals(line).strip().startswith("'")
         for _, line, _, _, _ in param_data
     )
     quote_chars = 2 if has_quoted_params else 0
@@ -3188,7 +3221,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
         
         # For parameters with quotes, add quote characters to length
         param_display_length = len(param_name)
-        before_eq_for_quote = line[: line.find('=')]
+        before_eq_for_quote = _get_before_assignment_equals(line)
         if before_eq_for_quote.strip().startswith('"') or before_eq_for_quote.strip().startswith("'"):
             param_display_length += 2  # Add quotes length
         
@@ -3300,7 +3333,7 @@ def _check_group_alignment_tfvars(group_lines: List[Tuple[int, str]], indent_lev
 def _check_parameter_spacing_tfvars(line: str, actual_line_num: int, block_type: str) -> List[Tuple[int, str]]:
     """Check spacing around equals sign for tfvars, using actual line number."""
     errors = []
-    equals_pos = line.find('=')
+    equals_pos = _find_assignment_equals_pos(line)
     
     if equals_pos == -1:
         return errors
@@ -3344,7 +3377,7 @@ def _is_inside_block_structure_tfvars(current_line: str, all_lines: List[str], c
         bool: True if the line is inside a block structure, False otherwise
     """
     # Check if this line is inside a block structure (including lines with =, {, or })
-    if (('=' in current_line.strip() or current_line.strip().startswith('{') or current_line.strip().startswith('}')) 
+    if ((_has_assignment_equals(current_line.strip()) or current_line.strip().startswith('{') or current_line.strip().startswith('}')) 
         and not current_line.strip().startswith('#')):
         # Look backwards to see if we're inside a block structure
         brace_count = 0
@@ -3376,7 +3409,7 @@ def _is_inside_block_structure_tfvars(current_line: str, all_lines: List[str], c
             # If we find a line that ends with { or [, check if it's part of a block structure
             if line.endswith('{') or line.endswith('['):
                 # Check if this is a block structure (not just a simple assignment)
-                if '=' in line and ('{' in line or '[' in line):
+                if _has_assignment_equals(line) and ('{' in line or '[' in line):
                     return True
                 break
         return False
