@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-07-08
+
+### 🔧 Rule Fixes & Improvements
+
+#### 🔒 SC.003 - Terraform Version Compatibility Check
+
+**Fixed false positives and incorrect violation line numbers**
+
+- **Issue**: SC.003 could report that `required_version` was unnecessarily high when `validation` blocks referenced other variables inside large `object({...})` variable definitions. The rule only looked back 10 lines to resolve the current variable name, so cross-variable `validation` requirements (Terraform >= 1.9.0) were missed when the `validation` block was far below the `variable` declaration.
+
+- **Solution**:
+  - Track the current variable name when entering a `variable` block
+  - Use brace depth to correctly handle nested blocks inside long variable definitions
+  - Report violations on the actual `required_version` line instead of always using line 1
+
+- **Impact**:
+  - Eliminates false "version unnecessarily high" warnings for configurations that legitimately require `>= 1.9.0`
+  - Enables `# SC.003 Disable` / `# SC.003 Enable` comment directives to work correctly around `required_version`
+  - Improves diagnostic accuracy by pointing violations to the declared version line
+
+#### 📏 ST.003 - Parameter Alignment Check
+
+**Fixed false positives on comparison operators in expressions**
+
+- **Issue**: ST.003 used `line.find('=')` to detect parameter assignments. The first `=` in comparison operators such as `==`, `!=`, `<=`, and `>=` was treated as an assignment operator. This caused false alignment and spacing errors on expression continuation lines, especially in multi-line `lifecycle.precondition` / `condition` blocks (e.g. `]) == length(var.role_ids)`).
+
+- **Solution**:
+  - Introduced shared helpers to distinguish assignment `=` from comparison operators: `_find_assignment_equals_pos()`, `_has_assignment_equals()`, `_get_after_assignment_equals()`, and `_get_before_assignment_equals()`
+  - Applied assignment-equals semantics consistently across `.tf` block parsing, section merging, alignment checks, spacing checks, and `terraform.tfvars` handling
+  - Added unit tests under `acceptances/good/st003/assignment_equals/`
+
+- **Impact**:
+  - Expression continuation lines containing only comparison operators are no longer misidentified as parameter assignments
+  - Same-line assignments with inline comparisons (e.g. `count = var.x == "" ? 1 : 0`) are still checked correctly
+  - No regression in detecting real formatting issues in `bad-examples`
+
+### 📚 Examples & Documentation
+
+- **good-examples**: Fixed formatting issues in several reference samples so they pass lint checks again, including ST.003 alignment in `basic` and `terraform-versions/*`, heredoc indentation in `basic/main.tf`, and SC.003 `required_version` in `terraform-versions/with-version`
+- **action.yml**: Updated action metadata author from `DevOps Team` to `chnsz team`
+- **docs**: Updated author attribution to use the `chnsz` organization
+
 ## [3.0.0] - 2026-01-09
 
 ### 🏢 Repository Ownership Transfer
