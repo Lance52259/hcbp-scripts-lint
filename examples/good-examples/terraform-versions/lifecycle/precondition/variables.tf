@@ -41,15 +41,15 @@ variable "vpc_description" {
 variable "vpc_secondary_cidrs" {
   description = "The secondary CIDR blocks of the VPC resource"
 
-  type     = list(string)
-  default  = []
+  type    = list(string)
+  default = []
 }
 
 variable "vpc_tags" {
   description = "The key/value pairs to associte with the VPC resource"
 
-  type     = map(string)
-  default  = {}
+  type    = map(string)
+  default = {}
 }
 
 variable "enterprise_project_id" {

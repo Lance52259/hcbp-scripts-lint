@@ -106,7 +106,7 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
     min_required_version, used_features = _determine_minimum_required_version(file_dir)
     
     # Extract declared version from providers.tf
-    declared_version = _extract_declared_version(content)
+    declared_version, version_line = _extract_declared_version(content)
     
     if declared_version and min_required_version:
         # Check if declared version is too low
@@ -117,7 +117,7 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
                 file_path,
                 "SC.003",
                 f"Declared version '{declared_version}' is too low. Required: '{min_required_version}' {feature_description}",
-                1
+                version_line
             )
         
         # Check if declared version is unnecessarily high for specific features
@@ -128,7 +128,7 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
                 file_path,
                 "SC.003",
                 f"Declared version '{declared_version}' is unnecessarily high. Suggested: '{suggested_version}' {feature_description}",
-                1
+                version_line
             )
 
 
@@ -183,43 +183,44 @@ def _analyze_file_for_version_requirements(content: str) -> Tuple[List[str], Lis
     lines = content.split('\n')
     
     in_variable_block = False
+    current_variable_name = None
+    variable_brace_depth = 0
     
     for line_num, line in enumerate(lines, 1):
-        line = line.strip()
+        stripped_line = line.strip()
         
         # Skip empty lines and comments
-        if not line or line.startswith('#'):
+        if not stripped_line or stripped_line.startswith('#'):
             continue
         
         # Check for variable block start
-        if line.startswith('variable '):
-            in_variable_block = True
-            continue
-        
-        # Check for variable block end
-        if in_variable_block and line == '}':
-            in_variable_block = False
+        if stripped_line.startswith('variable '):
+            match = re.search(r'variable\s+"([^"]+)"', stripped_line)
+            if match:
+                current_variable_name = match.group(1)
+                in_variable_block = True
+                variable_brace_depth = stripped_line.count('{') - stripped_line.count('}')
             continue
         
         # Check for sensitive attribute in variable/output
-        if 'sensitive' in line and in_variable_block:
-            if '= "true"' in line or '= true' in line:
+        if 'sensitive' in stripped_line and in_variable_block:
+            if '= "true"' in stripped_line or '= true' in stripped_line:
                 required_versions.append(">= 0.14.0")
                 used_features.append("sensitive")
         
         # Check for nullable attribute in variable
-        if 'nullable' in line and in_variable_block:
-            if '=' in line:  # Check if nullable attribute is used (regardless of value)
+        if 'nullable' in stripped_line and in_variable_block:
+            if '=' in stripped_line:  # Check if nullable attribute is used (regardless of value)
                 required_versions.append(">= 1.1.0")
                 used_features.append("nullable")
         
         # Check for optional() function in variable type (inside variable block)
-        if 'optional(' in line and in_variable_block:
+        if 'optional(' in stripped_line and in_variable_block:
             required_versions.append(">= 1.3.0")
             used_features.append("optional()")
         
         # Check for lifecycle precondition
-        if 'lifecycle' in line:
+        if 'lifecycle' in stripped_line:
             # Look for precondition in the next few lines within the lifecycle block
             for i in range(line_num, min(line_num + 10, len(lines))):
                 if 'precondition' in lines[i]:
@@ -230,38 +231,26 @@ def _analyze_file_for_version_requirements(content: str) -> Tuple[List[str], Lis
                     break
         
         # Check for variable validation with other variable references
-        if 'validation' in line and in_variable_block:
-            # Look for var. references in the next few lines and analyze if they reference other variables
-            current_variable_name = None
-            for i in range(line_num - 1, max(-1, line_num - 10), -1):
-                # Find the current variable name by looking backwards
-                if i >= 0 and lines[i].strip().startswith('variable '):
-                    match = re.search(r'variable\s+"([^"]+)"', lines[i])
-                    if match:
-                        current_variable_name = match.group(1)
-                        break
-            
-            if current_variable_name:
-                # Look for var. references in the validation block
-                for i in range(line_num, min(line_num + 10, len(lines))):
-                    if 'var.' in lines[i]:
-                        # Check if this var. reference is to a different variable
-                        var_matches = re.findall(r'var\.([a-zA-Z0-9_-]+)', lines[i])
-                        for var_name in var_matches:
-                            if var_name != current_variable_name:
-                                # Found reference to another variable
-                                required_versions.append(">= 1.9.0")
-                                used_features.append("other variables are referenced in validation.condition")
-                                break
-                        if ">= 1.9.0" in required_versions:
+        if 'validation' in stripped_line and in_variable_block and current_variable_name:
+            # Look for var. references in the validation block
+            for i in range(line_num, min(line_num + 10, len(lines))):
+                if 'var.' in lines[i]:
+                    # Check if this var. reference is to a different variable
+                    var_matches = re.findall(r'var\.([a-zA-Z0-9_-]+)', lines[i])
+                    for var_name in var_matches:
+                        if var_name != current_variable_name:
+                            # Found reference to another variable
+                            required_versions.append(">= 1.9.0")
+                            used_features.append("other variables are referenced in validation.condition")
                             break
-                    if lines[i].strip() == '}':
+                    if ">= 1.9.0" in required_versions:
                         break
+                if lines[i].strip() == '}':
+                    break
         
         # Check for import block with for_each
-        if 'import' in line:
+        if 'import' in stripped_line:
             # Look for for_each in the next few lines within the import block
-            in_import_block = True
             for i in range(line_num, min(line_num + 10, len(lines))):
                 if 'for_each' in lines[i]:
                     required_versions.append(">= 1.7.0")
@@ -269,6 +258,14 @@ def _analyze_file_for_version_requirements(content: str) -> Tuple[List[str], Lis
                     break
                 if lines[i].strip() == '}':
                     break
+        
+        # Track variable block end using brace depth to handle nested blocks
+        if in_variable_block:
+            variable_brace_depth += stripped_line.count('{') - stripped_line.count('}')
+            if variable_brace_depth <= 0:
+                in_variable_block = False
+                current_variable_name = None
+                variable_brace_depth = 0
     
     return required_versions, used_features
 
@@ -300,7 +297,7 @@ def _generate_feature_description(used_features: List[str]) -> str:
         return f"based on features '{feature_list}' used"
 
 
-def _extract_declared_version(content: str) -> Optional[str]:
+def _extract_declared_version(content: str) -> Tuple[Optional[str], Optional[int]]:
     """
     Extract the declared required_version from providers.tf content.
     
@@ -308,31 +305,32 @@ def _extract_declared_version(content: str) -> Optional[str]:
         content (str): File content
         
     Returns:
-        Optional[str]: Declared version or None if not found
+        Tuple[Optional[str], Optional[int]]: Declared version and its line number,
+            or (None, None) if not found
     """
     lines = content.split('\n')
     in_terraform_block = False
     
-    for line in lines:
-        line = line.strip()
+    for line_num, line in enumerate(lines, 1):
+        stripped_line = line.strip()
         
         # Check for terraform block start
-        if line == 'terraform {' or line.startswith('terraform {') or line.startswith('terraform{'):
+        if stripped_line == 'terraform {' or stripped_line.startswith('terraform {') or stripped_line.startswith('terraform{'):
             in_terraform_block = True
             continue
         
         # If inside terraform block, look for required_version
         if in_terraform_block:
-            if 'required_version' in line and '=' in line:
-                match = re.search(r'required_version\s*=\s*["\']([^"\']+)["\']', line)
+            if 'required_version' in stripped_line and '=' in stripped_line:
+                match = re.search(r'required_version\s*=\s*["\']([^"\']+)["\']', stripped_line)
                 if match:
-                    return match.group(1)
+                    return match.group(1), line_num
             
             # Check for terraform block end
-            if line == '}' or line.endswith('}'):
+            if stripped_line == '}' or stripped_line.endswith('}'):
                 break
     
-    return None
+    return None, None
 
 
 def _is_version_compatible(declared_version: str, required_version: str) -> bool:
