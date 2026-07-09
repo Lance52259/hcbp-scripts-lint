@@ -322,21 +322,8 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
         if dynamic_match:
             param_name = dynamic_match.group(1)
             block_start = resource_start_line + i
-            
-            # Find the end of this dynamic block
-            brace_count = 1
-            j = i + 1
-            
-            while j < len(resource_lines) and brace_count > 0:
-                current_line = resource_lines[j]
-                for char in current_line:
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
-                j += 1
-            
-            block_end = resource_start_line + j - 1
+            block_end_index = _find_block_end_index(resource_lines, i)
+            block_end = resource_start_line + block_end_index - 1
             
             parameters.append({
                 'type': 'dynamic',
@@ -345,7 +332,7 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                 'end_line': block_end
             })
             
-            i = j
+            i = block_end_index
         else:
             # Check if we're inside a function call - if so, skip parameter block detection
             if _is_inside_function_call(resource_lines, i):
@@ -364,21 +351,8 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
             if block_match:
                 param_name = block_match.group(1)
                 block_start = resource_start_line + i
-                
-                # Find the end of this structure block
-                brace_count = 1
-                j = i + 1
-                
-                while j < len(resource_lines) and brace_count > 0:
-                    current_line = resource_lines[j]
-                    for char in current_line:
-                        if char == '{':
-                            brace_count += 1
-                        elif char == '}':
-                            brace_count -= 1
-                    j += 1
-                
-                block_end = resource_start_line + j - 1
+                block_end_index = _find_block_end_index(resource_lines, i)
+                block_end = resource_start_line + block_end_index - 1
                 
                 # Determine parameter type based on context
                 param_type = 'structure'
@@ -394,7 +368,7 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                     'end_line': block_end
                 })
                 
-                i = j
+                i = block_end_index
             else:
                 # Check if we're inside a function call - if so, skip parameter block detection
                 if _is_inside_function_call(resource_lines, i):
@@ -414,21 +388,8 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                     # This is an advanced parameter assignment (map or array)
                     param_name = advanced_assignment_match.group(1)
                     param_line = resource_start_line + i
-                    
-                    # Find the end of this advanced parameter
-                    brace_count = 1
-                    j = i + 1
-                    
-                    while j < len(resource_lines) and brace_count > 0:
-                        current_line = resource_lines[j]
-                        for char in current_line:
-                            if char == '{':
-                                brace_count += 1
-                            elif char == '}':
-                                brace_count -= 1
-                        j += 1
-                    
-                    block_end = resource_start_line + j - 1
+                    block_end_index = _find_block_end_index(resource_lines, i)
+                    block_end = resource_start_line + block_end_index - 1
                     
                     # Determine parameter type based on context
                     param_type = 'advanced'
@@ -447,7 +408,7 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
                         'end_line': block_end
                     })
                     
-                    i = j
+                    i = block_end_index
                 else:
                     # Look for basic parameter assignments (parameter_name = value)
                     param_match = re.match(r'(\w+)\s*=', line)
@@ -485,7 +446,13 @@ def _find_block_end_index(lines: List[str], start_index: int) -> int:
     Returns:
         int: Index after the block's closing brace
     """
-    brace_count = 1
+    brace_count = 0
+    for char in lines[start_index]:
+        if char == '{':
+            brace_count += 1
+        elif char == '}':
+            brace_count -= 1
+
     j = start_index + 1
 
     while j < len(lines) and brace_count > 0:
@@ -872,18 +839,10 @@ def _check_structure_block_end_spacing_in_scope(
             next_param['type'] == 'dynamic'):
             continue
         
-        # Check spacing rules using the unified error message format
-        if blank_lines != 1:
-            error_msg = _format_error_message(current_param, next_param, blank_lines, block_name)
-            if error_msg:
-                errors.append((error_msg, next_param['start_line']))
-                
-        elif current_param['type'] == 'basic' and next_param['type'] == 'basic':
-            # Basic parameter to basic parameter: at most 1 blank line
-            if blank_lines > 1:
-                error_msg = _format_error_message(current_param, next_param, blank_lines, block_name)
-                if error_msg:
-                    errors.append((error_msg, next_param['start_line']))
+        # Delegate to the unified spacing rule checker for consistent per-scenario logic
+        error_msg = _check_spacing_rule(current_param, next_param, blank_lines, block_name)
+        if error_msg:
+            errors.append((error_msg, next_param['start_line']))
     
     return errors
 
