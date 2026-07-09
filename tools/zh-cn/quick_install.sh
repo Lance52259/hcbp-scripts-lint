@@ -103,6 +103,7 @@ if [ ! -f "\$LINTER_SCRIPT" ]; then
 fi
 
 # 执行 linter，传递所有参数
+export HCBP_LINT_TOOL_NAME="$SCRIPT_NAME"
 exec python3 "\$LINTER_SCRIPT" "\$@"
 EOF
 

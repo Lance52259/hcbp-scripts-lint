@@ -103,6 +103,7 @@ if [ ! -f "\$LINTER_SCRIPT" ]; then
 fi
 
 # Execute linter, passing all arguments
+export HCBP_LINT_TOOL_NAME="$SCRIPT_NAME"
 exec python3 "\$LINTER_SCRIPT" "\$@"
 EOF
 
