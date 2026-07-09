@@ -363,22 +363,11 @@ def _is_version_unnecessarily_high(declared_version: str, required_version: str,
     Returns:
         bool: True if version is unnecessarily high, False otherwise
     """
-    # Parse versions
     declared_min = _parse_version(declared_version)
     required_min = _parse_version(required_version)
-    
-    # Special case: if only optional() is used and declared version is 1.3.1 or higher
-    if set(used_features) == {"optional()"} and declared_min >= [1, 3, 1]:
-        return True
-    
-    # If declared version is higher than required, check if it's unnecessarily high
-    if declared_min > required_min:
-        # For other cases, if declared version is significantly higher than required
-        # (more than one minor version higher), suggest the exact required version
-        if declared_min[0] > required_min[0] or (declared_min[0] == required_min[0] and declared_min[1] > required_min[1] + 1):
-            return True
-    
-    return False
+
+    # Declared version is unnecessarily high when it exceeds the minimum required
+    return declared_min > required_min
 
 
 def _get_suggested_version(used_features: List[str]) -> str:
