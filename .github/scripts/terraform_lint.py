@@ -53,8 +53,10 @@ try:
         BatchExecutionSummary,
         validate_terraform_file,
         get_all_available_rules,
-        get_unified_rules_summary
+        get_unified_rules_summary,
+        get_rules_manager,
     )
+    from tools.cli import build_argument_parser_kwargs, get_tool_version
 except ImportError as e:
     print(f"Error importing unified rules system: {e}")
     print("Please ensure the rules directory contains the unified rules management system.")
@@ -1199,64 +1201,24 @@ class TerraformLinter:
         return changed_files
 
 
+def _lookup_rule_info(rule_id: str) -> Dict:
+    """Resolve rule metadata for CLI help rendering."""
+    return get_rules_manager().get_rule_info(rule_id) or {}
+
+
 def main():
     """Enhanced main entry point with unified rules management system support."""
+    available_rules = sorted(get_all_available_rules())
+    rules_summary = get_unified_rules_summary()
+
     parser = argparse.ArgumentParser(
-        description='Enhanced Terraform Scripts Lint Tool - Unified Rules Management System',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-Enhanced Features:
-  - Unified rules management system with centralized coordination
-  - Advanced performance monitoring and detailed analytics
-  - Flexible rule filtering by category and severity
-  - Comprehensive reporting with multiple output formats
-  - Enhanced GitHub Actions integration
-  - Optional report file generation with console-only output
-
-Examples:
-  # Check current directory with all rules
-  python3 terraform_lint.py
-
-  # Check specific directory with performance monitoring
-  python3 terraform_lint.py --directory ./infrastructure
-
-  # Ignore specific rules and categories
-  python3 terraform_lint.py --ignore-rules "ST.001,ST.003" --categories "ST,IO"
-
-  # Include only specific paths with detailed reporting
-  python3 terraform_lint.py --include-paths "modules/vpc,modules/compute"
-
-  # Check only changed files with custom base reference
-  python3 terraform_lint.py --changed-files-only --base-ref origin/main
-
-  # Complex filtering with performance optimization
-  python3 terraform_lint.py --directory ./prod --ignore-rules "ST.001" --exclude-paths "*.backup,test/*"
-
-  # Generate report files explicitly
-  python3 terraform_lint.py --report-file
-
-  # Generate JSON report file explicitly
-  python3 terraform_lint.py --report-file --report-format json
-
-  # Quick check (console only by default)
-  python3 terraform_lint.py --changed-files-only
-
-Rule Categories:
-  ST (Style/Format): Code formatting and style rules
-  IO (Input/Output): Variable and output definition rules  
-  DC (Documentation/Comments): Comment and documentation rules
-  SC (Security Code): Security and safety validation rules
-
-Available Rules:
-{chr(10).join(f"  {rule_id}: {info.get('name', 'Unknown rule')}" 
-               for rule_id, info in [(rule_id, get_unified_rules_summary().get('system_summaries', {}).get(rule_id.split('.')[0], {}).get('rules', {}).get(rule_id, {})) 
-                                   for rule_id in sorted(get_all_available_rules())] if info)}
-
-System Information:
-  Unified Rules Manager: v1.0.0
-  Total Available Rules: {len(get_all_available_rules())}
-  Rule Systems: ST, IO, DC, SC
-        """
+        **build_argument_parser_kwargs(
+            rule_ids=available_rules,
+            rule_info_lookup=_lookup_rule_info,
+            tool_version=get_tool_version(),
+            total_rules=rules_summary.get('total_rules', len(available_rules)),
+            rule_systems=sorted(rules_summary.get('rules_by_system', {}).keys()) or ["ST", "IO", "DC", "SC"],
+        )
     )
 
     # Positional argument for backward compatibility (deprecated)
