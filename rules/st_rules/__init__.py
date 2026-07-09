@@ -14,10 +14,13 @@ Available Rules:
 - ST.005: Indentation level check
 - ST.006: Resource and data source spacing check
 - ST.007: Parameter block spacing check
+- ST.008: Meta-parameter spacing check
 - ST.009: Variable definition order check
 - ST.010: Resource, data source, variable, and output quote check
 - ST.011: Trailing whitespace check
 - ST.012: File header and footer whitespace check
+- ST.013: Directory naming convention check
+- ST.014: File naming convention check
 
 Author: Lance
 License: Apache 2.0
