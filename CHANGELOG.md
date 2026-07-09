@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-07-09
+
+### ✨ New Features
+
+#### 🔄 CLI Self-Upgrade (`-u` / `--upgrade`)
+
+**Git-based local installations can now pull the latest tool release without re-running `quick_install.sh`**
+
+- **Usage**: `hcbp-lint -u` or `hcbp-lint --upgrade`
+- **Preview**: `--dry-run` shows available upgrades without modifying the installation
+- **Override path**: `--install-dir` targets a non-default installation directory
+- **Install detection**: `quick_install.sh` exports `HCBP_LINT_TOOL_DIR` so upgrades target the correct clone
+
+**Safety and reliability**
+
+- Auto-rollback to the pre-upgrade commit when post-pull verification fails
+- Reject dirty working trees before pulling
+- Pin to the release branch (`master` / `main`) with `git pull --ff-only`
+- Detect diverged history and surface remediation hints
+- Advisory file lock (`.hcbp-upgrade.lock`) blocks concurrent upgrades
+- Classified fetch error hints (SSL, proxy, DNS, timeout, auth)
+
+**Post-upgrade verification (3 layers)**
+
+1. `--help` smoke check
+2. `import rules` integrity check
+3. Lint smoke run on `examples/good-examples/basic`
+
+**Tests & CI**
+
+- 16 unit tests and 7 real-git integration tests
+- New workflow: `.github/workflows/cli_upgrade_tests.yml`
+
+### 🖥️ CLI Improvements
+
+#### 📋 Templated Help Output
+
+- Refactored CLI help into `tools/cli/templates/cli_help.template`
+- Fixed rule names showing as `Unknown rule` in help output
+- Tool version now read automatically from `CHANGELOG.md`
+- Help examples adapt to invocation context (`python3 terraform_lint.py` vs `hcbp-lint`)
+- Restored tracked help template for remote `quick_install.sh` installations
+
+### 🔧 Rule Fixes & Improvements
+
+#### 📏 ST.007 - Structure Block Spacing Check
+
+**Fixed nested structure spacing detection and false positives**
+
+- **Issue**: ST.007 missed spacing violations inside nested structures and produced false positives for same-name structure blocks and `jsonencode()` expressions
+- **Solution**:
+  - Refactored nested block parsing with recursive direct-child extraction and parent-block scoping
+  - Unified spacing checks via shared `_check_spacing_rule()` logic
+  - Added acceptance cases for nested structures, same-name blocks, and `jsonencode` non-regression
+- **Impact**: Accurate spacing enforcement inside deeply nested blocks without flagging valid compact layouts
+
+#### 🔒 SC.003 - Terraform Version Compatibility Check
+
+**Further fixed unnecessarily-high version detection for modern type constraints**
+
+- **Issue**: SC.003 could still report `required_version` as unnecessarily high when variables used `optional()`, `nullable`, or `sensitive` type attributes that require newer Terraform versions
+- **Solution**: Corrected minimum-version inference for these type features; added HCL acceptance tests under `acceptances/good/sc003/` and `acceptances/bad/sc003/`
+- **Impact**: Eliminates remaining false positives for configurations legitimately requiring `>= 1.2.0` / `>= 1.3.0`
+
+### 📚 Documentation
+
+- **README**: Added "Upgrading" section with `-u`, `--dry-run`, and `--install-dir` usage
+- **docs/project**: Added CLI upgrade P0/P1/P2 design docs and implementation checklist
+
 ## [3.0.1] - 2026-07-08
 
 ### 🔧 Rule Fixes & Improvements
