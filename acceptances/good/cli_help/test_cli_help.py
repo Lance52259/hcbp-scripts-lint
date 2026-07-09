@@ -94,5 +94,10 @@ class RenderCliHelpEpilogTest(unittest.TestCase):
         self.assertIn("Total Available Rules: 29", epilog)
 
 
+    def test_cli_help_template_file_exists(self):
+        template_path = REPO_ROOT / "tools" / "cli" / "templates" / "cli_help.template"
+        self.assertTrue(template_path.is_file(), "CLI help template must be tracked in the repository")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2,16 +2,14 @@
 """
 CLI help template renderer for the Terraform lint tool.
 
-Loads a shared template from tools/cli/templates/cli_help_template.txt and fills
+Loads a shared template from tools/cli/templates/cli_help.template and fills
 placeholders based on the invocation context (direct script vs hcbp-lint wrapper).
 """
 
 import os
 import sys
 
-from ._project import get_project_root
-
-TEMPLATE_RELATIVE_PARTS = ("templates", "cli_help_template.txt")
+TEMPLATE_RELATIVE_PARTS = ("templates", "cli_help.template")
 LOCAL_INSTALL_TOOL_NAME = "hcbp-lint"
 SCRIPT_TOOL_NAME = "terraform_lint.py"
 

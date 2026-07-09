@@ -75,10 +75,12 @@ if [ ! -f "$PYTHON_SCRIPT" ]; then
 fi
 
 # 测试脚本是否可执行
-if python3 "$PYTHON_SCRIPT" --help > /dev/null 2>&1; then
+VERIFY_OUTPUT="$(python3 "$PYTHON_SCRIPT" --help 2>&1)"
+if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ 工具验证成功${NC}"
 else
     echo -e "${RED}❌ 工具验证失败${NC}"
+    echo "$VERIFY_OUTPUT"
     exit 1
 fi
 

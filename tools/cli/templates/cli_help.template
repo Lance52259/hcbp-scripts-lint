@@ -1,0 +1,49 @@
+Enhanced Features:
+  - Unified rules management system with centralized coordination
+  - Advanced performance monitoring and detailed analytics
+  - Flexible rule filtering by category and severity
+  - Comprehensive reporting with multiple output formats
+  - Enhanced GitHub Actions integration
+  - Optional report file generation with console-only output
+
+Examples:
+  # Check current directory with all rules
+  {example_prefix}
+
+  # Check specific directory with performance monitoring
+  {example_prefix} --directory ./infrastructure
+
+  # Ignore specific rules and categories
+  {example_prefix} --ignore-rules "ST.001,ST.003" --categories "ST,IO"
+
+  # Include only specific paths with detailed reporting
+  {example_prefix} --include-paths "modules/vpc,modules/compute"
+
+  # Check only changed files with custom base reference
+  {example_prefix} --changed-files-only --base-ref origin/main
+
+  # Complex filtering with performance optimization
+  {example_prefix} --directory ./prod --ignore-rules "ST.001" --exclude-paths "*.backup,test/*"
+
+  # Generate report files explicitly
+  {example_prefix} --report-file
+
+  # Generate JSON report file explicitly
+  {example_prefix} --report-file --report-format json
+
+  # Quick check (console only by default)
+  {example_prefix} --changed-files-only
+
+Rule Categories:
+  ST (Style/Format): Code formatting and style rules
+  IO (Input/Output): Variable and output definition rules
+  DC (Documentation/Comments): Comment and documentation rules
+  SC (Security Code): Security and safety validation rules
+
+Available Rules:
+{available_rules}
+
+System Information:
+  Tool Version: v{tool_version}
+  Total Available Rules: {total_rules}
+  Rule Systems: {rule_systems}
