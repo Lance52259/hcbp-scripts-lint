@@ -56,7 +56,7 @@ try:
         get_unified_rules_summary,
         get_rules_manager,
     )
-    from tools.cli import build_argument_parser_kwargs, get_tool_version
+    from tools.cli import build_argument_parser_kwargs, get_tool_version, upgrade_tool
 except ImportError as e:
     print(f"Error importing unified rules system: {e}")
     print("Please ensure the rules directory contains the unified rules management system.")
@@ -1257,7 +1257,24 @@ def main():
     parser.add_argument('--report-file', action='store_true',
                        help='Generate report files (default: console-only)')
 
+    parser.add_argument('-u', '--upgrade', action='store_true',
+                       help='Pull the latest release from origin (git install only; exits without linting)')
+
+    parser.add_argument('--install-dir',
+                       help='Override local installation directory (use with -u)')
+
+    parser.add_argument('--dry-run', action='store_true',
+                       help='Preview upgrade without applying changes (requires -u)')
+
     args = parser.parse_args()
+
+    if args.dry_run and not args.upgrade:
+        parser.error('--dry-run requires --upgrade (-u)')
+
+    if args.upgrade:
+        result = upgrade_tool(install_dir=args.install_dir, dry_run=args.dry_run)
+        print(result.message)
+        sys.exit(0 if result.success else 1)
 
     # Determine performance monitoring setting (case-insensitive)
     perf_monitoring_value = args.performance_monitoring.lower()

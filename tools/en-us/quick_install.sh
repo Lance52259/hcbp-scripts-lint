@@ -106,6 +106,7 @@ fi
 
 # Execute linter, passing all arguments
 export HCBP_LINT_TOOL_NAME="$SCRIPT_NAME"
+export HCBP_LINT_TOOL_DIR="$TOOL_DIR"
 exec python3 "\$LINTER_SCRIPT" "\$@"
 EOF
 

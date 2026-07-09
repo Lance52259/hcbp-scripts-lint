@@ -10,6 +10,15 @@ Examples:
   # Check current directory with all rules
   {example_prefix}
 
+  # Upgrade local installation to the latest version
+  {example_prefix} -u
+
+  # Preview available upgrade without applying changes
+  {example_prefix} -u --dry-run
+
+  # Upgrade a specific installation directory
+  {example_prefix} -u --install-dir ~/.local/share/terraform-linter
+
   # Check specific directory with performance monitoring
   {example_prefix} --directory ./infrastructure
 
@@ -33,6 +42,13 @@ Examples:
 
   # Quick check (console only by default)
   {example_prefix} --changed-files-only
+
+Upgrade Notes:
+  - Requires a git-based local installation (via quick_install.sh)
+  - Pulls the latest release branch from origin (master)
+  - Exits immediately; does not run lint checks in the same invocation
+  - When run via hcbp-lint, upgrades ~/.local/share/terraform-linter
+  - When run via python3 terraform_lint.py from a git repo, upgrades that repo
 
 Rule Categories:
   ST (Style/Format): Code formatting and style rules

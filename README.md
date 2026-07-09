@@ -113,6 +113,36 @@ You can then run the tool using the encapsulated `hcbp-lint` command. For more i
 curl -fsSL https://raw.githubusercontent.com/chnsz/hcbp-scripts-lint/master/tools/en-us/quick_install.sh | bash
 ```
 
+#### Upgrading
+
+After installation, pull the latest version without re-running the install script:
+
+```bash
+hcbp-lint -u
+# or
+hcbp-lint --upgrade
+```
+
+Requirements:
+- Installed via `quick_install.sh` (git clone to `~/.local/share/terraform-linter`)
+- Network access to GitHub
+- Git available in PATH
+
+> **Note:** `-u` only upgrades the tool itself and does not lint your Terraform code.
+> It cannot be combined with lint options in the same command.
+
+Preview an available upgrade without modifying the installation:
+
+```bash
+hcbp-lint -u --dry-run
+```
+
+Upgrade a specific installation path:
+
+```bash
+hcbp-lint -u --install-dir ~/.local/share/terraform-linter
+```
+
 The command options are as follows:
 
 ```bash
@@ -128,6 +158,9 @@ Options:
   --base-ref TEXT                    Base reference for git diff
   --performance-monitoring           Enable performance monitoring (true/false, case-insensitive)
   --report-format [text|json|both]   Output report format
+  -u, --upgrade                      Pull latest release (git install only)
+  --install-dir TEXT                 Override local installation directory (use with -u)
+  --dry-run                          Preview upgrade without applying changes (requires -u)
   --help                             Show help message
 ```
 
