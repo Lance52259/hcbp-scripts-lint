@@ -68,7 +68,7 @@ class RenderCliHelpEpilogTest(unittest.TestCase):
         self.assertEqual(tool_name, LOCAL_INSTALL_TOOL_NAME)
         self.assertIn(f"  {LOCAL_INSTALL_TOOL_NAME}\n", epilog)
         self.assertIn(f"{LOCAL_INSTALL_TOOL_NAME} --directory ./infrastructure", epilog)
-        self.assertNotIn("python3 terraform_lint.py", epilog)
+        self.assertNotIn(f"python3 {SCRIPT_TOOL_NAME} --directory", epilog)
 
     def test_dynamic_system_information_placeholders(self):
         epilog, _ = self._render("/repo/.github/scripts/terraform_lint.py")
