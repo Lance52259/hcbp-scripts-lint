@@ -191,7 +191,7 @@ def _extract_resource_blocks_with_parameters(content: str) -> List[Dict]:
             
             # Also extract parameters from nested structure blocks
             nested_parameters = _extract_nested_parameters(
-                lines[resource_start-1:resource_end], resource_start
+                lines[resource_start-1:resource_end], resource_start, block_type
             )
             parameters.extend(nested_parameters)
             
@@ -474,154 +474,320 @@ def _extract_parameters_from_resource(resource_lines: List[str], resource_start_
     return parameters
 
 
-def _extract_nested_parameters(resource_lines: List[str], resource_start_line: int) -> List[Dict]:
+def _find_block_end_index(lines: List[str], start_index: int) -> int:
     """
-    Extract parameters from nested structure blocks like required_providers.
-    
+    Find the line index immediately after the closing brace of a block.
+
+    Args:
+        lines (List[str]): Lines containing the block
+        start_index (int): Index of the line with the opening brace
+
+    Returns:
+        int: Index after the block's closing brace
+    """
+    brace_count = 1
+    j = start_index + 1
+
+    while j < len(lines) and brace_count > 0:
+        for char in lines[j]:
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+        j += 1
+
+    return j
+
+
+def _extract_required_provider_children(
+    resource_lines: List[str],
+    block_start_index: int,
+    block_end_index: int,
+    resource_start_line: int,
+) -> List[Dict]:
+    """
+    Extract provider assignments from within a required_providers block.
+
+    Args:
+        resource_lines (List[str]): Lines of the enclosing resource block
+        block_start_index (int): Index of the required_providers opening line
+        block_end_index (int): Index after the required_providers closing brace
+        resource_start_line (int): 1-based line number of the resource declaration
+
+    Returns:
+        List[Dict]: Provider assignment parameters without parent_block
+    """
+    nested_parameters = []
+
+    for k in range(block_start_index + 1, block_end_index):
+        line = resource_lines[k].strip()
+
+        if not line or line.startswith('#'):
+            continue
+
+        provider_match = re.match(r'(\w+)\s*=\s*\{', line)
+
+        if provider_match:
+            provider_name = provider_match.group(1)
+            provider_start = resource_start_line + k
+            provider_end_index = _find_block_end_index(resource_lines, k)
+
+            nested_parameters.append({
+                'type': 'required_provider',
+                'name': provider_name,
+                'start_line': provider_start,
+                'end_line': resource_start_line + provider_end_index - 1,
+            })
+
+    return nested_parameters
+
+
+def _extract_direct_children(
+    block_lines: List[str],
+    block_start_line: int,
+    parent_name: str,
+    block_type: Optional[str] = None,
+) -> List[Dict]:
+    """
+    Extract direct child parameters from within a structure block, recursively
+    descending into nested structure blocks.
+
+    Args:
+        block_lines (List[str]): Lines from parent opening brace through closing brace
+        block_start_line (int): 1-based line number of the parent opening line
+        parent_name (str): Name of the parent structure block
+        block_type (Optional[str]): Enclosing resource block type
+
+    Returns:
+        List[Dict]: Nested parameter information with correct parent_block values
+    """
+    parameters = []
+    i = 1  # Skip the parent opening line
+
+    while i < len(block_lines) - 1:
+        line = block_lines[i].strip()
+
+        if not line or line.startswith('#'):
+            i += 1
+            continue
+
+        if _is_inside_function_call(block_lines, i):
+            i += 1
+            continue
+
+        dynamic_match = re.match(r'dynamic\s+"([^"]+)"\s*\{', line)
+
+        if dynamic_match:
+            param_name = dynamic_match.group(1)
+            block_end_index = _find_block_end_index(block_lines, i)
+
+            parameters.append({
+                'type': 'dynamic',
+                'name': param_name,
+                'start_line': block_start_line + i,
+                'end_line': block_start_line + block_end_index - 1,
+                'parent_block': parent_name,
+            })
+            i = block_end_index
+            continue
+
+        block_match = re.match(r'(\w+)\s*\{', line)
+
+        if block_match:
+            param_name = block_match.group(1)
+            block_end_index = _find_block_end_index(block_lines, i)
+            param_type = 'provider' if block_type == 'provider' else 'structure'
+
+            parameters.append({
+                'type': param_type,
+                'name': param_name,
+                'start_line': block_start_line + i,
+                'end_line': block_start_line + block_end_index - 1,
+                'parent_block': parent_name,
+            })
+            parameters.extend(_extract_direct_children(
+                block_lines[i:block_end_index],
+                block_start_line + i,
+                param_name,
+                block_type,
+            ))
+            i = block_end_index
+            continue
+
+        advanced_assignment_match = re.match(r'(\w+)\s*=\s*\{', line)
+
+        if advanced_assignment_match:
+            param_name = advanced_assignment_match.group(1)
+            block_end_index = _find_block_end_index(block_lines, i)
+
+            parameters.append({
+                'type': 'advanced',
+                'name': param_name,
+                'start_line': block_start_line + i,
+                'end_line': block_start_line + block_end_index - 1,
+                'parent_block': parent_name,
+            })
+            parameters.extend(_extract_basic_params_in_map_block(
+                block_lines,
+                block_start_line,
+                param_name,
+                i + 1,
+                block_end_index - 1,
+            ))
+            i = block_end_index
+            continue
+
+        param_match = re.match(r'(\w+|"[^"]+"|\'[^\']+\')\s*=', line)
+
+        if param_match:
+            param_name = param_match.group(1)
+
+            parameters.append({
+                'type': 'basic',
+                'name': param_name,
+                'start_line': block_start_line + i,
+                'end_line': block_start_line + i,
+                'parent_block': parent_name,
+            })
+
+        i += 1
+
+    return parameters
+
+
+def _extract_basic_params_in_map_block(
+    block_lines: List[str],
+    block_start_line: int,
+    parent_name: str,
+    start_index: int,
+    end_index: int,
+) -> List[Dict]:
+    """
+    Extract basic parameter assignments from within a map/object literal block.
+
+    Args:
+        block_lines (List[str]): Lines containing the map block
+        block_start_line (int): 1-based line number of the map block opening line
+        parent_name (str): Name of the parent advanced parameter
+        start_index (int): Start index inside block_lines (exclusive of opening line)
+        end_index (int): End index inside block_lines (exclusive of closing brace)
+
+    Returns:
+        List[Dict]: Basic parameters with parent_block set to parent_name
+    """
+    parameters = []
+
+    for k in range(start_index, end_index):
+        line = block_lines[k].strip()
+
+        if not line or line.startswith('#'):
+            continue
+
+        if _is_inside_function_call(block_lines, k):
+            continue
+
+        param_match = re.match(r'(\w+|"[^"]+"|\'[^\']+\')\s*=', line)
+
+        if param_match:
+            parameters.append({
+                'type': 'basic',
+                'name': param_match.group(1),
+                'start_line': block_start_line + k,
+                'end_line': block_start_line + k,
+                'parent_block': parent_name,
+            })
+
+    return parameters
+
+
+def _extract_nested_parameters(
+    resource_lines: List[str],
+    resource_start_line: int,
+    block_type: Optional[str] = None,
+) -> List[Dict]:
+    """
+    Extract parameters from nested structure blocks within a resource body.
+
     Args:
         resource_lines (List[str]): Lines of the resource block
         resource_start_line (int): Starting line number of the resource
-        
+        block_type (Optional[str]): Enclosing block type
+
     Returns:
         List[Dict]: List of nested parameter information
     """
     nested_parameters = []
     i = 1  # Skip the resource declaration line
-    
+
     while i < len(resource_lines):
         line = resource_lines[i].strip()
-        
+
         if not line or line.startswith('#'):
             i += 1
             continue
-        
-        # Check if we're inside a function call - if so, skip parameter block detection
+
         if _is_inside_function_call(resource_lines, i):
             i += 1
             continue
-        
-        # Look for structure blocks (parameter_name { ... }) or structure block assignments (parameter_name = { ... })
+
         block_match = re.match(r'(\w+)\s*\{', line)
-        structure_assignment_match = re.match(r'(\w+)\s*=\s*\{', line)
-        
-        if block_match or structure_assignment_match:
-            param_name = block_match.group(1) if block_match else structure_assignment_match.group(1)
-            block_start = resource_start_line + i
-            
-            # Find the end of this structure block
-            brace_count = 1
-            j = i + 1
-            
-            while j < len(resource_lines) and brace_count > 0:
-                current_line = resource_lines[j]
-                for char in current_line:
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
-                j += 1
-            
-            block_end = resource_start_line + j - 1
-            
-            # Add the structure block itself if it's a provider assignment within required_providers
-            if structure_assignment_match:
-                # Check if this is within a required_providers block by looking at the context
-                # We need to determine if this is a provider assignment or a regular advanced parameter
-                is_provider_assignment = False
-                
-                # Look backwards to see if we're inside a required_providers block
-                for prev_param in reversed(nested_parameters):
-                    if prev_param['name'] == 'required_providers' and prev_param['type'] == 'required_provider':
-                        is_provider_assignment = True
-                        break
-                
-                if is_provider_assignment:
-                    # This is a provider assignment within required_providers
-                    nested_parameters.append({
-                        'type': 'required_provider',
-                        'name': param_name,
-                        'start_line': block_start,
-                        'end_line': block_end
-                    })
-                    # Skip extracting parameters from within provider blocks
-                    i = j
-                    continue
-            elif block_match and param_name == 'required_providers':
-                # This is the required_providers block itself, process its children
-                # Extract provider assignments from within this block
-                for k in range(i + 1, j):
-                    line = resource_lines[k].strip()
-                    
-                    if not line or line.startswith('#'):
-                        continue
-                    
-                    # Look for provider assignments (provider_name = { ... })
-                    provider_match = re.match(r'(\w+)\s*=\s*\{', line)
-                    
-                    if provider_match:
-                        provider_name = provider_match.group(1)
-                        provider_start = resource_start_line + k
-                        
-                        # Find the end of this provider assignment
-                        brace_count = 1
-                        l = k + 1
-                        
-                        while l < len(resource_lines) and brace_count > 0:
-                            current_line = resource_lines[l]
-                            for char in current_line:
-                                if char == '{':
-                                    brace_count += 1
-                                elif char == '}':
-                                    brace_count -= 1
-                            l += 1
-                        
-                        provider_end = resource_start_line + l - 1
-                        
-                        # Add the provider assignment as a required_provider parameter
-                        nested_parameters.append({
-                            'type': 'required_provider',
-                            'name': provider_name,
-                            'start_line': provider_start,
-                            'end_line': provider_end
-                        })
-            
-            # Extract parameters from within this structure block
-            # Process each line within the structure block
-            for k in range(i + 1, j):
-                line = resource_lines[k].strip()
-                
-                if not line or line.startswith('#'):
-                    continue
-                
-                # Look for parameter assignments (parameter_name = value or "parameter_name" = value)
-                param_match = re.match(r'(\w+|"[^"]+"|\'[^\']+\')\s*=', line)
-                
-                if param_match:
-                    param_name_inner = param_match.group(1)
-                    param_line_inner = resource_start_line + k
-                    
-                    # Determine parameter type based on parent block
-                    param_type = 'basic'
-                    # Only direct children of required_providers should be required_provider type
-                    # If parent is huaweicloud, kubernetes, etc., these are basic parameters within provider blocks
-                    if param_name == 'required_providers':
-                        # Skip adding parameters from within required_providers block
-                        # as they are handled by the provider assignment logic above
-                        continue
-                    
-                    nested_parameters.append({
-                        'type': param_type,
-                        'name': param_name_inner,
-                        'start_line': param_line_inner,
-                        'end_line': param_line_inner,
-                        'parent_block': param_name
-                    })
-            
-            i = j
+        advanced_match = re.match(r'(\w+)\s*=\s*\{', line)
+
+        if block_match:
+            param_name = block_match.group(1)
+            block_end_index = _find_block_end_index(resource_lines, i)
+
+            if param_name == 'required_providers':
+                nested_parameters.extend(_extract_required_provider_children(
+                    resource_lines, i, block_end_index, resource_start_line
+                ))
+            else:
+                nested_parameters.extend(_extract_direct_children(
+                    resource_lines[i:block_end_index],
+                    resource_start_line + i,
+                    param_name,
+                    block_type,
+                ))
+
+            i = block_end_index
+        elif advanced_match:
+            param_name = advanced_match.group(1)
+            block_end_index = _find_block_end_index(resource_lines, i)
+
+            nested_parameters.extend(_extract_basic_params_in_map_block(
+                resource_lines,
+                resource_start_line,
+                param_name,
+                i + 1,
+                block_end_index - 1,
+            ))
+            i = block_end_index
         else:
             i += 1
-    
+
     return nested_parameters
+
+
+def _group_parameters_by_parent_block(parameters: List[Dict]) -> Dict[Optional[str], List[Dict]]:
+    """
+    Group parameters by their parent_block scope for independent spacing checks.
+
+    Args:
+        parameters (List[Dict]): All parameters within a resource block
+
+    Returns:
+        Dict[Optional[str], List[Dict]]: Parameters grouped by parent_block
+    """
+    scopes: Dict[Optional[str], List[Dict]] = {}
+
+    for param in parameters:
+        parent = param.get('parent_block')
+        scopes.setdefault(parent, []).append(param)
+
+    for parent in scopes:
+        scopes[parent] = sorted(scopes[parent], key=lambda x: x['start_line'])
+
+    return scopes
 
 
 def _check_structure_block_end_spacing(parameters: List[Dict], block_name: str, content: str) -> List[Tuple[str, Optional[int]]]:
@@ -637,17 +803,38 @@ def _check_structure_block_end_spacing(parameters: List[Dict], block_name: str, 
         List[Tuple[str, Optional[int]]]: List of error messages and optional line numbers
     """
     errors = []
+    scopes = _group_parameters_by_parent_block(parameters)
+
+    for scope_params in scopes.values():
+        errors.extend(_check_structure_block_end_spacing_in_scope(
+            scope_params, block_name, content
+        ))
+
+    return errors
+
+
+def _check_structure_block_end_spacing_in_scope(
+    scope_params: List[Dict],
+    block_name: str,
+    content: str,
+) -> List[Tuple[str, Optional[int]]]:
+    """
+    Check structure block end spacing within a single parent_block scope.
+    
+    Args:
+        scope_params (List[Dict]): Parameters sharing the same parent_block scope
+        block_name (str): The block containing these parameters
+        content (str): The full file content
+        
+    Returns:
+        List[Tuple[str, Optional[int]]]: List of error messages and optional line numbers
+    """
+    errors = []
     lines = content.split('\n')
     
-    # Sort parameters by their start line
-    sorted_params = sorted(parameters, key=lambda x: x['start_line'])
-    
-    # Find all top-level parameters (those without parent_block)
-    top_level_params = [p for p in sorted_params if not p.get('parent_block')]
-    
-    for i in range(len(top_level_params) - 1):
-        current_param = top_level_params[i]
-        next_param = top_level_params[i + 1]
+    for i in range(len(scope_params) - 1):
+        current_param = scope_params[i]
+        next_param = scope_params[i + 1]
         
         # Only check spacing if at least one parameter is a structure block or dynamic block
         if current_param['type'] not in ['structure', 'dynamic'] and next_param['type'] not in ['structure', 'dynamic']:
@@ -733,10 +920,8 @@ def _check_parameter_spacing_rules(parameters: List[Dict], block_name: str, cont
         if current_param['type'] in ['structure', 'dynamic'] or next_param['type'] in ['structure', 'dynamic']:
             continue
         
-        # Skip if either parameter is inside a structure block (has parent_block attribute)
-        # But allow checking parameters within the same structure block
-        if (current_param.get('parent_block') and not next_param.get('parent_block')) or \
-           (next_param.get('parent_block') and not current_param.get('parent_block')):
+        # Only compare parameters within the same parent_block scope
+        if current_param.get('parent_block') != next_param.get('parent_block'):
             continue
         
         # Calculate blank lines between parameters
