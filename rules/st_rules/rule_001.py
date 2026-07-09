@@ -39,53 +39,44 @@ from typing import Callable, List, Tuple, Optional
 
 def check_st001_naming_convention(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Check if resource, data source, and variable names follow proper naming conventions.
-    
-    This function validates that resource, data source, and variable names in Terraform files
-    follow the standard naming convention of using snake_case (lowercase letters, numbers,
-    and underscores only). It scans the file content for resource declarations, data source
-    declarations, and variable definitions, then checks each name against the naming pattern.
-    
-    The function specifically checks:
-    - Resource names: resource "provider_type" "name" { ... }
-    - Data source names: data "provider_type" "name" { ... }
-    - Variable names: variable "name" { ... }
-    
-    Valid naming convention:
-    - Names should use snake_case format
-    - Only lowercase letters (a-z), numbers (0-9), and underscores (_) are allowed
-    - Names should not start with numbers
-    - Names should be descriptive and meaningful
-    
+    Check resource/data instance names and variable naming conventions per ST.001.
+
+    This function validates two naming requirements in Terraform files:
+
+    1. Resource and data source instance names (the second quoted identifier in
+       ``resource "type" "name"`` / ``data "type" "name"``) must be ``test``.
+    2. Variable names (``variable "name"``) must use snake_case: lowercase letters,
+       numbers, and underscores only; must not start with a number.
+
     Args:
         file_path (str): The path to the Terraform file being validated.
                         Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
                       This content is parsed to extract and validate naming patterns.
-        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+        log_error_func (Callable[[str, str, str, Optional[int]], None]):
                       Callback function for logging validation errors. The function
                       signature expects (file_path, rule_id, error_message, line_number).
                       The line_number parameter is optional and can be None.
-    
+
     Returns:
         None: This function doesn't return any value. All validation results
               are communicated through the log_error_func callback.
-    
+
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-    
+
     Example:
         >>> def sample_log_func(path, rule, msg, line_num):
         ...     print(f"{rule} at {path}:{line_num}: {msg}")
-        >>> 
+        >>>
         >>> content = '''
-        ... resource "aws_instance" "web-server" {
-        ...   instance_type = "t2.micro"
+        ... resource "huaweicloud_vpc" "main" {
+        ...   name = "example-vpc"
         ... }
         ... '''
         >>> check_st001_naming_convention("main.tf", content, sample_log_func)
-        ST.001 at main.tf:1: Resource name 'web-server' contains invalid characters...
+        ST.001 at main.tf:1: Resource instance name 'main' should be 'test'. ...
     """
     lines = content.split('\n')
     

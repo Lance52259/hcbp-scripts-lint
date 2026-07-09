@@ -20,6 +20,7 @@ st_rules/
 ├── rule_005.py   # ST.005 - Indentation level check
 ├── rule_006.py   # ST.006 - Resource and data source spacing check
 ├── rule_007.py   # ST.007 - Parameter block spacing check
+├── rule_008.py   # ST.008 - Meta-parameter spacing check
 ├── rule_009.py   # ST.009 - Variable definition order check
 ├── rule_010.py   # ST.010 - Resource, data source, variable, and output quote check
 ├── rule_011.py   # ST.011 - Trailing whitespace check
@@ -39,6 +40,7 @@ st_rules/
 | ST.005 | Indentation level check | Validates consistent 2-space indentation levels. For terraform.tfvars files, heredoc blocks (<<EOT, <<EOF, etc.) are excluded from validation | `rule_005.py` |
 | ST.006 | Resource and data source spacing check | Ensures exactly 1 empty line between resource/data blocks | `rule_006.py` |
 | ST.007 | Parameter block spacing check | Validates spacing between different types of parameters within resource, data source, provider, terraform, and locals blocks | `rule_007.py` |
+| ST.008 | Meta-parameter spacing check | Validates spacing around meta-parameters (count, for_each, provider, lifecycle, depends_on) | `rule_008.py` |
 | ST.009 | Variable definition order check | Validates variable order consistency between files | `rule_009.py` |
 | ST.010 | Resource, data source, variable, and output quote check | Ensures double quotes around resource/data source names | `rule_010.py` |
 | ST.011 | Trailing whitespace check | Removes trailing spaces and tabs from line endings | `rule_011.py` |
@@ -51,11 +53,11 @@ st_rules/
 
 ### ST.001 - Resource and Data Source Naming Convention Check
 
-**Purpose**: Ensures consistent naming conventions for resources and data sources.
+**Purpose**: Ensures consistent instance naming for resources/data sources and snake_case for variables.
 
 **Validation Criteria**:
-- Resource and data source names must follow proper naming patterns
-- Names should be descriptive and follow team conventions
+- Resource and data source instance names (second identifier) must be `test`
+- Variable names must use snake_case (lowercase letters, numbers, underscores; no leading digits)
 
 ### ST.002 - Variable Default Value Check  
 
@@ -331,6 +333,25 @@ terraform {
   }
 }
 ```
+
+### ST.008 - Meta-parameter Spacing Check
+
+**Purpose**: Validates proper spacing around meta-parameters within Terraform resource and data source blocks.
+
+**Validation Criteria**:
+- **Meta-parameters**: count, for_each, provider, lifecycle, depends_on
+- **Meta-parameter to meta-parameter**: Exactly 1 blank line required between different meta-parameters
+- **Meta-parameter to non-meta-parameter**: Exactly 1 blank line required between meta-parameters and other parameters
+  (only when no other meta-parameters are present between them)
+- **First meta-parameter**: No blank lines allowed before the first meta-parameter in a block
+- **Dynamic block for_each**: for_each inside dynamic blocks should be tightly coupled with the dynamic keyword (no
+  blank line)
+
+**Special Cases**:
+- When meta-parameters are adjacent to other meta-parameters, only check spacing between these meta-parameters
+- When meta-parameters are followed by non-meta-parameters, check spacing only if there are no other meta-parameters
+  between them
+- for_each inside dynamic blocks is treated as a special case and should be tightly coupled with the dynamic keyword
 
 ### ST.009 - Variable Definition Order Check
 

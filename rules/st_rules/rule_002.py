@@ -59,55 +59,47 @@ from typing import Callable, Dict, Set, Optional, List
 
 def check_st002_variable_defaults(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Check if variables have appropriate default values according to ST.002 rule specifications.
-    
-    This function validates that variables in Terraform files have proper default value
-    configurations. It scans through variable definitions and checks whether default
-    values are appropriately set based on the variable's purpose and usage context.
-    
+    Check that variables used in data source blocks have default values per ST.002.
+
+    This function validates that every variable referenced inside a ``data`` block
+    has a ``default`` value defined in the same directory (typically in
+    ``variables.tf``). Variables used only in ``resource`` blocks are not required
+    to have defaults.
+
     The validation process:
-    1. Parse the file content to extract all variable definitions
-    2. Analyze each variable's type, description, and current default setting
-    3. Determine if a default value is required, optional, or should be omitted
-    4. Check if the current configuration matches the expected pattern
-    5. Report any misconfigurations through the error logging function
-    
-    Validation criteria:
-    - Variables used for sensitive data (passwords, keys) should not have defaults
-    - Variables with clear semantic meaning may require defaults for usability
-    - Optional configuration variables should have sensible defaults
-    - Required input variables should not have defaults to force explicit setting
-    
+    1. Extract ``var.<name>`` references from all ``data`` blocks in the current file
+    2. Load variable definitions from all ``.tf`` files in the same directory
+    3. Report any data-source-referenced variable that lacks a ``default`` value
+
     Args:
         file_path (str): The path to the Terraform file being validated.
                         Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This content is parsed to extract variable definitions and their properties.
-        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
+                      This content is parsed to extract data source variable references.
+        log_error_func (Callable[[str, str, str, Optional[int]], None]):
                       Callback function for logging validation errors. The function
                       signature expects (file_path, rule_id, error_message, line_number).
                       The line_number parameter is optional and can be None.
-    
+
     Returns:
         None: This function doesn't return any value. All validation results
               are communicated through the log_error_func callback.
-    
+
     Raises:
         No exceptions are raised by this function. All errors are handled
         gracefully and reported through the logging mechanism.
-    
+
     Example:
         >>> def sample_log_func(path, rule, msg, line_num):
         ...     print(f"{rule} at {path}:{line_num}: {msg}")
-        >>> 
+        >>>
         >>> content = '''
-        ... variable "password" {
-        ...   type = string
-        ...   default = "admin123"
+        ... data "huaweicloud_compute_flavors" "test" {
+        ...   memory_size = var.memory_size
         ... }
         ... '''
-        >>> check_st002_variable_defaults("variables.tf", content, sample_log_func)
-        ST.002 at variables.tf:3: Variable 'password' should not have a default value...
+        >>> check_st002_variable_defaults("main.tf", content, sample_log_func)
+        ST.002 at main.tf:2: Variable 'memory_size' used in data source must have a default value
     """
     clean_content = _remove_comments_for_parsing(content)
     original_lines = content.split('\n')

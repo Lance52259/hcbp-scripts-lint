@@ -65,7 +65,7 @@ rules/
 │   ├── rule_006.py             # IO.006 - Variable Description Check
 │   ├── rule_007.py             # IO.007 - Output Description Check
 │   ├── rule_008.py             # IO.008 - Variable Type Check
-│   ├── rule_009.py             # IO.009 - Variable Validation Check
+│   ├── rule_009.py             # IO.009 - Unused variable detection check
 │   └── README.md               # Detailed IO rules documentation
 └── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
