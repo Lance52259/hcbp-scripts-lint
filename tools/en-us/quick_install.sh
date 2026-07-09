@@ -75,10 +75,12 @@ if [ ! -f "$PYTHON_SCRIPT" ]; then
 fi
 
 # Test if script is executable
-if python3 "$PYTHON_SCRIPT" --help > /dev/null 2>&1; then
+VERIFY_OUTPUT="$(python3 "$PYTHON_SCRIPT" --help 2>&1)"
+if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Tool verification successful${NC}"
 else
     echo -e "${RED}❌ Tool verification failed${NC}"
+    echo "$VERIFY_OUTPUT"
     exit 1
 fi
 
