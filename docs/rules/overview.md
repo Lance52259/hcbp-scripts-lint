@@ -591,7 +591,8 @@ declaration.
 ### SC.005 - Sensitive Variable Declaration Check
 
 **Rule Description:** Validates that sensitive variables are properly declared with `sensitive = true` to prevent data
-exposure in state files and logs.
+exposure in state files and logs. Uses exact, segment, and contains name matching with an allowlist for
+common non-credential names such as `auth_type`.
 
 **Purpose:**
 - Protect sensitive data

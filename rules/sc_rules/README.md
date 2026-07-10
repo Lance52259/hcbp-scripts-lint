@@ -272,11 +272,15 @@ terraform {
 **Purpose**: Validates that sensitive variables are properly declared with Sensitive=true to prevent sensitive data exposure in Terraform state files and logs.
 
 **Sensitive Variable Patterns**:
-- **Exact Match**: email, age, access_key, secret_key, sex, signature
-- **Fuzzy Match**: phone (contains "phone"), password (contains "password"), pwd (contains "pwd")
+- **Exact Match**: email, age, access_key, secret_key, sex, signature, api_key, token, private_key
+- **Segment Match**: auth, token, api_key (underscore-delimited segment equals pattern)
+- **Contains Match**: phone, password, pwd, private_key, credential
+- **Allowlist** (segment matches only): auth_type, authorization_mode, oauth_scope, certificate_name
 
 **Validation Criteria**:
 - Variables matching sensitive patterns must have `sensitive = true` declaration
+- Matching priority: exact → segment → contains
+- Segment matches are skipped when the full variable name is in the allowlist
 - Supports various spacing formats: `sensitive = true`, `sensitive=true`, `sensitive  =  true`
 - Ignores comments and only validates actual declarations
 - Prevents sensitive data from appearing in Terraform state and logs
