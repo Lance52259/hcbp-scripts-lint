@@ -20,6 +20,7 @@ io_rules/
 ├── rule_007.py   # IO.007 - Output description field check
 ├── rule_008.py   # IO.008 - Variable type definition check
 └── rule_009.py   # IO.009 - Unused variable detection check
+└── rule_010.py   # IO.010 - Variable validation block check
 ```
 
 ## 🎯 Available Rules
@@ -35,6 +36,7 @@ io_rules/
 | IO.007 | Output description field check | All outputs must have non-empty descriptions | `rule_007.py` |
 | IO.008 | Variable type definition check | All variables must have type field defined | `rule_008.py` |
 | IO.009 | Unused variable detection check | Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory. | `rule_009.py` |
+| IO.010 | Variable validation block check | Validates structural completeness of validation {} blocks (condition + error_message); skips variables without validation | `rule_010.py` |
 
 ## 🚀 Usage
 
@@ -291,6 +293,21 @@ The rule automatically excludes provider-related variables:
 **Examples**:
 - ✅ **Valid**: All declared variables are used in the configuration
 - ❌ **Invalid**: Variables declared but not referenced in any `.tf` files
+
+### IO.010 - Variable Validation Block Check
+
+**Purpose**: Validates structural completeness of `validation {}` blocks inside variable definitions.
+
+**Validation Criteria**:
+- Applies only to `variables.tf`
+- Only variables that already contain `validation {}` blocks are checked
+- Each validation block must include `condition` and `error_message`
+- `error_message` must be non-empty, at least 10 characters, and not equal to the variable name
+- Empty `validation {}` blocks are not allowed
+
+**Examples**:
+- ✅ **Valid**: Complete validation block, or no validation block at all
+- ❌ **Invalid**: Missing `condition`, missing `error_message`, or empty `validation {}`
 
 ## 🔄 Backward Compatibility
 

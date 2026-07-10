@@ -28,6 +28,7 @@ from .rule_006 import check_io006_variable_description, get_rule_description as 
 from .rule_007 import check_io007_output_description, get_rule_description as get_io007_description
 from .rule_008 import check_io008_variable_type, get_rule_description as get_io008_description
 from .rule_009 import check_io009_unused_variables, get_rule_description as get_io009_description
+from .rule_010 import check_io010_variable_validation, get_rule_description as get_io010_description
 
 
 class IORules:
@@ -104,6 +105,12 @@ class IORules:
                 "check_function": check_io009_unused_variables,
                 "description_function": get_io009_description,
                 "name": "Unused variable check",
+                "status": "modular"
+            },
+            "IO.010": {
+                "check_function": check_io010_variable_validation,
+                "description_function": get_io010_description,
+                "name": "Variable validation block check",
                 "status": "modular"
             }
         }

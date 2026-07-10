@@ -16,6 +16,7 @@ Available Rules:
 - IO.007: Output description field check
 - IO.008: Variable type definition check
 - IO.009: Unused variable detection check
+- IO.010: Variable validation block check
 
 Each rule is implemented as a separate module for better maintainability
 and easier testing. The rules are coordinated by the IORules class in

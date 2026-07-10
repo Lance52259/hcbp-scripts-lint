@@ -66,6 +66,7 @@ rules/
 │   ├── rule_007.py             # IO.007 - Output Description Check
 │   ├── rule_008.py             # IO.008 - Variable Type Check
 │   ├── rule_009.py             # IO.009 - Unused variable detection check
+│   ├── rule_010.py             # IO.010 - Variable validation block check
 │   └── README.md               # Detailed IO rules documentation
 └── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
@@ -514,9 +515,26 @@ underscores.
 same directory.
 
 **Purpose:**
-- Ensure data validation
-- Improve code reliability
-- Enforce best practices
+- Remove dead variable definitions
+- Improve code maintainability
+- Reduce configuration complexity
+
+### IO.010 - Variable Validation Block Check
+
+**Rule Description:** When a variable declares one or more `validation {}` blocks, each block must include `condition`
+and `error_message` fields. Variables without validation blocks are not flagged.
+
+**Purpose:**
+- Ensure validation blocks are structurally complete
+- Provide actionable error messages for invalid input
+- Complement IO.008 type declarations without requiring every variable to use validation
+
+**Validation Criteria:**
+- Each `validation {}` block must have a `condition` field
+- Each `validation {}` block must have a non-empty `error_message` field
+- `error_message` must be at least 10 characters and must not equal the variable name
+- Empty `validation {}` blocks are not allowed
+- Applies only to `variables.tf`
 
 ## DC (Documentation/Comments) Rules
 

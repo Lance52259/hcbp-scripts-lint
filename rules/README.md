@@ -44,6 +44,7 @@ rules/
 │   ├── rule_001.py             # IO.001 - Variable File Location
 |   ├── ...
 │   ├── rule_009.py             # IO.009 - Unused Variable Check
+│   ├── rule_010.py             # IO.010 - Variable Validation Block Check
 │   └── [future rule modules]   # Additional IO rules as separate modules
 └── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
@@ -124,6 +125,7 @@ Each rule package follows a consistent design pattern:
 | IO.007 | Output Description Check | All outputs must have non-empty descriptions | ✅ Modular |
 | IO.008 | Variable Type Check | All variables must have type field defined | ✅ Modular |
 | IO.009 | Unused Variable Check | Detects variables defined in variables.tf but not used | ✅ Modular |
+| IO.010 | Variable Validation Block Check | Validates validation {} structure (condition + error_message) | ✅ Modular |
 
 ### SC (Security Code) Rules
 
