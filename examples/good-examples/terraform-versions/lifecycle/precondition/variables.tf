@@ -17,6 +17,12 @@ variable "secret_key" {
 }
 
 # Variable definitions for resources/data sources
+variable "is_vpc_create" {
+  description = "Whether to create the VPC resource"
+  type        = bool
+  default     = true
+}
+
 variable "vpc_name" {
   description = "The name of the VPC resource"
 

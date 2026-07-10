@@ -4,7 +4,9 @@ terraform {
   required_providers {
     huaweicloud = {
       source  = "huaweicloud/huaweicloud"
-      version = ">= 1.70.1"
+      # SC.004 Disable
+      version = ">= 1.70.0"
+      # SC.004 Enable
     }
   }
 }
