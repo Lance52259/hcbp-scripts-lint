@@ -67,6 +67,13 @@ resource "huaweicloud_compute_instance" "test" {
   system_disk_size = var.system_disk_size
 }
 
+resource "huaweicloud_kms_key" "test" {
+  count = var.bucket_encryption && var.bucket_encryption_key_id == "" ? 1 : 0
+
+  region    = var.region_name
+  key_alias = "tf-test-obs-kms-key"
+}
+
 resource "huaweicloud_obs_bucket" "test" {
   bucket        = var.bucket_name
   storage_class = var.bucket_storage_class
