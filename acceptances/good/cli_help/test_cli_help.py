@@ -2,6 +2,7 @@
 """Tests for CLI help template rendering."""
 
 import os
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -80,18 +81,26 @@ class RenderCliHelpEpilogTest(unittest.TestCase):
     def test_real_rule_lookup_shows_names_not_unknown(self):
         from rules import get_all_available_rules, get_rules_manager
 
+        available_rules = get_all_available_rules()
+        expected_total = len(available_rules)
+
         epilog, _ = render_cli_help_epilog(
-            rule_ids=get_all_available_rules(),
+            rule_ids=available_rules,
             rule_info_lookup=lambda rule_id: get_rules_manager().get_rule_info(rule_id) or {},
             tool_version=get_tool_version(),
-            total_rules=len(get_all_available_rules()),
+            total_rules=expected_total,
             rule_systems=["ST", "IO", "DC", "SC"],
             argv0="/repo/.github/scripts/terraform_lint.py",
         )
         self.assertIn("ST.001: Resource and data source naming convention check", epilog)
+        self.assertIn("IO.010: Variable validation block check", epilog)
         self.assertNotIn("Unknown rule", epilog)
         self.assertIn("Tool Version: v{0}".format(get_tool_version()), epilog)
-        self.assertIn("Total Available Rules: 29", epilog)
+        self.assertIn("Total Available Rules: {0}".format(expected_total), epilog)
+        rule_line_count = len(
+            re.findall(r"^  (?:ST|IO|DC|SC)\.\d{3}:", epilog, re.MULTILINE)
+        )
+        self.assertEqual(rule_line_count, expected_total)
 
 
     def test_cli_help_template_file_exists(self):

@@ -4,9 +4,9 @@ resource "huaweicloud_vpc" "test" {
 }
 
 resource "huaweicloud_vpc_subnet" "test" {
-  count = var.is_vpc_create ? length(var.subnets_configuration) : 0
+  count = length(var.subnets_configuration)
 
-  vpc_id = huaweicloud_vpc.test[0].id
+  vpc_id = huaweicloud_vpc.test.id
 
   name        = lookup(element(var.subnets_configuration, count.index), "name")
   cidr        = lookup(element(var.subnets_configuration, count.index), "cidr")

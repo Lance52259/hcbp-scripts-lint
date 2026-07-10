@@ -82,6 +82,18 @@ variable "system_disk_size" {
   default     = 40
 }
 
+variable "bucket_encryption" {
+  description = "Whether server-side encryption is enabled for the OBS bucket"
+  type        = bool
+  default     = false
+}
+
+variable "bucket_encryption_key_id" {
+  description = "The KMS key ID for OBS bucket encryption; when empty and encryption is enabled, a KMS key resource is created"
+  type        = string
+  default     = ""
+}
+
 variable "bucket_name" {
   description = "The name of the OBS bucket"
   type        = string
