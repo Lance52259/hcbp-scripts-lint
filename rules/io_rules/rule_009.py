@@ -20,6 +20,8 @@ import os
 import glob
 from typing import Callable, List, Set, Optional, Tuple
 
+from rules.common.provider_variables import is_provider_related_variable
+
 
 def check_io009_unused_variables(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
@@ -155,8 +157,6 @@ def _should_exclude_from_unused_check(var_name: str) -> bool:
     These variables may only be consumed in providers.tf or external tfvars.
     They are still required to be declared when referenced.
     """
-    from rules.common.provider_variables import is_provider_related_variable
-
     return is_provider_related_variable(var_name)
 
 

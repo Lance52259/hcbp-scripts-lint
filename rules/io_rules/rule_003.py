@@ -12,7 +12,7 @@ Rule Specification:
 - All required variables must be declared in terraform.tfvars
 - Variables with default values are optional and don't need to be in terraform.tfvars
 - Provider-related variables are excluded from this check
-  (shared list: region*, access_key, secret_key, domain_name,
+  (shared list: ``region`` / ``region_*``, access_key, secret_key, domain_name,
   tenant/user/project identifiers; see rules.common.provider_variables)
 - Report each missing variable declaration individually with precise line numbers
 - Helps ensure all necessary input values are provided for deployment
@@ -85,6 +85,8 @@ License: Apache 2.0
 import re
 import os
 from typing import Callable, List, Dict, Any, Set, Optional, Tuple
+
+from rules.common.provider_variables import is_provider_related_variable
 
 
 def check_io003_required_variables(file_path: str, content: str, 
@@ -181,8 +183,6 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
     Returns:
         List[Tuple[str, int]]: List of tuples containing (variable_name, line_number)
     """
-    from rules.common.provider_variables import is_provider_related_variable
-
     required_vars = []
     lines = content.split('\n')
 
@@ -295,7 +295,7 @@ def get_rule_description() -> dict:
             "Validates that all required variables (variables without default "
             "values) are declared in the terraform.tfvars file. Each missing "
             "variable declaration is reported individually with precise line numbers. "
-            "Provider-related variables (region*, access_key, secret_key, domain_name, "
+            "Provider-related variables (region / region_*, access_key, secret_key, domain_name, "
             "tenant/user/project identifiers) are excluded from this validation."
         ),
         "category": "Input/Output",

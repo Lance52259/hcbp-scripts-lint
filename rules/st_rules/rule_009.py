@@ -83,6 +83,8 @@ import re
 import os
 from typing import Callable, List, Dict, Optional, Tuple
 
+from rules.common.provider_variables import is_provider_related_variable
+
 
 def check_st009_variable_order(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
@@ -164,8 +166,6 @@ def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
     Returns:
         List[str]: List of variable names in order of first usage (excluding provider variables)
     """
-    from rules.common.provider_variables import is_provider_related_variable
-
     usage_order = []
     seen_variables = set()
 
@@ -194,8 +194,6 @@ def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[
     Returns:
         List[Tuple[str, int]]: List of (variable_name, line_number) tuples in definition order (excluding provider variables)
     """
-    from rules.common.provider_variables import is_provider_related_variable
-
     definition_order = []
     lines = variables_tf_content.split('\n')
 
@@ -332,7 +330,7 @@ def get_rule_description() -> dict:
             "order as their usage in main.tf. This ensures logical consistency "
             "between variable definitions and their usage patterns, making it "
             "easier for developers to understand variable dependencies and relationships. "
-            "Provider-related variables (region*, access_key, secret_key, domain_name, "
+            "Provider-related variables (region / region_*, access_key, secret_key, domain_name, "
             "tenant/user/project identifiers) are excluded from ordering validation to "
             "avoid interference with authentication and region configuration patterns."
         ),

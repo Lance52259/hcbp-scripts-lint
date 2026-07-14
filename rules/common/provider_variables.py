@@ -8,11 +8,16 @@ Exclusion semantics (same name set, different rules):
 - IO.003: skip terraform.tfvars required-declaration check
 - IO.009: skip unused-variable check only (undeclared references still report)
 - ST.009: skip usage/definition order comparison
+
+Region matching uses exact ``region`` or the ``region_`` prefix so names like
+``regional_vpc`` are not treated as provider variables.
 """
 
 from typing import FrozenSet
 
-PROVIDER_VARIABLE_PREFIXES: FrozenSet[str] = frozenset({"region"})
+# Exact name "region", or any name starting with "region_" (region_name, region_id, …)
+PROVIDER_REGION_EXACT: str = "region"
+PROVIDER_REGION_PREFIX: str = "region_"
 
 PROVIDER_VARIABLE_NAMES: FrozenSet[str] = frozenset(
     {
@@ -28,6 +33,9 @@ PROVIDER_VARIABLE_NAMES: FrozenSet[str] = frozenset(
     }
 )
 
+# Backwards-compatible alias used by docs / configuration dumps
+PROVIDER_VARIABLE_PREFIXES: FrozenSet[str] = frozenset({PROVIDER_REGION_PREFIX.rstrip("_")})
+
 
 def is_provider_related_variable(var_name: str) -> bool:
     """Return True if *var_name* is a known provider/auth/region variable."""
@@ -35,4 +43,8 @@ def is_provider_related_variable(var_name: str) -> bool:
         return False
     if var_name in PROVIDER_VARIABLE_NAMES:
         return True
-    return any(var_name.startswith(prefix) for prefix in PROVIDER_VARIABLE_PREFIXES)
+    if var_name == PROVIDER_REGION_EXACT:
+        return True
+    if var_name.startswith(PROVIDER_REGION_PREFIX):
+        return True
+    return False
