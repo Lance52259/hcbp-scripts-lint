@@ -155,13 +155,9 @@ def _should_exclude_from_unused_check(var_name: str) -> bool:
     These variables may only be consumed in providers.tf or external tfvars.
     They are still required to be declared when referenced.
     """
-    if var_name.startswith('region'):
-        return True
-    if var_name in ['access_key', 'secret_key', 'domain_name']:
-        return True
-    if var_name in ['tenant_name', 'tenant_id', 'user_name', 'user_id', 'project_name', 'project_id']:
-        return True
-    return False
+    from rules.common.provider_variables import is_provider_related_variable
+
+    return is_provider_related_variable(var_name)
 
 
 def _remove_comments_for_parsing(content: str) -> str:
@@ -257,17 +253,6 @@ resource "huaweicloud_compute_instance" "test" {
             "check_undeclared_references": True,
             "exclude_provider_variables_from_unused_check": True,
             "search_current_directory_only": True,
-            "excluded_variable_prefixes": ["region"],
-            "excluded_variable_names": [
-                "access_key",
-                "secret_key",
-                "domain_name",
-                "tenant_name",
-                "tenant_id",
-                "user_name",
-                "user_id",
-                "project_name",
-                "project_id"
-            ]
+            "excluded_provider_variables": "shared via rules.common.provider_variables",
         }
     }

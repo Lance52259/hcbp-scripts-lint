@@ -147,19 +147,16 @@ def check_st009_variable_order(file_path: str, content: str, log_error_func: Cal
     
     # Check order consistency
     order_errors = _check_order_consistency(usage_order, definition_order)
-    
-    for error_msg in order_errors:
-        log_error_func(file_path, "ST.009", error_msg, None)
+
+    for error_msg, line_number in order_errors:
+        log_error_func(file_path, "ST.009", error_msg, line_number)
 
 
 def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
     """
     Extract the order of variable usage from main.tf content.
-    
-    Excludes provider-related variables that should not affect ordering:
-    - access_key variable
-    - secret_key variable
-    - region_name variable
+
+    Excludes shared provider-related variables from ordering.
 
     Args:
         main_tf_content (str): Content of main.tf file
@@ -167,37 +164,29 @@ def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
     Returns:
         List[str]: List of variable names in order of first usage (excluding provider variables)
     """
+    from rules.common.provider_variables import is_provider_related_variable
+
     usage_order = []
     seen_variables = set()
-    
-    # Define provider-related variables to exclude from ordering
-    def _should_exclude_variable(var_name: str) -> bool:
-        """Check if a variable should be excluded from ordering validation."""
-        if var_name in ['access_key', 'secret_key', 'region_name']:
-            return True
-        return False
-    
+
     # Find all variable references in order
     var_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
     matches = re.finditer(var_pattern, main_tf_content)
-    
+
     for match in matches:
         var_name = match.group(1)
-        if var_name not in seen_variables and not _should_exclude_variable(var_name):
+        if var_name not in seen_variables and not is_provider_related_variable(var_name):
             usage_order.append(var_name)
             seen_variables.add(var_name)
-    
+
     return usage_order
 
 
 def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[str, int]]:
     """
     Extract the order of variable definitions from variables.tf content.
-    
-    Excludes provider-related variables that should not affect ordering:
-    - access_key variable
-    - secret_key variable
-    - region_name variable
+
+    Excludes shared provider-related variables from ordering.
 
     Args:
         variables_tf_content (str): Content of variables.tf file
@@ -205,16 +194,11 @@ def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[
     Returns:
         List[Tuple[str, int]]: List of (variable_name, line_number) tuples in definition order (excluding provider variables)
     """
+    from rules.common.provider_variables import is_provider_related_variable
+
     definition_order = []
     lines = variables_tf_content.split('\n')
-    
-    # Define provider-related variables to exclude from ordering
-    def _should_exclude_variable(var_name: str) -> bool:
-        """Check if a variable should be excluded from ordering validation."""
-        if var_name in ['access_key', 'secret_key', 'region_name']:
-            return True
-        return False
-    
+
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
         # Match variable definitions - support quoted, single-quoted, and unquoted syntax
@@ -222,13 +206,16 @@ def _extract_variable_definition_order(variables_tf_content: str) -> List[Tuple[
         if var_match:
             # Extract variable name from quoted, single-quoted, or unquoted group
             var_name = var_match.group(1) if var_match.group(1) else (var_match.group(2) if var_match.group(2) else var_match.group(3))
-            if not _should_exclude_variable(var_name):
+            if not is_provider_related_variable(var_name):
                 definition_order.append((var_name, line_num))
-    
+
     return definition_order
 
 
-def _check_order_consistency(usage_order: List[str], definition_order: List[Tuple[str, int]]) -> List[str]:
+def _check_order_consistency(
+    usage_order: List[str],
+    definition_order: List[Tuple[str, int]],
+) -> List[Tuple[str, int]]:
     """
     Check if variable definition order matches usage order.
 
@@ -237,33 +224,38 @@ def _check_order_consistency(usage_order: List[str], definition_order: List[Tupl
         definition_order (List[Tuple[str, int]]): Variables in definition order with line numbers
 
     Returns:
-        List[str]: List of error messages
+        List[Tuple[str, int]]: List of (error_message, line_number) for the first mismatch
     """
-    errors = []
-    
+    errors: List[Tuple[str, int]] = []
+
     # Extract just the variable names from definition order
     defined_vars = [var_name for var_name, _ in definition_order]
-    
+    definition_lines = {var_name: line_num for var_name, line_num in definition_order}
+
     # Find variables that are both used and defined
     common_vars = [var for var in usage_order if var in defined_vars]
-    
+
     if len(common_vars) < 2:
         return errors  # Need at least 2 variables to check ordering
-    
+
     # Check if the order matches
     expected_order = common_vars
     actual_order = [var for var in defined_vars if var in common_vars]
-    
+
     if expected_order != actual_order:
         # Find the first variable that's out of order
         for i, expected_var in enumerate(expected_order):
             if i < len(actual_order) and actual_order[i] != expected_var:
+                mismatched = actual_order[i]
                 errors.append(
-                    f"Variable '{actual_order[i]}' is not in the correct order. "
-                    f"Expected order: {', '.join(expected_order)}. Current order: {', '.join(actual_order)}"
+                    (
+                        f"Variable '{mismatched}' is not in the correct order. "
+                        f"Expected order: {', '.join(expected_order)}. Current order: {', '.join(actual_order)}",
+                        definition_lines.get(mismatched),
+                    )
                 )
                 break
-    
+
     return errors
 
 
@@ -340,9 +332,9 @@ def get_rule_description() -> dict:
             "order as their usage in main.tf. This ensures logical consistency "
             "between variable definitions and their usage patterns, making it "
             "easier for developers to understand variable dependencies and relationships. "
-            "Provider-related variables (access_key, secret_key, region_name) are "
-            "excluded from ordering validation to avoid interference with authentication "
-            "and region configuration patterns."
+            "Provider-related variables (region*, access_key, secret_key, domain_name, "
+            "tenant/user/project identifiers) are excluded from ordering validation to "
+            "avoid interference with authentication and region configuration patterns."
         ),
         "category": "Style/Format",
         "severity": "warning",
@@ -455,14 +447,14 @@ variable "secret_key" {
 '''
             ]
         },
-        "auto_fixable": True,
+        "auto_fixable": False,
         "performance_impact": "minimal",
-        "related_rules": ["IO.001", "IO.003"],
+        "related_rules": ["IO.001", "IO.003", "IO.009"],
         "configuration": {
             "check_usage_order": True,
             "require_main_tf": True,
             "ignore_unused_variables": False,
-            "excluded_provider_variables": ["access_key", "secret_key", "region_name"]
+            "excluded_provider_variables": "shared via rules.common.provider_variables",
         }
     }
 

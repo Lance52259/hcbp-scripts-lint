@@ -47,6 +47,14 @@ import re
 import os
 from typing import Callable, Optional, List, Dict, Set, Tuple
 
+# Per-process cache: abspath(directory) -> (min_version, features)
+_DIRECTORY_VERSION_CACHE: Dict[str, Tuple[str, List[str]]] = {}
+
+
+def clear_directory_version_cache() -> None:
+    """Clear cached directory version analysis results (for tests)."""
+    _DIRECTORY_VERSION_CACHE.clear()
+
 
 def check_sc003_terraform_version_compatibility(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
@@ -99,12 +107,16 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
         >>> check_sc003_terraform_version_compatibility("providers.tf", content, sample_log_func)
         SC.003 at providers.tf:2: Declared version '>= 0.14.0' is too low. Required: '>= 1.3.0' (for optional() usage)
     """
+    # Only validate providers.tf (aligned with SC.002)
+    if not file_path.endswith('providers.tf'):
+        return
+
     # Get the directory to analyze all .tf files
     file_dir = os.path.dirname(file_path)
-    
+
     # Analyze all .tf files in the directory to determine minimum required version
     min_required_version, used_features = _determine_minimum_required_version(file_dir)
-    
+
     # Extract declared version from providers.tf
     declared_version, version_line = _extract_declared_version(content)
     
@@ -135,16 +147,24 @@ def check_sc003_terraform_version_compatibility(file_path: str, content: str, lo
 def _determine_minimum_required_version(directory: str) -> Tuple[str, List[str]]:
     """
     Determine the minimum required Terraform version based on features used.
-    
+
+    Results are cached per absolute directory path for the process lifetime
+    (or until clear_directory_version_cache() is called).
+
     Args:
         directory (str): Directory path to analyze
-        
+
     Returns:
         Tuple[str, List[str]]: (Minimum required version, List of used features)
     """
+    cache_key = os.path.abspath(directory) if directory else ""
+    if cache_key in _DIRECTORY_VERSION_CACHE:
+        cached_version, cached_features = _DIRECTORY_VERSION_CACHE[cache_key]
+        return cached_version, list(cached_features)
+
     required_versions = []
     used_features = []
-    
+
     # Find all .tf files in the directory
     if os.path.exists(directory):
         for filename in os.listdir(directory):
@@ -158,14 +178,17 @@ def _determine_minimum_required_version(directory: str) -> Tuple[str, List[str]]
                         used_features.extend(file_features)
                 except Exception:
                     continue
-    
+
     # Return the highest required version, or default to 0.12.0
     if required_versions:
         # Sort versions and return the highest
         sorted_versions = sorted(required_versions, key=lambda x: _parse_version(x))
-        return sorted_versions[-1], used_features
+        result = (sorted_versions[-1], used_features)
     else:
-        return ">= 0.12.0", []
+        result = (">= 0.12.0", [])
+
+    _DIRECTORY_VERSION_CACHE[cache_key] = (result[0], list(result[1]))
+    return result[0], list(result[1])
 
 
 def _analyze_file_for_version_requirements(content: str) -> Tuple[List[str], List[str]]:

@@ -225,11 +225,14 @@ class RulesManager:
         
         # Create a wrapper log function that checks comment control
         def controlled_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
-            # Check if this rule is enabled at this line
-            if line_number is not None and control_states:
-                if not self._comment_controller.get_rule_state_at_line(rule, line_number, control_states):
+            # Check if this rule is enabled at this line.
+            # When line_number is None, fall back to continuum state at line 1 so
+            # file-level "# RULE Disable" directives still apply.
+            if control_states:
+                effective_line = line_number if line_number is not None else 1
+                if not self._comment_controller.get_rule_state_at_line(rule, effective_line, control_states):
                     return  # Skip logging if rule is disabled at this line
-            
+
             # Call the original log function
             log_error_func(path, rule, message, line_number)
         

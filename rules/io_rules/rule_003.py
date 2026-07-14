@@ -11,11 +11,9 @@ Rule Specification:
 - Required variables are those without default values
 - All required variables must be declared in terraform.tfvars
 - Variables with default values are optional and don't need to be in terraform.tfvars
-- Provider-related variables are excluded from this check:
-  * Variables starting with 'region' (e.g., region_name, region_id)
-  * access_key variable
-  * secret_key variable  
-  * domain_name variable
+- Provider-related variables are excluded from this check
+  (shared list: region*, access_key, secret_key, domain_name,
+  tenant/user/project identifiers; see rules.common.provider_variables)
 - Report each missing variable declaration individually with precise line numbers
 - Helps ensure all necessary input values are provided for deployment
 
@@ -174,12 +172,8 @@ def check_io003_required_variables(file_path: str, content: str,
 def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     """
     Extract required variables (variables without defaults) with their line numbers.
-    
-    Excludes provider-related variables that should not be checked:
-    - Variables starting with 'region' (e.g., region_name, region_id)
-    - access_key variable
-    - secret_key variable
-    - domain_name variable
+
+    Excludes shared provider-related variables (see rules.common.provider_variables).
 
     Args:
         content (str): The Terraform file content
@@ -187,21 +181,14 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
     Returns:
         List[Tuple[str, int]]: List of tuples containing (variable_name, line_number)
     """
+    from rules.common.provider_variables import is_provider_related_variable
+
     required_vars = []
     lines = content.split('\n')
-    
+
     # Pattern to match variable definitions - support quoted, single-quoted, and unquoted syntax
     var_pattern = r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z][a-zA-Z0-9_]*[a-zA-Z]|[a-zA-Z]))\s*\{'
-    
-    # Define provider-related variables to exclude from IO.003 validation
-    def _should_exclude_variable(var_name: str) -> bool:
-        """Check if a variable should be excluded from IO.003 validation."""
-        if var_name.startswith('region'):
-            return True
-        if var_name in ['access_key', 'secret_key', 'domain_name']:
-            return True
-        return False
-    
+
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -210,25 +197,25 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
             # Extract variable name from quoted, single-quoted, or unquoted group
             var_name = match.group(1) if match.group(1) else (match.group(2) if match.group(2) else match.group(3))
             line_number = i + 1  # Convert to 1-indexed
-            
+
             # Find the end of this variable block
             brace_count = line.count('{') - line.count('}')
             j = i + 1
             var_content = line
-            
+
             while j < len(lines) and brace_count > 0:
                 var_content += '\n' + lines[j]
                 brace_count += lines[j].count('{') - lines[j].count('}')
                 j += 1
-            
+
             # Check if variable has a default value and should not be excluded
-            if not re.search(r'default\s*=', var_content) and not _should_exclude_variable(var_name):
+            if not re.search(r'default\s*=', var_content) and not is_provider_related_variable(var_name):
                 required_vars.append((var_name, line_number))
-            
+
             i = j
         else:
             i += 1
-    
+
     return required_vars
 
 
@@ -308,8 +295,8 @@ def get_rule_description() -> dict:
             "Validates that all required variables (variables without default "
             "values) are declared in the terraform.tfvars file. Each missing "
             "variable declaration is reported individually with precise line numbers. "
-            "Provider-related variables (region*, access_key, secret_key, domain_name) "
-            "are excluded from this validation."
+            "Provider-related variables (region*, access_key, secret_key, domain_name, "
+            "tenant/user/project identifiers) are excluded from this validation."
         ),
         "category": "Input/Output",
         "severity": "error",
@@ -398,11 +385,6 @@ flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
             "check_all_required_variables": True,
             "require_tfvars_file": True,
             "report_individual_violations": True,
-            "excluded_provider_variables": [
-                "Variables starting with 'region'",
-                "access_key",
-                "secret_key", 
-                "domain_name"
-            ]
+            "excluded_provider_variables": "shared via rules.common.provider_variables",
         }
     }

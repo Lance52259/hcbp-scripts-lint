@@ -78,7 +78,9 @@ def check_io004_variable_naming(file_path: str, content: str, log_error_func: Ca
             log_error_func(
                 file_path,
                 "IO.004",
-                f"Variable '{var_name}' should follow naming convention (letters, numbers, and underscores only; not starting/ending with underscore or number; no consecutive underscores)",
+                f"Variable '{var_name}' should use snake_case (lowercase letters, numbers, "
+                f"and underscores; must start with a letter; must not end with a number; "
+                f"no consecutive underscores)",
                 line_number
             )
 
@@ -148,7 +150,7 @@ def _extract_variables_with_lines(content: str) -> List[Tuple[str, int]]:
 
 def _is_valid_variable_name(name: str) -> bool:
     """
-    Check if a variable name follows the naming convention.
+    Check if a variable name follows snake_case naming convention.
 
     Args:
         name (str): The variable name to validate
@@ -159,24 +161,18 @@ def _is_valid_variable_name(name: str) -> bool:
     # Must not be empty
     if not name:
         return False
-    
-    # Must start with a letter (not underscore or number)
-    if not re.match(r'^[a-zA-Z]', name):
+
+    # Must be lowercase snake_case: start with a letter, only [a-z0-9_],
+    # must not end with a digit, and must not contain consecutive underscores.
+    if not re.match(r'^[a-z][a-z0-9_]*$', name):
         return False
-    
-    # Must end with a letter (not underscore or number)
-    # Cannot end with a number, but can end with underscore
+
     if name.endswith(tuple('0123456789')):
         return False
-    
-    # Must contain only letters, numbers, and underscores
-    if not re.match(r'^[a-zA-Z0-9_]+$', name):
-        return False
-    
-    # Must not contain consecutive underscores
+
     if '__' in name:
         return False
-    
+
     return True
 
 
@@ -191,16 +187,17 @@ def get_rule_description() -> dict:
         "id": "IO.004",
         "name": "Variable Naming Convention Check",
         "description": (
-            "Validates that each input variable name follows standard naming conventions. "
-            "Variable names should contain only letters, numbers, and underscores; "
-            "not start or end with underscore or number; and not contain consecutive underscores. "
-            "Each invalid variable name is reported individually with precise line numbers."
+            "Validates that each input variable name follows snake_case naming conventions. "
+            "Variable names must use lowercase letters, numbers, and underscores only; "
+            "must start with a letter; must not end with a number; and must not contain "
+            "consecutive underscores. Each invalid variable name is reported individually "
+            "with precise line numbers."
         ),
         "category": "Input/Output",
         "severity": "error",
         "rationale": (
-            "Consistent naming conventions improve code readability and "
-            "maintainability. Variable names should follow clear rules to avoid "
+            "Consistent snake_case naming improves code readability and "
+            "maintainability. Variable names should follow clear lowercase rules to avoid "
             "confusion and ensure compatibility. Each violation is reported individually "
             "to facilitate precise error identification and correction."
         ),
@@ -209,19 +206,23 @@ def get_rule_description() -> dict:
                 'variable "instance_count" {\n  type = number\n}',
                 'variable "vpc_cidr_block" {\n  type = string\n}',
                 'variable "environment_name" {\n  type = string\n}',
-                'variable "config1" {\n  type = string\n}',
                 'variable "test_var" {\n  type = string\n}'
             ],
             "invalid": [
+                'variable "BadName" {\n  type = string\n}  # Contains uppercase',
+                'variable "VPC_Name" {\n  type = string\n}  # Contains uppercase',
                 'variable "_underscore_start" {\n  type = string\n}  # Starts with underscore',
-                'variable "variable_ends_" {\n  type = string\n}  # Ends with underscore',
                 'variable "1st_variable" {\n  type = string\n}  # Starts with number',
                 'variable "variable_1" {\n  type = string\n}  # Ends with number',
                 'variable "var__with__double" {\n  type = string\n}  # Contains consecutive underscores',
                 'variable "var-with-hyphens" {\n  type = string\n}  # Contains hyphens'
             ]
         },
-        "error_format": "Variable '{variable_name}' should follow naming convention (letters, numbers, and underscores only; not starting/ending with underscore or number; no consecutive underscores)",
+        "error_format": (
+            "Variable '{variable_name}' should use snake_case (lowercase letters, numbers, "
+            "and underscores; must start with a letter; must not end with a number; "
+            "no consecutive underscores)"
+        ),
         "line_number_reporting": "Reports the exact line number where each invalid variable is defined",
         "precision": "Individual error reporting for each invalid variable name",
         "related_rules": ["ST.001", "IO.005"]
