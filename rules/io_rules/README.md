@@ -37,7 +37,7 @@ io_rules/
 | IO.006 | Variable description field check | All variables must have non-empty descriptions | `rule_006.py` |
 | IO.007 | Output description field check | All outputs must have non-empty descriptions | `rule_007.py` |
 | IO.008 | Variable type definition check | All variables must have type field defined | `rule_008.py` |
-| IO.009 | Unused variable detection check | Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory. | `rule_009.py` |
+| IO.009 | Variable usage check | Detects unused variables and undeclared `var.<name>` references within the same directory. | `rule_009.py` |
 | IO.010 | Variable validation block check | Validates structural completeness of validation {} blocks (condition + error_message); skips variables without validation | `rule_010.py` |
 
 
@@ -115,25 +115,22 @@ io_rules/
 - Type field must specify the expected variable type
 - Prevents type-related runtime errors and improves validation
 
-### IO.009 - Unused Variable Detection Check
+### IO.009 - Variable Usage Check
 
-**Purpose**: Detects variables defined in variables.tf but not referenced in any Terraform files within the same directory.
+**Purpose**: Validates variable definitions and references within a module directory.
 
 **Validation Criteria**:
-- Identifies variables declared in variables.tf but never used in the codebase
-- Excludes common provider-related variables that may be used internally
-- Helps maintain clean and efficient variable definitions
-- Reduces configuration complexity and improves maintainability
+- Reports variables declared in `variables.tf` but never referenced as `var.<name>`
+- Reports `var.<name>` references in other `.tf` files that are not declared in `variables.tf`
+- Runs at directory scope when `variables.tf` is linted
+- Ignores commented-out `var.<name>` references during parsing
 
-**Smart Exclusions**:
-The rule automatically excludes provider-related variables:
-- Authentication variables: `region`, `access_key`, `secret_key`, `token`
-- Provider configuration: `endpoint`, `domain_id`, `project_id`, `tenant_id`
-- SSL/TLS settings: `insecure`, `cacert_file`, `cert`, `key`
+**Smart Exclusions (unused check only)**:
+Provider-related variables are excluded from the unused-variable check because they may only be consumed in `providers.tf` or external tfvars. They must still be declared in `variables.tf` when referenced.
 
 **Examples**:
-- ✅ **Valid**: All declared variables are used in the configuration
-- ❌ **Invalid**: Variables declared but not referenced in any `.tf` files
+- ✅ **Valid**: Every declared variable is used; every reference is declared
+- ❌ **Invalid**: Unused variables in `variables.tf`, or `var.<name>` used without a declaration
 
 ### IO.010 - Variable Validation Block Check
 
