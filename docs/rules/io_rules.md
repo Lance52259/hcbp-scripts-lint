@@ -30,8 +30,8 @@ io_rules/
 | IO.001 | Variable definition file location check | Variables must be defined in variables.tf | `rule_001.py` |
 | IO.002 | Output definition file location check | Outputs must be defined in outputs.tf | `rule_002.py` |
 | IO.003 | Required variable declaration check | Required variables must be declared in terraform.tfvars | `rule_003.py` |
-| IO.004 | Variable naming convention check | Variable names can contain letters, numbers, and underscores; not start/end with underscore or number; no consecutive underscores | `rule_004.py` |
-| IO.005 | Output naming convention check | Output names can contain letters, numbers, and underscores; not start/end with underscore or number; no consecutive underscores | `rule_005.py` |
+| IO.004 | Variable naming convention check | Variable names must use snake_case (lowercase); not start/end with underscore or number; no consecutive underscores | `rule_004.py` |
+| IO.005 | Output naming convention check | Output names must use snake_case (lowercase); not start/end with underscore or number; no consecutive underscores | `rule_005.py` |
 | IO.006 | Variable description field check | All variables must have non-empty descriptions | `rule_006.py` |
 | IO.007 | Output description field check | All outputs must have non-empty descriptions | `rule_007.py` |
 | IO.008 | Variable type definition check | All variables must have type field defined | `rule_008.py` |
@@ -226,25 +226,25 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 ### IO.004 - Variable Naming Convention Check
 
-**Purpose**: Ensures consistent naming conventions for input variables.
+**Purpose**: Ensures consistent snake_case naming for input variables.
 
 **Validation Criteria**:
-- Variable names can contain letters, numbers, and underscores
+- Variable names must use snake_case (lowercase letters, numbers, and underscores)
+- Names must not contain uppercase letters
 - Names must not start with underscore or number
 - Names must not end with number
 - Names must not contain consecutive underscores
-- Consistent naming improves code readability
 
 ### IO.005 - Output Naming Convention Check
 
-**Purpose**: Ensures consistent naming conventions for output variables.
+**Purpose**: Ensures consistent snake_case naming for output values.
 
 **Validation Criteria**:
-- Output names can contain letters, numbers, and underscores
+- Output names must use snake_case (lowercase letters, numbers, and underscores)
+- Names must not contain uppercase letters
 - Names must not start with underscore or number
 - Names must not end with number
 - Names must not contain consecutive underscores
-- Maintains naming consistency across all Terraform constructs
 
 ### IO.006 - Variable Description Field Check
 

@@ -39,14 +39,11 @@ from typing import Callable, List, Tuple, Optional
 
 def check_st001_naming_convention(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Check resource/data instance names and variable naming conventions per ST.001.
+    Check resource and data source instance names per ST.001.
 
-    This function validates two naming requirements in Terraform files:
-
-    1. Resource and data source instance names (the second quoted identifier in
-       ``resource "type" "name"`` / ``data "type" "name"``) must be ``test``.
-    2. Variable names (``variable "name"``) must use snake_case: lowercase letters,
-       numbers, and underscores only; must not start with a number.
+    Validates that resource and data source instance names (the second quoted
+    identifier in ``resource "type" "name"`` / ``data "type" "name"``) must be
+    ``test``. Variable naming is covered by IO.004 and is not checked here.
 
     Args:
         file_path (str): The path to the Terraform file being validated.
@@ -84,14 +81,6 @@ def check_st001_naming_convention(file_path: str, content: str, log_error_func: 
         line = line.strip()
         
         # Check resource and data source names with multiple patterns to handle quotes, single quotes, and no quotes
-        # Pattern 1: Standard format with double quotes: resource "type" "name" {
-        # Pattern 2: Standard format with single quotes: resource 'type' 'name' {
-        # Pattern 3: Type without quotes: resource type "name" {
-        # Pattern 4: Type without quotes: resource type 'name' {
-        # Pattern 5: Name without quotes: resource "type" name {
-        # Pattern 6: Name without quotes: resource 'type' name {
-        # Pattern 7: Both without quotes: resource type name {
-        
         patterns = [
             r'(resource|data)\s+"([^"]+)"\s+"([^"]+)"\s*\{',  # Both double quoted
             r'(resource|data)\s+\'([^\']+)\'\s+\'([^\']+)\'\s*\{',  # Both single quoted
@@ -119,45 +108,6 @@ def check_st001_naming_convention(file_path: str, content: str, log_error_func: 
                     )
                     log_error_func(file_path, "ST.001", error_msg, line_num)
                 break  # Found a match, no need to check other patterns
-        
-        # Check variable names - support quoted, single-quoted, and unquoted syntax
-        variable_patterns = [
-            r'variable\s+"([^"]+)"\s*\{',  # Double quoted
-            r'variable\s+\'([^\']+)\'\s*\{',  # Single quoted
-            r'variable\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{',  # Unquoted
-        ]
-        
-        for var_pattern in variable_patterns:
-            variable_match = re.match(var_pattern, line)
-            if variable_match:
-                name = variable_match.group(1)
-                
-                if not _is_valid_name(name):
-                    error_msg = (
-                        f"Variable name '{name}' contains invalid characters. "
-                        f"Use snake_case (lowercase letters, numbers, and underscores only)"
-                    )
-                    log_error_func(file_path, "ST.001", error_msg, line_num)
-                break  # Found a match, no need to check other patterns
-
-
-def _is_valid_name(name: str) -> bool:
-    """
-    Check if a name follows the valid naming convention.
-    
-    Args:
-        name (str): The name to validate
-        
-    Returns:
-        bool: True if the name is valid, False otherwise
-    """
-    if not name:
-        return False
-    
-    # Check if name contains only lowercase letters, numbers, and underscores
-    # and doesn't start with a number
-    pattern = r'^[a-z_][a-z0-9_]*$'
-    return bool(re.match(pattern, name))
 
 
 def _remove_comments_for_parsing(content: str) -> str:
@@ -256,10 +206,8 @@ def get_rule_description() -> dict:
         "id": "ST.001",
         "name": "Resource and data source naming convention check",
         "description": (
-            "Validates that all data source and resource instance names follow "
-            "the standard naming convention of using 'test' as the instance name. "
-            "This ensures consistency across Terraform configurations and makes "
-            "code more predictable and maintainable."
+            "Validates that all data source and resource instance names use "
+            "'test' as the instance name. Variable naming is enforced by IO.004."
         ),
         "category": "Style/Format",
         "severity": "error",
@@ -296,5 +244,6 @@ resource "huaweicloud_compute_instance" "my_instance" {
             ]
         },
         "auto_fixable": True,
-        "performance_impact": "minimal"
+        "performance_impact": "minimal",
+        "related_rules": ["IO.004", "IO.005"],
     }

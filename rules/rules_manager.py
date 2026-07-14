@@ -223,16 +223,22 @@ class RulesManager:
         if self._config.get("enable_comment_control", True):
             control_states = self._comment_controller.parse_control_comments(content)
         
-        # Create a wrapper log function that checks comment control
+        # Create a wrapper log function that checks comment control and counts
+        # only violations that are actually reported (not suppressed by Disable).
+        violations_count = 0
+
         def controlled_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
-            # Check if this rule is enabled at this line
-            if line_number is not None and control_states:
-                if not self._comment_controller.get_rule_state_at_line(rule, line_number, control_states):
+            nonlocal violations_count
+            # When line_number is None, fall back to continuum state at line 1 so
+            # file-level "# RULE Disable" directives still apply.
+            if control_states:
+                effective_line = line_number if line_number is not None else 1
+                if not self._comment_controller.get_rule_state_at_line(rule, effective_line, control_states):
                     return  # Skip logging if rule is disabled at this line
-            
-            # Call the original log function
+
+            violations_count += 1
             log_error_func(path, rule, message, line_number)
-        
+
         try:
             # Get rule metadata
             if rule_id not in self._unified_registry:
@@ -243,18 +249,11 @@ class RulesManager:
                     error_message=f"Rule {rule_id} not found",
                     violations_count=0
                 )
-            
+
             rule_meta = self._unified_registry[rule_id]
             coordinator = rule_meta["coordinator"]
-            
-            # Execute the rule with controlled logging
-            violations_count = 0
-            def counting_log_func(path: str, rule: str, message: str, line_number: Optional[int] = None):
-                nonlocal violations_count
-                violations_count += 1
-                controlled_log_func(path, rule, message, line_number)
-            
-            success = coordinator.execute_rule(rule_id, file_path, content, counting_log_func)
+
+            success = coordinator.execute_rule(rule_id, file_path, content, controlled_log_func)
             
             execution_time = time.time() - start_time
             
@@ -422,6 +421,14 @@ class RulesManager:
         Returns:
             BatchExecutionSummary: Validation results
         """
+        # Drop stale SC.003 directory analysis when RulesManager is reused
+        # across successive validations (tests / long-running hosts).
+        try:
+            from .sc_rules.rule_003 import clear_directory_version_cache
+            clear_directory_version_cache()
+        except ImportError:
+            pass
+
         # Parse comment control states
         control_states = {}
         if self._config.get("enable_comment_control", True):
