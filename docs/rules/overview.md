@@ -65,7 +65,7 @@ rules/
 │   ├── rule_006.py             # IO.006 - Variable Description Check
 │   ├── rule_007.py             # IO.007 - Output Description Check
 │   ├── rule_008.py             # IO.008 - Variable Type Check
-│   ├── rule_009.py             # IO.009 - Unused variable detection check
+│   ├── rule_009.py             # IO.009 - Variable usage check
 │   ├── rule_010.py             # IO.010 - Variable validation block check
 │   └── README.md               # Detailed IO rules documentation
 └── sc_rules/                   # SC rules modular package
@@ -509,10 +509,10 @@ underscores.
 - Improve code reliability
 - Enforce best practices
 
-### IO.009 - Unused Variable Detection Check
+### IO.009 - Variable Usage Check
 
-**Rule Description:** Detects variables defined in variables.tf but not referenced in any Terraform files within the
-same directory.
+**Rule Description:** Validates that variables declared in `variables.tf` are actually used, and that every
+`var.<name>` reference in the module directory is declared in `variables.tf`.
 
 **Purpose:**
 - Remove dead variable definitions
