@@ -13,6 +13,14 @@ from .rule_metadata import (
     normalize_rule_description,
     validate_rule_description,
 )
+from .sensitive_patterns import (
+    CREDENTIAL_ATTRIBUTE_NAMES,
+    NON_SENSITIVE_ALLOWLIST,
+    get_sensitive_match,
+    get_sensitive_variable_patterns,
+    is_dangerous_string_default,
+    is_placeholder_literal,
+)
 
 __all__ = [
     "PROVIDER_REGION_EXACT",
@@ -24,4 +32,10 @@ __all__ = [
     "assert_rules_have_canonical_metadata",
     "normalize_rule_description",
     "validate_rule_description",
+    "CREDENTIAL_ATTRIBUTE_NAMES",
+    "NON_SENSITIVE_ALLOWLIST",
+    "get_sensitive_match",
+    "get_sensitive_variable_patterns",
+    "is_dangerous_string_default",
+    "is_placeholder_literal",
 ]

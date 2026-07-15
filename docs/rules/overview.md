@@ -76,6 +76,8 @@ rules/
     ├── rule_003.py             # SC.003 - Terraform version compatibility check
     ├── rule_004.py             # SC.004 - HuaweiCloud provider version validity check
     ├── rule_005.py             # SC.005 - Sensitive variable declaration check
+    ├── rule_006.py             # SC.006 - Hardcoded credential literal check
+    ├── rule_007.py             # SC.007 - Sensitive variable non-empty default check
     └── README.md               # Detailed SC rules documentation
 ```
 
@@ -600,6 +602,17 @@ common non-credential names such as `auth_type`.
 - Protect sensitive data
 - Enforce security best practices
 - Prevent data exposure
+
+### SC.006 - Hardcoded Credential Literal Check
+
+**Rule Description:** Flags string literals assigned to known credential attributes
+(`access_key`, `secret_key`, `token`, etc.) in `.tf` files. Variable references and
+placeholders such as `CHANGEME` are allowed.
+
+### SC.007 - Sensitive Variable Non-Empty Default Check
+
+**Rule Description:** Sensitive-named variables must not declare a non-empty,
+non-placeholder string `default`. Complements SC.005 with default hygiene.
 
 ## Rule Implementation
 

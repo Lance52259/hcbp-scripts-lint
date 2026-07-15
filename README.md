@@ -14,7 +14,7 @@ Get up and running in 5 minutes with our comprehensive Terraform linting tool. W
 local development, we provide everything you need to ensure code quality and consistency across your Terraform projects.
 
 **Key Features:**
-- 30 Linting Rules across 4 categories (ST, IO, DC, SC)
+- 32 Linting Rules across 4 categories (ST, IO, DC, SC)
 - GitHub Actions Integration with artifact support
 - Performance Monitoring and detailed reporting
 - Flexible Configuration with rule filtering and path exclusion
@@ -272,6 +272,8 @@ For more information, please refer to the [DC rules documentation](docs/rules/dc
 - **SC.003**: Terraform version compatibility check
 - **SC.004**: HuaweiCloud provider version validity check
 - **SC.005**: Sensitive variable declaration check
+- **SC.006**: Hardcoded credential literal check
+- **SC.007**: Sensitive variable non-empty default check
 
 For more information, please refer to the [SC rules documentation](docs/rules/sc_rules.md).
 

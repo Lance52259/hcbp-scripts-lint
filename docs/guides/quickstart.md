@@ -206,7 +206,8 @@ output:
 - **SC.003**: Terraform version compatibility
 - **SC.004**: Provider version validation
 - **SC.005**: Sensitive variable declaration check
-- **SC.006**: Access control validation
+- **SC.006**: Hardcoded credential literal check
+- **SC.007**: Sensitive variable non-empty default check
 
 ## 🔧 Advanced Configuration
 

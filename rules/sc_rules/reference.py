@@ -24,6 +24,8 @@ from .rule_002 import check_sc002_terraform_version_declaration, get_rule_descri
 from .rule_003 import check_sc003_terraform_version_compatibility, get_rule_description as get_sc003_description
 from .rule_004 import check_sc004_provider_version_validity, get_rule_description as get_sc004_description
 from .rule_005 import check_sc005_sensitive_variable_declaration, get_rule_description as get_sc005_description
+from .rule_006 import check_sc006_hardcoded_credential_literals, get_rule_description as get_sc006_description
+from .rule_007 import check_sc007_sensitive_variable_default, get_rule_description as get_sc007_description
 
 
 class SCRules:
@@ -76,7 +78,19 @@ class SCRules:
                 "description_function": get_sc005_description,
                 "name": "Sensitive variable declaration check",
                 "status": "modular"
-            }
+            },
+            "SC.006": {
+                "check_function": check_sc006_hardcoded_credential_literals,
+                "description_function": get_sc006_description,
+                "name": "Hardcoded credential literal check",
+                "status": "modular"
+            },
+            "SC.007": {
+                "check_function": check_sc007_sensitive_variable_default,
+                "description_function": get_sc007_description,
+                "name": "Sensitive variable non-empty default check",
+                "status": "modular"
+            },
         }
     
     def get_available_rules(self) -> List[str]:

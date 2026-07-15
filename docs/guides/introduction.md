@@ -120,6 +120,8 @@ class STRules:
 - **SC.004**: HuaweiCloud provider version validity check (deep opt-in: `--deep` / Action `deep-check`; skipped by default)
 - **SC.005**: Sensitive variable declaration check (validates that sensitive variables are properly declared with
   Sensitive=true)
+- **SC.006**: Hardcoded credential literal check (credential attributes must not embed string secrets in `.tf` files)
+- **SC.007**: Sensitive variable non-empty default check (sensitive-named variables must not use dangerous defaults)
 
 **Implementation Features**:
 - **Data Source Safety**: Validates safe array index access in data source list attribute references
