@@ -54,7 +54,8 @@ rules/
     ├── rule_003.py             # SC.003 - Terraform version compatibility check
     ├── rule_004.py             # SC.004 - HuaweiCloud provider version validity check
     ├── rule_005.py             # SC.005 - Sensitive variable declaration check
-    └── [future rule modules]   # Additional SC rules as separate modules
+    ├── rule_006.py             # SC.006 - Hardcoded credential literal check
+    ├── rule_007.py             # SC.007 - Sensitive variable non-empty default check
 ```
 
 ## Package Design Pattern
@@ -136,6 +137,8 @@ Each rule package follows a consistent design pattern:
 | SC.003 | Terraform Version Compatibility Check | Validates that declared required_version is compatible with features used | ✅ Modular |
 | SC.004 | HuaweiCloud Provider Version Validity Check | Validates huaweicloud provider version constraints by testing with current and previous versions | ✅ Modular |
 | SC.005 | Sensitive Variable Declaration Check | Validates that sensitive variables are properly declared with Sensitive=true | ✅ Modular |
+| SC.006 | Hardcoded Credential Literal Check | Flags credential attribute string literals in `.tf` files | ✅ Modular |
+| SC.007 | Sensitive Variable Non-Empty Default Check | Sensitive-named variables must not use dangerous non-empty defaults | ✅ Modular |
 
 ## Usage Examples
 

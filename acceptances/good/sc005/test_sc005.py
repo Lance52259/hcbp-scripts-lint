@@ -52,6 +52,16 @@ class SensitiveMatchTest(unittest.TestCase):
     def test_allowlist_auth_type(self):
         self.assertIsNone(_get_sensitive_match("auth_type", self.patterns))
 
+    def test_non_sensitive_microphone(self):
+        self.assertIsNone(_get_sensitive_match("microphone", self.patterns))
+
+    def test_non_sensitive_speakerphone(self):
+        self.assertIsNone(_get_sensitive_match("speakerphone", self.patterns))
+
+    def test_segment_match_user_phone(self):
+        match = _get_sensitive_match("user_phone", self.patterns)
+        self.assertEqual(match, ("phone", "segment"))
+
     def test_allowlist_does_not_apply_to_exact_token(self):
         match = _get_sensitive_match("token", self.patterns)
         self.assertEqual(match, ("token", "exact"))
@@ -79,6 +89,10 @@ class CheckSc005IntegrationTest(unittest.TestCase):
 
     def test_non_sensitive_examples_pass(self):
         errors = self._run_rule("acceptances/good/sc005/non_sensitive/variables.tf")
+        self.assertEqual(errors, [])
+
+    def test_microphone_examples_pass(self):
+        errors = self._run_rule("acceptances/good/sc005/microphone/variables.tf")
         self.assertEqual(errors, [])
 
     def test_missing_sensitive_examples_fail(self):
