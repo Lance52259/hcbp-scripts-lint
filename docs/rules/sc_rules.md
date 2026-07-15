@@ -22,10 +22,10 @@ sc_rules/
 
 | Rule ID | Name | Description | Module |
 |---------|------|-------------|---------|
-| SC.001 | Array index access safety check | Enforce safe array access using try() function | `rule_001.py` |
+| SC.001 | Array index access safety check | Enforce safe access for risky data/var/local indexes | `rule_001.py` |
 | SC.002 | Terraform required version declaration check | Validates that providers.tf files contain terraform block with required_version declaration | `rule_002.py` |
 | SC.003 | Terraform version compatibility check | Validates that declared required_version is compatible with features used | `rule_003.py` |
-| SC.004 | HuaweiCloud provider version validity check | Validates huaweicloud provider version constraints by testing with current and previous versions | `rule_004.py` |
+| SC.004 | HuaweiCloud provider version validity check | Deep opt-in probe of version constraints (GitHub + terraform validate) | `rule_004.py` |
 | SC.005 | Sensitive variable declaration check | Validates that sensitive variables are properly declared with Sensitive=true | `rule_005.py` |
 
 ## 🚀 Usage
@@ -196,9 +196,9 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 - Complex nested list access patterns
 
 **Validation Criteria**:
-- Array access expressions must use `try()` function for safety
-- Direct array indexing `[0]`, `[1]`, etc. should be wrapped in try() calls
-- Prevents runtime errors from accessing non-existent array elements
+- Flags bare `data.*[N]`, collection-typed `var.*[N]`, and locals from for-expressions / `data.*` aliases
+- Literal local lists are not flagged
+- Same-line safe wrappers: `try()`, `element()`, `one()`, `can()`, or `length(...) > 0 ? ... : ...`
 
 **Examples**:
 
@@ -252,6 +252,9 @@ locals {
 
 **Purpose**: Validates huaweicloud provider version constraints by testing with current and previous versions to ensure
 proper version boundaries.
+
+**Requires deep mode**: skipped by default; enable with `--deep`, `HCBP_DEEP_CHECKS=1`, or Action `deep-check: true`.
+Runs only on `providers.tf`.
 
 **Scenarios Covered**:
 - Version constraint is too permissive (previous version also works)

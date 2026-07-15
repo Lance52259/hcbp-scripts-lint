@@ -22,6 +22,9 @@ Examples:
   # Check specific directory with performance monitoring
   {example_prefix} --directory ./infrastructure
 
+  # Enable deep provider version probing (SC.004; network + terraform)
+  {example_prefix} --deep --directory ./modules
+
   # Ignore specific rules and categories
   {example_prefix} --ignore-rules "ST.001,ST.003" --categories "ST,IO"
 

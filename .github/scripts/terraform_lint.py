@@ -131,6 +131,14 @@ class LintReport:
         self.performance_metrics = performance_metrics
 
 
+DEEP_RULES = frozenset({"SC.004"})
+
+
+def deep_checks_enabled_from_env() -> bool:
+    """Return True when HCBP_DEEP_CHECKS requests deep integration checks."""
+    return os.environ.get("HCBP_DEEP_CHECKS", "").strip().lower() in ("1", "true", "yes")
+
+
 class TerraformLinter:
     """
     Enhanced Terraform Scripts Linter using Unified Rules Management System
@@ -150,7 +158,8 @@ class TerraformLinter:
     def __init__(self, ignored_rules: Set[str] = None, include_paths: List[str] = None,
                  exclude_paths: List[str] = None, changed_files_only: bool = False,
                  base_ref: str = None, rule_categories: List[str] = None,
-                 enable_performance_monitoring: bool = True):
+                 enable_performance_monitoring: bool = True,
+                 deep_checks: bool = False):
         """
         Initialize the enhanced Terraform linter with unified rules management.
 
@@ -162,6 +171,7 @@ class TerraformLinter:
             base_ref: Base reference for git diff (e.g., 'origin/main', 'HEAD~1')
             rule_categories: List of rule categories to execute (ST, IO, DC, SC). If None, all categories are used.
             enable_performance_monitoring: Whether to enable detailed performance monitoring
+            deep_checks: Enable deep integration checks (SC.004 GitHub + terraform validate)
         """
         # Initialize unified rules manager
         self.rules_manager = RulesManager()
@@ -174,6 +184,7 @@ class TerraformLinter:
         self.base_ref = base_ref or 'HEAD~1'
         self.rule_categories = rule_categories or ["ST", "IO", "DC", "SC"]
         self.enable_performance_monitoring = enable_performance_monitoring
+        self.deep_checks = deep_checks
 
         # Error and warning tracking - using structured records
         self.errors: List[ErrorRecord] = []
@@ -201,6 +212,17 @@ class TerraformLinter:
             print(f"- Ignored rules: {', '.join(sorted(self.ignored_rules))}")
         if self.rule_categories != ["ST", "IO", "DC", "SC"]:
             print(f"- Active categories: {', '.join(self.rule_categories)}")
+        if self.deep_checks:
+            print("- Deep checks enabled (SC.004)")
+        else:
+            print("- Deep checks disabled (SC.004 skipped; pass --deep or set HCBP_DEEP_CHECKS=1)")
+
+    def get_excluded_rules(self) -> Set[str]:
+        """Return rules excluded for this run (user ignores + default deep rules)."""
+        excluded = set(self.ignored_rules)
+        if not self.deep_checks:
+            excluded |= DEEP_RULES
+        return excluded
 
     def should_ignore_rule(self, rule_id: str) -> bool:
         """
@@ -212,7 +234,7 @@ class TerraformLinter:
         Returns:
             True if the rule should be ignored, False otherwise
         """
-        return rule_id in self.ignored_rules
+        return rule_id in self.get_excluded_rules()
 
     def should_exclude_path(self, file_path: str) -> bool:
         """
@@ -462,7 +484,7 @@ class TerraformLinter:
 
             rule_filter = {
                 "excluded_categories": excluded_categories,
-                "excluded_rules": list(self.ignored_rules)
+                "excluded_rules": list(self.get_excluded_rules())
             }
 
             # Execute rules using unified system
@@ -1232,6 +1254,9 @@ def main():
     parser.add_argument('--ignore-rules',
                        help='Comma-separated list of rule IDs to ignore (e.g., ST.001,DC.001)')
 
+    parser.add_argument('--deep', action='store_true',
+                       help='Enable deep integration checks (SC.004: GitHub Releases + terraform validate)')
+
     parser.add_argument('--categories',
                        help='Comma-separated list of rule categories to execute (ST,IO,DC,SC). Default: all categories')
 
@@ -1303,6 +1328,10 @@ def main():
         ignored_rules = set(rule.strip() for rule in args.ignore_rules.split(','))
         print(f"Ignoring rules: {', '.join(sorted(ignored_rules))}")
 
+    deep_checks = bool(args.deep) or deep_checks_enabled_from_env()
+    if deep_checks and not args.deep and deep_checks_enabled_from_env():
+        print("Deep checks enabled via HCBP_DEEP_CHECKS")
+
     # Parse rule categories
     rule_categories = ["ST", "IO", "DC", "SC"]  # Default to all categories
     if args.categories:
@@ -1329,7 +1358,8 @@ def main():
         changed_files_only=args.changed_files_only,
         base_ref=args.base_ref,
         rule_categories=rule_categories,
-        enable_performance_monitoring=enable_performance_monitoring
+        enable_performance_monitoring=enable_performance_monitoring,
+        deep_checks=deep_checks,
     )
 
     print(f"Starting enhanced Terraform lint check in: {target_directory}")

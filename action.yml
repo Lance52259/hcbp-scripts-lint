@@ -15,6 +15,10 @@ inputs:
     description: 'Whether to fail the workflow when errors are found'
     required: false
     default: 'true'
+  deep-check:
+    description: 'Enable deep integration checks (SC.004 provider version probe; requires network + terraform)'
+    required: false
+    default: 'false'
   ignore-rules:
     description: 'Comma-separated list of rule IDs to ignore (e.g., ST.001,ST.003)'
     required: false
@@ -85,6 +89,7 @@ runs:
         python-version: '3.x'
 
     - name: Set up Terraform
+      if: inputs.deep-check == 'true'
       uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: '1.9.0'
@@ -95,6 +100,7 @@ runs:
         echo "=== Enhanced Terraform Linter - Unified System ==="
         echo "Directory: ${{ inputs.directory }}"
         echo "Fail on Error: ${{ inputs.fail-on-error }}"
+        echo "Deep Check (SC.004): ${{ inputs.deep-check }}"
         echo "Ignore Rules: ${{ inputs.ignore-rules }}"
         echo "Rule Categories: ${{ inputs.rule-categories }}"
         echo "Include Paths: ${{ inputs.include-paths }}"
@@ -167,6 +173,10 @@ runs:
         # Add rule filtering options
         if [ -n "${{ inputs.ignore-rules }}" ]; then
           BASE_CMD="$BASE_CMD --ignore-rules '${{ inputs.ignore-rules }}'"
+        fi
+
+        if [ "${{ inputs.deep-check }}" = "true" ]; then
+          BASE_CMD="$BASE_CMD --deep"
         fi
         
         if [ -n "${{ inputs.rule-categories }}" ]; then
