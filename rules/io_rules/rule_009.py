@@ -8,6 +8,7 @@ references within a Terraform module directory.
 Rule Specification:
 - Detect variables defined in variables.tf but never referenced (unused)
 - Detect variables referenced as var.<name> but not declared in variables.tf (undeclared)
+- Counts references in all sibling *.tf files, including variables.tf (validation, etc.)
 - Operates at directory scope when variables.tf is linted
 - Excludes provider-related variables from the unused-variable check only
 
@@ -28,7 +29,8 @@ def check_io009_unused_variables(file_path: str, content: str, log_error_func: C
     Validate variable usage in a Terraform module directory.
 
     Performs bidirectional checks when processing variables.tf:
-    1. Defined but never used
+    1. Defined but never used (references counted in all sibling *.tf files,
+       including variables.tf itself — e.g. validation blocks)
     2. Referenced but not declared in variables.tf
 
     Args:
@@ -47,7 +49,7 @@ def check_io009_unused_variables(file_path: str, content: str, log_error_func: C
     else:
         defined_names = {var_name for var_name, _ in defined_variables}
 
-    used_variables = _get_used_variables_in_directory(file_dir)
+    used_variables = _get_used_variables_in_directory(file_dir, variables_tf_content=content)
 
     for var_name, line_number in defined_variables:
         if _should_exclude_from_unused_check(var_name):
@@ -61,25 +63,37 @@ def check_io009_unused_variables(file_path: str, content: str, log_error_func: C
                 line_number
             )
 
-    _check_undeclared_variable_references(file_dir, defined_names, log_error_func)
+    _check_undeclared_variable_references(
+        file_dir,
+        defined_names,
+        log_error_func,
+        variables_tf_path=file_path,
+        variables_tf_content=content,
+    )
 
 
 def _check_undeclared_variable_references(
     directory: str,
     defined_names: Set[str],
     log_error_func: Callable[[str, str, str, Optional[int]], None],
+    variables_tf_path: Optional[str] = None,
+    variables_tf_content: Optional[str] = None,
 ) -> None:
     """Report var.<name> references that are not declared in variables.tf."""
     reported: Set[str] = set()
     tf_files = sorted(glob.glob(os.path.join(directory, "*.tf")))
 
     for tf_file in tf_files:
-        if os.path.basename(tf_file) == 'variables.tf':
-            continue
-
         try:
-            with open(tf_file, 'r', encoding='utf-8') as handle:
-                tf_content = handle.read()
+            if (
+                variables_tf_content is not None
+                and variables_tf_path is not None
+                and os.path.abspath(tf_file) == os.path.abspath(variables_tf_path)
+            ):
+                tf_content = variables_tf_content
+            else:
+                with open(tf_file, 'r', encoding='utf-8') as handle:
+                    tf_content = handle.read()
         except OSError:
             continue
 
@@ -112,18 +126,36 @@ def _extract_variables_with_lines(content: str) -> List[Tuple[str, int]]:
     return variables
 
 
-def _get_used_variables_in_directory(directory: str) -> Set[str]:
-    """Collect all var.<name> references from .tf files in the directory."""
+def _get_used_variables_in_directory(
+    directory: str,
+    variables_tf_content: Optional[str] = None,
+) -> Set[str]:
+    """
+    Collect all var.<name> references from .tf files in the directory.
+
+    Includes variables.tf so validation (and other) references count as usage.
+    When *variables_tf_content* is provided, it is used instead of re-reading
+    that file from disk.
+    """
     used_variables: Set[str] = set()
     tf_files = glob.glob(os.path.join(directory, "*.tf"))
+    variables_tf_abs = (
+        os.path.abspath(os.path.join(directory, 'variables.tf'))
+        if directory is not None
+        else None
+    )
 
     for tf_file in tf_files:
-        if os.path.basename(tf_file) == 'variables.tf':
-            continue
-
         try:
-            with open(tf_file, 'r', encoding='utf-8') as handle:
-                tf_content = handle.read()
+            if (
+                variables_tf_content is not None
+                and variables_tf_abs is not None
+                and os.path.abspath(tf_file) == variables_tf_abs
+            ):
+                tf_content = variables_tf_content
+            else:
+                with open(tf_file, 'r', encoding='utf-8') as handle:
+                    tf_content = handle.read()
         except OSError:
             continue
 
@@ -203,27 +235,37 @@ def get_rule_description() -> dict:
         "name": "Variable usage check",
         "description": (
             "Validates variable definitions and references within a module directory. "
-            "Reports variables defined in variables.tf but never used, and variables "
-            "referenced as var.<name> but not declared in variables.tf."
+            "Reports variables defined in variables.tf but never used (including usage "
+            "inside variables.tf such as validation blocks), and variables referenced "
+            "as var.<name> but not declared in variables.tf."
         ),
         "category": "Input/Output",
         "severity": "warning",
         "rationale": (
             "Unused variables add unnecessary complexity, while undeclared references "
             "indicate missing module inputs or stale configuration. Bidirectional "
-            "checking keeps variables.tf aligned with actual module usage."
+            "checking keeps variables.tf aligned with actual module usage, including "
+            "cross-variable validation expressions."
         ),
         "examples": {
             "valid": [
                 '''
 # variables.tf
-variable "instance_name" {
-  type = string
+variable "min_count" {
+  type = number
+}
+
+variable "max_count" {
+  type = number
+  validation {
+    condition     = var.max_count >= var.min_count
+    error_message = "max_count must be >= min_count"
+  }
 }
 
 # main.tf
-resource "huaweicloud_compute_instance" "test" {
-  name = var.instance_name
+resource "null_resource" "test" {
+  triggers = { n = var.max_count }
 }
 '''
             ],
@@ -247,10 +289,11 @@ resource "huaweicloud_compute_instance" "test" {
         },
         "auto_fixable": False,
         "performance_impact": "minimal",
-        "related_rules": ["IO.001", "IO.003", "ST.009"],
+        "related_rules": ["IO.001", "IO.003", "IO.010", "ST.009"],
         "configuration": {
             "check_unused_variables": True,
             "check_undeclared_references": True,
+            "include_variables_tf_references": True,
             "exclude_provider_variables_from_unused_check": True,
             "search_current_directory_only": True,
             "excluded_provider_variables": "shared via rules.common.provider_variables",

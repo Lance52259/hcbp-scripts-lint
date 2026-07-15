@@ -102,7 +102,7 @@ class STRules:
 - **IO.006**: Variable description validation (non-empty descriptions required)
 - **IO.007**: Output description validation (non-empty descriptions required)
 - **IO.008**: Variable type validation (type field required)
-- **IO.009**: Unused variable detection (variables defined but not used)
+- **IO.009**: Variable usage check (unused definitions and undeclared `var.*` references, including inside `variables.tf`)
 
 **Advanced Features**:
 - Cross-file dependency analysis

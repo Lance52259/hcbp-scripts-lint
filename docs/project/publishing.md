@@ -119,7 +119,7 @@ git push origin v1
 - IO.006: Variable description check (all variables must have non-empty descriptions)
 - IO.007: Output description check (all outputs must have non-empty descriptions)
 - IO.008: Variable type check (all variables must have type field defined)
-- IO.009: Unused variable detection check (detects variables defined but not used)
+- IO.009: Variable usage check (unused definitions + undeclared `var.*`, including refs in `variables.tf`)
 
 ### SC (Security Code) Rules
 - SC.001: Array index access safety check (validates that array index access uses try() function to prevent index out of

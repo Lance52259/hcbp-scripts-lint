@@ -511,8 +511,9 @@ underscores.
 
 ### IO.009 - Variable Usage Check
 
-**Rule Description:** Validates that variables declared in `variables.tf` are actually used, and that every
-`var.<name>` reference in the module directory is declared in `variables.tf`.
+**Rule Description:** Validates that variables declared in `variables.tf` are actually used (references counted in all
+sibling `*.tf` files including `variables.tf`, e.g. validation blocks), and that every `var.<name>` reference in the
+module directory is declared in `variables.tf`.
 
 **Purpose:**
 - Remove dead variable definitions

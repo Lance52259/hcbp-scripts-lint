@@ -257,7 +257,7 @@ For more information, please refer to the [ST rules documentation](docs/rules/st
 - **IO.006**: Variable description requirement
 - **IO.007**: Output description requirement
 - **IO.008**: Variable type definition requirement
-- **IO.009**: Unused variable detection check
+- **IO.009**: Variable usage check (unused + undeclared `var.*`, including refs in `variables.tf`)
 
 For more information, please refer to the [IO rules documentation](docs/rules/io_rules.md).
 
