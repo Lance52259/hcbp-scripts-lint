@@ -31,7 +31,7 @@ io_rules/
 |---------|------|-------------|---------|
 | IO.001 | Variable definition file location check | Variables must be defined in variables.tf | `rule_001.py` |
 | IO.002 | Output definition file location check | Outputs must be defined in outputs.tf | `rule_002.py` |
-| IO.003 | Required variable declaration check | Required variables must be declared in terraform.tfvars | `rule_003.py` |
+| IO.003 | Required variable declaration check | Required variables must be declared in terraform.tfvars or `*.auto.tfvars` | `rule_003.py` |
 | IO.004 | Variable naming convention check | Variable names must use snake_case format | `rule_004.py` |
 | IO.005 | Output naming convention check | Output names must use snake_case format | `rule_005.py` |
 | IO.006 | Variable description field check | All variables must have non-empty descriptions | `rule_006.py` |
@@ -63,13 +63,15 @@ io_rules/
 
 ### IO.003 - Required Variable Declaration Check
 
-**Purpose**: Validates that variables without defaults are declared in terraform.tfvars.
+**Purpose**: Validates that variables without defaults are declared in terraform.tfvars or sibling `*.auto.tfvars`.
 
 **Validation Criteria**:
-- Variables without default values must be declared in terraform.tfvars
+- Variables without a `default` attribute must be declared in `terraform.tfvars` and/or sibling `*.auto.tfvars`
+- `default = null` (or any other `default`) makes the variable optional for this rule
 - Does not check `var.<name>` references (see IO.009)
+- Does not load env-split `*.tfvars` or `*.tfvars.json`
 - Provider-related variables are excluded
-- Cross-file validation between `.tf` variable blocks and `terraform.tfvars`
+- Cross-file validation between `.tf` variable blocks and auto-loaded tfvars
 
 ### IO.004 - Variable Naming Convention Check
 

@@ -454,9 +454,11 @@ double quotes around their type and name declarations.
 
 ### IO.003 - Required Variable Declaration Check
 
-**Rule Description:** Validates that variables without default values are declared in terraform.tfvars,
-excluding provider-related variables like region / region_*, access_key, secret_key, domain_name.
-Does not verify whether variables are referenced as `var.<name>` (see IO.009).
+**Rule Description:** Validates that variables without default values are declared in
+`terraform.tfvars` or sibling `*.auto.tfvars` (Terraform auto-load set), excluding
+provider-related variables like region / region_*, access_key, secret_key, domain_name.
+`default = null` counts as a default. Does not verify whether variables are referenced
+as `var.<name>` (see IO.009). Env-split `*.tfvars` and `*.tfvars.json` are not loaded.
 
 **Purpose:**
 - Ensure all required variables are properly declared
