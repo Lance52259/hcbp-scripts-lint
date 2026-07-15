@@ -135,7 +135,7 @@ def check_io003_required_variables(file_path: str, content: str,
         ... }
         ... '''
         >>> check_io003_required_variables("main.tf", content, sample_log_func)
-        IO.003 at main.tf:1: Required variable 'cpu_cores' used and must be declared in terraform.tfvars
+        IO.003 at main.tf:1: Required variable 'cpu_cores' (no default) must be declared in terraform.tfvars
     """
     # Get the directory of the current file
     file_dir = os.path.dirname(file_path)
@@ -166,7 +166,7 @@ def check_io003_required_variables(file_path: str, content: str,
             log_error_func(
                 file_path,
                 "IO.003",
-                f"Required variable '{var_name}' used and must be declared in terraform.tfvars",
+                f"Required variable '{var_name}' (no default) must be declared in terraform.tfvars",
                 line_number
             )
 
@@ -292,21 +292,21 @@ def get_rule_description() -> dict:
         "id": "IO.003",
         "name": "Required variable declaration check in terraform.tfvars",
         "description": (
-            "Validates that all required variables (variables without default "
-            "values) are declared in the terraform.tfvars file. Each missing "
-            "variable declaration is reported individually with precise line numbers. "
-            "Provider-related variables (region / region_*, access_key, secret_key, domain_name, "
-            "tenant/user/project identifiers) are excluded from this validation."
+            "Validates that variables without default values are declared in "
+            "terraform.tfvars. Does not verify whether variables are referenced as "
+            "var.<name> in module code (see IO.009 for usage checks). Each missing "
+            "declaration is reported with a precise line number. Provider-related "
+            "variables (region / region_*, access_key, secret_key, domain_name, "
+            "tenant/user/project identifiers) are excluded."
         ),
         "category": "Input/Output",
         "severity": "error",
         "rationale": (
-            "Required variables must have values provided through terraform.tfvars "
-            "to ensure successful deployment. Missing required variables will cause "
-            "Terraform to fail during execution. Each violation is reported "
-            "separately for precise error identification. Provider-related variables "
-            "are excluded as they are typically managed through environment variables "
-            "or provider configuration files for security reasons."
+            "Variables without defaults need values from terraform.tfvars for "
+            "non-interactive applies. This rule enforces that declaration contract; "
+            "it is independent of whether the variable is referenced in .tf files. "
+            "Provider-related variables are excluded because they are often supplied "
+            "via environment variables or provider configuration."
         ),
         "examples": {
             "valid": [
@@ -373,8 +373,8 @@ variable "flavor_id" {            # Line 20: Optional variable
 flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
 
 # Expected errors:
-# ERROR: main.tf (2): [IO.003] Required variable 'cpu_cores' used and must be declared in terraform.tfvars
-# ERROR: main.tf (8): [IO.003] Required variable 'memory_size' used and must be declared in terraform.tfvars
+# ERROR: main.tf (2): [IO.003] Required variable 'cpu_cores' (no default) must be declared in terraform.tfvars
+# ERROR: main.tf (8): [IO.003] Required variable 'memory_size' (no default) must be declared in terraform.tfvars
 '''
             ]
         },

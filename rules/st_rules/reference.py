@@ -101,7 +101,7 @@ class STRules:
             "ST.008": {
                 "check_function": check_st008_count_depends_on_spacing,
                 "description_function": get_st008_description,
-                "name": "Count and depends_on spacing check",
+                "name": "Meta-parameter spacing check",
                 "status": "modular"
             },
             "ST.009": {
@@ -165,15 +165,17 @@ class STRules:
             return None
             
         rule_info = self._rules_registry[rule_id].copy()
-        
+        registry_name = rule_info.get("name")
+
         # Get detailed description from the rule module
         try:
             description = rule_info["description_function"]()
             rule_info.update(description)
         except Exception as e:
             rule_info["error"] = f"Failed to get rule description: {str(e)}"
-            
-        return rule_info
+
+        from rules.common.rule_metadata import normalize_rule_description
+        return normalize_rule_description(rule_info, rule_id, registry_name=registry_name)
     
     def execute_rule(self, rule_id: str, file_path: str, content: str,
                     log_error_func: Callable[[str, str, str, Optional[int]], None]) -> bool:

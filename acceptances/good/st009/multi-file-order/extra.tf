@@ -1,0 +1,3 @@
+locals {
+  first = var.a
+}

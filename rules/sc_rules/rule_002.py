@@ -186,6 +186,7 @@ def get_rule_description() -> dict:
         dict: Rule description with name, description, and examples
     """
     return {
+        "id": "SC.002",
         "name": "Terraform required version declaration check",
         "description": "Validates that providers.tf files contain a terraform block with required_version declaration to ensure consistent Terraform version usage across the project.",
         "category": "Security Code",

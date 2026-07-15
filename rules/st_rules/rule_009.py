@@ -3,12 +3,13 @@
 ST.009 - Variable Definition Order Check
 
 This module implements the ST.009 rule which validates that variable definitions
-in variables.tf follow the same order as their usage in main.tf.
+in variables.tf follow the same order as their first usage in sibling *.tf files.
 
 Rule Specification:
-- Variable definition order in variables.tf must match usage order in main.tf
-- The first variable used in main.tf should be defined first in variables.tf
-- This ensures logical consistency between variable definitions and usage
+- Variable definition order in variables.tf must match first-use order
+- First-use is collected from all sibling *.tf files except variables.tf
+  (alphabetical file order, then top-to-bottom within each file)
+- Provider-related variables are excluded from ordering
 - Helps developers understand variable dependencies and usage patterns
 
 Examples:
@@ -81,103 +82,90 @@ License: Apache 2.0
 
 import re
 import os
-from typing import Callable, List, Dict, Optional, Tuple
+import glob
+from typing import Callable, List, Optional, Set, Tuple
 
 from rules.common.provider_variables import is_provider_related_variable
 
 
 def check_st009_variable_order(file_path: str, content: str, log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that variable definition order in variables.tf matches usage order in main.tf.
+    Validate that variable definition order in variables.tf matches first-use order
+    across sibling *.tf files (excluding variables.tf).
 
-    This function checks that the order of variable definitions in variables.tf
-    corresponds to the order in which variables are first used in main.tf.
-    This ensures logical consistency and helps developers understand variable
-    dependencies and usage patterns.
-
-    The validation process:
-    1. If checking variables.tf, find the corresponding main.tf in the same directory
-    2. Extract variable usage order from main.tf
-    3. Extract variable definition order from variables.tf
-    4. Compare the orders and report any inconsistencies
+    First-use semantics:
+    1. Collect sibling ``*.tf`` files sorted by basename (alphabetical)
+    2. Skip ``variables.tf`` so validation cross-refs do not drive ordering
+    3. Walk each file top-to-bottom; first ``var.<name>`` wins
+    4. Compare against definition order in variables.tf
 
     Args:
-        file_path (str): The path to the file being checked. Used for error reporting
-                        to help developers identify the location of violations.
-
-        content (str): The complete content of the Terraform file as a string.
-                      This should be the content of variables.tf.
-
-        log_error_func (Callable[[str, str, str, Optional[int]], None]): A callback function used
-                      to report rule violations. The function should accept four
-                      parameters: file_path, rule_id, error_message, and optional line_number.
-
-    Returns:
-        None: This function doesn't return a value but reports errors through
-              the log_error_func callback.
-
-    Raises:
-        No exceptions are raised by this function. All errors are handled
-        gracefully and reported through the logging mechanism.
+        file_path: Path being linted (must be variables.tf to run).
+        content: Content of variables.tf.
+        log_error_func: Error reporting callback.
     """
-    # Only check variables.tf files
     if not file_path.endswith('variables.tf'):
         return
-    
-    # Get the directory containing variables.tf
+
     file_dir = os.path.dirname(file_path)
-    main_tf_path = os.path.join(file_dir, 'main.tf')
-    
-    # Check if main.tf exists
-    if not os.path.exists(main_tf_path):
-        return  # No main.tf to compare against
-    
-    try:
-        with open(main_tf_path, 'r', encoding='utf-8') as f:
-            main_tf_content = f.read()
-    except Exception:
-        return  # Can't read main.tf
-    
-    # Extract variable usage order from main.tf
-    usage_order = _extract_variable_usage_order(main_tf_content)
-    
-    # Extract variable definition order from variables.tf
+    usage_order = _get_variable_usage_order_in_directory(file_dir)
     definition_order = _extract_variable_definition_order(content)
-    
+
     if not usage_order or not definition_order:
-        return  # No variables to check
-    
-    # Check order consistency
+        return
+
     order_errors = _check_order_consistency(usage_order, definition_order)
 
     for error_msg, line_number in order_errors:
         log_error_func(file_path, "ST.009", error_msg, line_number)
 
 
-def _extract_variable_usage_order(main_tf_content: str) -> List[str]:
+def _get_variable_usage_order_in_directory(directory: str) -> List[str]:
     """
-    Extract the order of variable usage from main.tf content.
+    Collect first-use order of non-provider var.* references.
 
-    Excludes shared provider-related variables from ordering.
-
-    Args:
-        main_tf_content (str): Content of main.tf file
-
-    Returns:
-        List[str]: List of variable names in order of first usage (excluding provider variables)
+    Scans sorted sibling *.tf files, excluding variables.tf.
     """
-    usage_order = []
-    seen_variables = set()
+    usage_order: List[str] = []
+    seen_variables: Set[str] = set()
+    tf_files = sorted(glob.glob(os.path.join(directory, '*.tf')))
 
-    # Find all variable references in order
+    for tf_file in tf_files:
+        if os.path.basename(tf_file) == 'variables.tf':
+            continue
+        try:
+            with open(tf_file, 'r', encoding='utf-8') as handle:
+                tf_content = handle.read()
+        except OSError:
+            continue
+        _append_variable_usage_order(tf_content, usage_order, seen_variables)
+
+    return usage_order
+
+
+def _append_variable_usage_order(
+    content: str,
+    usage_order: List[str],
+    seen_variables: Set[str],
+) -> None:
+    """Append newly seen non-provider var.* names from *content* into *usage_order*."""
     var_pattern = r'var\.([a-zA-Z_][a-zA-Z0-9_]*)'
-    matches = re.finditer(var_pattern, main_tf_content)
-
-    for match in matches:
+    for match in re.finditer(var_pattern, content):
         var_name = match.group(1)
         if var_name not in seen_variables and not is_provider_related_variable(var_name):
             usage_order.append(var_name)
             seen_variables.add(var_name)
+
+
+def _extract_variable_usage_order(tf_content: str) -> List[str]:
+    """
+    Extract first-use order of variable references from a single .tf file content.
+
+    Excludes shared provider-related variables from ordering.
+    """
+    usage_order: List[str] = []
+    seen_variables: Set[str] = set()
+    _append_variable_usage_order(tf_content, usage_order, seen_variables)
 
     return usage_order
 
@@ -218,7 +206,7 @@ def _check_order_consistency(
     Check if variable definition order matches usage order.
 
     Args:
-        usage_order (List[str]): Variables in order of usage in main.tf
+        usage_order (List[str]): Variables in first-use order across sibling *.tf files
         definition_order (List[Tuple[str, int]]): Variables in definition order with line numbers
 
     Returns:
@@ -257,49 +245,6 @@ def _check_order_consistency(
     return errors
 
 
-def _analyze_variable_usage_patterns(main_tf_content: str, variables_tf_content: str) -> dict:
-    """
-    Analyze variable usage patterns between main.tf and variables.tf.
-
-    Args:
-        main_tf_content (str): Content of main.tf
-        variables_tf_content (str): Content of variables.tf
-
-    Returns:
-        dict: Analysis results including usage statistics
-    """
-    usage_order = _extract_variable_usage_order(main_tf_content)
-    definition_order = _extract_variable_definition_order(variables_tf_content)
-    
-    defined_vars = [var_name for var_name, _ in definition_order]
-    used_vars = set(usage_order)
-    defined_vars_set = set(defined_vars)
-    
-    # Variables used but not defined
-    missing_definitions = used_vars - defined_vars_set
-    
-    # Variables defined but not used
-    unused_definitions = defined_vars_set - used_vars
-    
-    # Variables in correct order
-    common_vars = [var for var in usage_order if var in defined_vars]
-    actual_order = [var for var in defined_vars if var in common_vars]
-    correct_order = common_vars == actual_order
-    
-    return {
-        'total_variables_used': len(usage_order),
-        'total_variables_defined': len(defined_vars),
-        'common_variables': len(common_vars),
-        'missing_definitions': list(missing_definitions),
-        'unused_definitions': list(unused_definitions),
-        'correct_order': correct_order,
-        'expected_order': common_vars,
-        'actual_order': actual_order,
-        'usage_order': usage_order,
-        'definition_order': [var_name for var_name, _ in definition_order]
-    }
-
-
 def get_rule_description() -> dict:
     """
     Retrieve detailed information about the ST.009 rule.
@@ -327,12 +272,11 @@ def get_rule_description() -> dict:
         "name": "Variable definition order consistency check",
         "description": (
             "Validates that variable definitions in variables.tf follow the same "
-            "order as their usage in main.tf. This ensures logical consistency "
-            "between variable definitions and their usage patterns, making it "
-            "easier for developers to understand variable dependencies and relationships. "
-            "Provider-related variables (region / region_*, access_key, secret_key, domain_name, "
-            "tenant/user/project identifiers) are excluded from ordering validation to "
-            "avoid interference with authentication and region configuration patterns."
+            "order as their first usage across sibling *.tf files (excluding "
+            "variables.tf). First-use order is determined by alphabetical file "
+            "basename order, then top-to-bottom within each file. Provider-related "
+            "variables (region / region_*, access_key, secret_key, domain_name, "
+            "tenant/user/project identifiers) are excluded from ordering validation."
         ),
         "category": "Style/Format",
         "severity": "warning",
@@ -450,73 +394,11 @@ variable "secret_key" {
         "related_rules": ["IO.001", "IO.003", "IO.009"],
         "configuration": {
             "check_usage_order": True,
-            "require_main_tf": True,
+            "scan_sibling_tf_files": True,
+            "exclude_variables_tf_from_usage": True,
+            "usage_file_sort": "alphabetical_basename",
+            "require_main_tf": False,
             "ignore_unused_variables": False,
             "excluded_provider_variables": "shared via rules.common.provider_variables",
         }
     }
-
-def _extract_assignment_blocks(content: str) -> List[Dict]:
-    """
-    Extract assignment blocks and their parameter assignments.
-    """
-    blocks = []
-    lines = content.split('\n')
-    i = 0
-    
-    while i < len(lines):
-        line = lines[i].strip()
-        
-        # Match different types of blocks - support quoted, single-quoted, and unquoted syntax
-        block_patterns = [
-            r'(resource|data)\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{',  # resource/data
-            r'(variable|output)\s+(?:"([^"]+)"|\'([^\']+)\'|([a-zA-Z_][a-zA-Z0-9_]*))\s*\{',  # variable/output
-            r'(provider|terraform|locals)\s*\{',  # provider/terraform/locals
-        ]
-        
-        matched = False
-        for pattern in block_patterns:
-            block_match = re.match(pattern, line)
-            if block_match:
-                matched = True
-                block_type = block_match.group(1)
-                
-                if block_type in ['resource', 'data']:
-                    # Extract resource/data type and name
-                    type_name = (block_match.group(2) if block_match.group(2) else 
-                                (block_match.group(3) if block_match.group(3) else block_match.group(4)))
-                    instance_name = (block_match.group(5) if block_match.group(5) else 
-                                   (block_match.group(6) if block_match.group(6) else block_match.group(7)))
-                    block_name = f'{block_type} "{type_name}" "{instance_name}"'
-                elif block_type in ['variable', 'output']:
-                    # Extract variable/output name
-                    name = (block_match.group(2) if block_match.group(2) else 
-                           (block_match.group(3) if block_match.group(3) else block_match.group(4)))
-                    block_name = f'{block_type} "{name}"'
-                else:
-                    block_name = block_type
-                
-                # Find all assignments within this block
-                assignments = _extract_assignments_from_block(lines, i)
-                
-                # Find the end of the block
-                brace_count = line.count('{') - line.count('}')
-                j = i + 1
-                while j < len(lines) and brace_count > 0:
-                    brace_count += lines[j].count('{') - lines[j].count('}')
-                    j += 1
-                
-                blocks.append({
-                    'name': block_name,
-                    'start_line': i + 1,
-                    'end_line': j,
-                    'assignments': assignments
-                })
-                
-                i = j
-                break
-        
-        if not matched:
-            i += 1
-    
-    return blocks
