@@ -225,9 +225,11 @@ class MyCustomRule(BaseRule):
     
     def get_rule_description(self) -> Dict:
         return {
-            "rule_id": "CUSTOM.001",
-            "title": "My Custom Rule",
-            "description": "Custom validation logic"
+            "id": "CUSTOM.001",
+            "name": "My Custom Rule",
+            "description": "Custom validation logic",
+            "category": "Custom",
+            "severity": "warning",
         }
 ```
 

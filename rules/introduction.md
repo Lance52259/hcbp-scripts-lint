@@ -521,7 +521,8 @@ resource "huaweicloud_compute_instance" "test" {
 
 ### ST.009 - Variable Definition Order Convention
 
-**Rule Description:** Variable definition order in `variables.tf` must match the usage order in `main.tf`.
+**Rule Description:** Variable definition order in `variables.tf` must match first-use order across sibling `*.tf`
+files (excluding `variables.tf`). First-use order is alphabetical by filename, then top-to-bottom within each file.
 
 **Purpose:**
 - Improves code readability and logical flow
@@ -614,7 +615,7 @@ variable "subnet_name" {     # Fourth variable used in main.tf
 ```
 
 **Best Practices:**
-- Define variables in `variables.tf` in the same order they are first referenced in `main.tf`
+- Define variables in `variables.tf` in the same order they are first referenced in sibling implementation `*.tf` files
 - Review variable usage order when adding new variables
 - Consider grouping related variables together while maintaining usage order
 - Use consistent variable ordering across similar modules

@@ -52,8 +52,8 @@ The tool implements a modular rule system organized into four distinct categorie
 - **ST.006**: Resource and data source block spacing (exactly 1 empty line)
 - **ST.007**: Parameter block spacing check (within resource, data source, provider, terraform, and locals blocks)
 - **ST.008**: Meta-parameter spacing check (validates spacing around meta-parameters like count, for_each, provider, lifecycle, depends_on)
-- **ST.009**: Variable definition order check (variable definition order in `variables.tf` must match usage order in
-  `main.tf`)
+- **ST.009**: Variable definition order check (definition order in `variables.tf` must match first-use order across
+  sibling `*.tf` files, excluding `variables.tf`)
 - **ST.010**: Resource, data source, variable, and output quote check (double quotes around names)
 - **ST.011**: Trailing whitespace check (no trailing spaces or tabs at line ends)
 - **ST.012**: File header and footer whitespace check (no empty lines before first non-empty line, exactly one empty

@@ -374,9 +374,9 @@ resource "huaweicloud_compute_instance" "test" {
 
 ### ST.009 - Variable Definition Order Validation
 
-**Rule Description:** Validates that variable definitions in variables.tf follow the same order as their usage in
-main.tf. Provider-related variables (access_key, secret_key, region_name) are excluded from ordering validation to
-avoid interference with authentication and region configuration patterns.
+**Rule Description:** Validates that variable definitions in `variables.tf` follow the same order as their first
+usage across sibling `*.tf` files (excluding `variables.tf`). First-use order is alphabetical by filename, then
+top-to-bottom within each file. Provider-related variables are excluded from ordering validation.
 
 **Purpose:**
 - Ensure logical variable organization
@@ -452,8 +452,9 @@ double quotes around their type and name declarations.
 
 ### IO.003 - Required Variable Declaration Check
 
-**Rule Description:** Validates that each required variable used in resources must be declared in terraform.tfvars,
-excluding provider-related variables like region_*, access_key, secret_key, domain_name.
+**Rule Description:** Validates that variables without default values are declared in terraform.tfvars,
+excluding provider-related variables like region / region_*, access_key, secret_key, domain_name.
+Does not verify whether variables are referenced as `var.<name>` (see IO.009).
 
 **Purpose:**
 - Ensure all required variables are properly declared

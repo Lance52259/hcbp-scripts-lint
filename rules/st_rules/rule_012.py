@@ -162,6 +162,7 @@ def get_rule_description() -> dict:
         dict: Rule description with name, description, and examples
     """
     return {
+        "id": "ST.012",
         "name": "File header and footer whitespace check",
         "description": "Validates that Terraform files have proper whitespace formatting at the beginning and end. Files should not have empty lines before the first non-empty line, and should have exactly one empty line after the last non-empty line.",
         "category": "Style/Format",

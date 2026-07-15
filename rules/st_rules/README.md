@@ -355,10 +355,10 @@ terraform {
 
 ### ST.009 - Variable Definition Order Check
 
-**Purpose**: Validates variable order consistency between main.tf and variables.tf.
+**Purpose**: Validates variable order consistency between first-use across sibling `*.tf` files and `variables.tf`.
 
 **Validation Criteria**:
-- Variable definition order in variables.tf must match usage order in main.tf
+- Variable definition order in variables.tf must match first-use order across sibling `*.tf` (excluding `variables.tf`)
 - Cross-file analysis for maintaining logical organization
 - Provider-related variables (access_key, secret_key, region_name) are excluded from ordering validation
 - Excludes authentication and region configuration variables to avoid interference with business logic ordering

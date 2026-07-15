@@ -217,12 +217,13 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 ### IO.003 - Required Variable Declaration Check
 
-**Purpose**: Validates that required variables are properly declared in terraform.tfvars.
+**Purpose**: Validates that variables without defaults are declared in terraform.tfvars.
 
 **Validation Criteria**:
 - Variables without default values must be declared in terraform.tfvars
-- Prevents runtime errors from missing variable values
-- Cross-file validation between .tf and .tfvars files
+- Does **not** check whether the variable is referenced as `var.<name>` (see IO.009)
+- Provider-related variables are excluded
+- Cross-file validation between `.tf` variable blocks and `terraform.tfvars`
 
 ### IO.004 - Variable Naming Convention Check
 
