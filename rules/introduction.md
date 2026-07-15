@@ -1458,16 +1458,18 @@ variable "subnet_count" {
 
 ---
 
-### IO.009 - Unused Variable Detection
+### IO.009 - Variable Usage Check
 
-**Rule Description:** Detects variables defined in variables.tf but not referenced in any Terraform files within the
-same directory.
+**Rule Description:** Validates variable definitions and references within a module directory. Reports variables
+defined in `variables.tf` but never referenced as `var.<name>`, and reports `var.<name>` references that are not
+declared in `variables.tf`. References are counted in all sibling `*.tf` files, **including** `variables.tf` itself
+(for example inside `validation {}` blocks).
 
 **Purpose:**
-- Identifies dead code and unused variable definitions
-- Helps maintain clean and efficient variable management
-- Reduces configuration file complexity
-- Improves code maintainability and readability
+- Identifies unused variable definitions and missing declarations
+- Recognizes cross-variable validation as legitimate usage
+- Helps keep `variables.tf` aligned with actual module usage
+- Improves maintainability of module inputs
 
 **Good Example:**
 ```hcl
@@ -1555,13 +1557,13 @@ referenced in configuration files:
 **Best Practices:**
 - Regularly review and remove unused variable definitions
 - Keep variable definitions focused on actual usage requirements
-- Use descriptive variable names to indicate their purpose
-- Consider moving rarely-used variables to separate configuration files
-- Document variables that may appear unused but serve specific purposes
+- Prefer declaring every referenced `var.<name>` in `variables.tf`
+- Document provider-only inputs that may appear unused in resources
 
 **Error Output Format:**
 ```
 ERROR: variables.tf (15): [IO.009] Variable 'unused_variable' is defined but never used
+ERROR: variables.tf (7): [IO.009] Variable 'min_count' is referenced but not declared in variables.tf
 ```
 
 ---

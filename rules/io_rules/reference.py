@@ -104,7 +104,7 @@ class IORules:
             "IO.009": {
                 "check_function": check_io009_unused_variables,
                 "description_function": get_io009_description,
-                "name": "Unused variable check",
+                "name": "Variable usage check",
                 "status": "modular"
             },
             "IO.010": {

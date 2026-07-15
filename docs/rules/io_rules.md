@@ -19,7 +19,7 @@ io_rules/
 ├── rule_006.py   # IO.006 - Variable description field check
 ├── rule_007.py   # IO.007 - Output description field check
 ├── rule_008.py   # IO.008 - Variable type definition check
-└── rule_009.py   # IO.009 - Unused variable detection check
+├── rule_009.py   # IO.009 - Variable usage check
 └── rule_010.py   # IO.010 - Variable validation block check
 ```
 
@@ -279,18 +279,19 @@ python3 .github/scripts/terraform_lint.py examples/bad-example/basic
 
 **Validation Criteria**:
 - Reports variables declared in `variables.tf` but never referenced as `var.<name>`
-- Reports `var.<name>` references in other `.tf` files that are not declared in `variables.tf`
+- Counts references in all sibling `*.tf` files, **including** `variables.tf` (e.g. `validation` blocks)
+- Reports `var.<name>` references that are not declared in `variables.tf` (including inside `variables.tf`)
 - Runs at directory scope when `variables.tf` is linted
 - Ignores commented-out `var.<name>` references during parsing
 
 **Smart Exclusions (unused check only)**:
 Provider-related variables are excluded from the unused-variable check because they may only be consumed in `providers.tf` or external tfvars. They must still be declared in `variables.tf` when referenced.
 
-- Authentication variables: `region*`, `access_key`, `secret_key`
+- Authentication variables: `region` / `region_*`, `access_key`, `secret_key`
 - Provider configuration: `domain_name`, `project_id`, `tenant_id`, `user_name`, `user_id`, `project_name`, `tenant_name`
 
 **Examples**:
-- ✅ **Valid**: Every declared variable is used; every reference is declared
+- ✅ **Valid**: Declared variables are used in resources and/or validations; every reference is declared
 - ❌ **Invalid**: Unused variables in `variables.tf`, or `var.<name>` used without a declaration
 
 ### IO.010 - Variable Validation Block Check
