@@ -114,11 +114,10 @@ class STRules:
 **Purpose**: Enforce security best practices and prevent common security vulnerabilities in Terraform code.
 
 **Core Rules**:
-- **SC.001**: Array index access safety check (prevents index out of bounds errors)
+- **SC.001**: Array index access safety check (risky data/var/local indexes; same-line try/element/one/can)
 - **SC.002**: Terraform required version declaration check (ensures providers.tf contains proper version constraints)
 - **SC.003**: Terraform version compatibility check (validates version compatibility with used features)
-- **SC.004**: HuaweiCloud provider version validity check (validates huaweicloud provider version constraints by testing
-  with current and previous versions)
+- **SC.004**: HuaweiCloud provider version validity check (deep opt-in: `--deep` / Action `deep-check`; skipped by default)
 - **SC.005**: Sensitive variable declaration check (validates that sensitive variables are properly declared with
   Sensitive=true)
 

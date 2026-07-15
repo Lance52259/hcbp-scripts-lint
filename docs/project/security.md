@@ -11,7 +11,8 @@ security practices and how to report security vulnerabilities.
   services or third-party APIs.
 - **Read-Only Operations**: The tool only reads files and never modifies, creates, or deletes any files in your
   repository.
-- **No Network Dependencies**: The tool operates entirely offline and doesn't require internet connectivity.
+- **Default offline**: Static lint does not require network access. SC.004 (provider version probe) is skipped unless deep mode is enabled (`--deep`, `HCBP_DEEP_CHECKS=1`, or Action `deep-check: true`).
+- **No Network Dependencies (default mode)**: The tool operates offline for standard lint runs and doesn't require internet connectivity.
 - **Minimal Permissions**: When used as a GitHub Action, it only requires read permissions on repository contents.
 
 ## Supported Versions

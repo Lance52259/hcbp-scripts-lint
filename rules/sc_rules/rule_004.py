@@ -43,7 +43,6 @@ import json
 import urllib.request
 import urllib.error
 import time
-import hashlib
 from typing import Callable, Optional, List, Dict, Tuple, Set, Any
 
 
@@ -111,6 +110,10 @@ def check_sc004_provider_version_validity(file_path: str, content: str, log_erro
         content (str): Content of the Terraform file
         log_error_func (Callable): Function to log errors with signature (file_path, rule_id, message, line_num)
     """
+    # Align with SC.002 / SC.003: only probe from providers.tf
+    if not file_path.endswith('providers.tf'):
+        return
+
     # Extract provider version constraints from the file
     provider_constraints = _extract_provider_constraints(content)
     
@@ -287,78 +290,6 @@ def _extract_minimum_version(version_constraint: str) -> Optional[str]:
             return match.group(1)
     
     return None
-
-
-def _check_version_availability(provider_name: str, version_constraint: str, terraform_dir: str) -> Dict[str, Any]:
-    """
-    Check if the provider version is available using terraform commands.
-    
-    Args:
-        provider_name (str): Name of the provider
-        version_constraint (str): Version constraint string
-        terraform_dir (str): Directory containing Terraform files
-        
-    Returns:
-        Dict[str, any]: Availability result with 'available', 'reason', and 'suggested_version' keys
-    """
-    try:
-        # Create a temporary directory for terraform operations
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Copy terraform files to temp directory
-            _copy_terraform_files(terraform_dir, temp_dir)
-            
-            # Execute terraform init
-            init_result = _execute_terraform_command(['init'], temp_dir)
-            if not init_result['success']:
-                return {
-                    'available': False,
-                    'reason': f'terraform init failed: {init_result["error"]}',
-                    'suggested_version': _get_latest_stable_version(provider_name)
-                }
-            
-            # Execute terraform validate
-            validate_result = _execute_terraform_command(['validate'], temp_dir)
-            if not validate_result['success']:
-                return {
-                    'available': False,
-                    'reason': f'terraform validate failed: {validate_result["error"]}',
-                    'suggested_version': _get_latest_stable_version(provider_name)
-                }
-            
-            # Execute terraform init -upgrade to check for newer versions
-            upgrade_result = _execute_terraform_command(['init', '-upgrade'], temp_dir)
-            if not upgrade_result['success']:
-                return {
-                    'available': False,
-                    'reason': f'terraform init -upgrade failed: {upgrade_result["error"]}',
-                    'suggested_version': _get_latest_stable_version(provider_name)
-                }
-            
-            # Check if the minimum version is in the available versions list
-            min_version = _extract_minimum_version(version_constraint)
-            if min_version:
-                available_versions = _get_available_versions(provider_name)
-                if available_versions and min_version not in available_versions:
-                    # Find the closest available version
-                    suggested_version = _find_closest_version(min_version, available_versions)
-                    return {
-                        'available': False,
-                        'reason': f'Minimum version {min_version} not found in available versions',
-                        'suggested_version': suggested_version
-                    }
-            
-            return {
-                'available': True,
-                'reason': 'Version is available and valid',
-                'suggested_version': None
-            }
-            
-    except Exception as e:
-        return {
-            'available': False,
-            'reason': f'Error checking version availability: {str(e)}',
-            'suggested_version': _get_latest_stable_version(provider_name)
-        }
 
 
 def _copy_terraform_files(source_dir: str, dest_dir: str) -> None:
@@ -926,7 +857,12 @@ def get_rule_description() -> dict:
         "title": "HuaweiCloud Provider Version Validity Check",
         "category": "Security Code",
         "severity": "error",
-        "description": "Validates huaweicloud provider version constraints by testing with current and previous versions",
+        "description": (
+            "Validates huaweicloud provider version constraints by testing with current and "
+            "previous versions via terraform validate. Requires deep mode "
+            "(--deep / HCBP_DEEP_CHECKS / Action deep-check); skipped by default for offline lint. "
+            "Runs only on providers.tf."
+        ),
         "rationale": "Ensures version constraints are properly set by verifying current version works and previous version fails",
         "scope": ["huaweicloud_provider_version_constraints", "terraform_validation", "version_boundary_testing"],
         "implementation": "modular",
