@@ -103,6 +103,8 @@ class STRules:
 - **IO.007**: Output description validation (non-empty descriptions required)
 - **IO.008**: Variable type validation (type field required)
 - **IO.009**: Variable usage check (unused definitions and undeclared `var.*` references, including inside `variables.tf`)
+- **IO.010**: Variable validation block check
+- **IO.013**: Provider definition file location check (`provider {}` in `providers.tf`)
 
 **Advanced Features**:
 - Cross-file dependency analysis

@@ -17,6 +17,8 @@ Available Rules:
 - IO.008: Variable type definition check
 - IO.009: Variable usage check
 - IO.010: Variable validation block check
+- IO.013: Provider definition file location check
+  (IO.011 / IO.012 reserved for future rules)
 
 Each rule is implemented as a separate module for better maintainability
 and easier testing. The rules are coordinated by the IORules class in

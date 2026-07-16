@@ -14,7 +14,7 @@ Get up and running in 5 minutes with our comprehensive Terraform linting tool. W
 local development, we provide everything you need to ensure code quality and consistency across your Terraform projects.
 
 **Key Features:**
-- 32 Linting Rules across 4 categories (ST, IO, DC, SC)
+- 33 Linting Rules across 4 categories (ST, IO, DC, SC)
 - GitHub Actions Integration with artifact support
 - Performance Monitoring and detailed reporting
 - Flexible Configuration with rule filtering and path exclusion

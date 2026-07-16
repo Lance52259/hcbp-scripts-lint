@@ -20,7 +20,8 @@ io_rules/
 ├── rule_007.py   # IO.007 - Output description field check
 ├── rule_008.py   # IO.008 - Variable type definition check
 ├── rule_009.py   # IO.009 - Variable usage check
-└── rule_010.py   # IO.010 - Variable validation block check
+├── rule_010.py   # IO.010 - Variable validation block check
+└── rule_013.py   # IO.013 - Provider definition file location check
 ```
 
 ## 🎯 Available Rules
@@ -37,6 +38,7 @@ io_rules/
 | IO.008 | Variable type definition check | All variables must have type field defined | `rule_008.py` |
 | IO.009 | Variable usage check | Detects unused variables and undeclared `var.<name>` references within the same directory. | `rule_009.py` |
 | IO.010 | Variable validation block check | Validates structural completeness of validation {} blocks (condition + error_message); skips variables without validation | `rule_010.py` |
+| IO.013 | Provider definition file location check | Provider configuration blocks must be defined in providers.tf | `rule_013.py` |
 
 ## 🚀 Usage
 
@@ -311,6 +313,20 @@ Provider-related variables are excluded from the unused-variable check because t
 **Examples**:
 - ✅ **Valid**: Complete validation block, or no validation block at all
 - ❌ **Invalid**: Missing `condition`, missing `error_message`, or empty `validation {}`
+
+### IO.013 - Provider Definition File Location Check
+
+**Purpose**: Ensures top-level `provider {}` configuration blocks are defined in `providers.tf`.
+
+**Validation Criteria**:
+- Top-level `provider … {` blocks must be in a file named exactly `providers.tf`
+- Does **not** flag resource/module meta-argument `provider = …`
+- Does **not** police `terraform {}` / `required_providers` (see SC.002)
+- Aliased providers outside `providers.tf` are reported with alias detail
+
+**Examples**:
+- ✅ **Valid**: `provider "huaweicloud" { … }` in `providers.tf`; `provider = huaweicloud.test` on a resource
+- ❌ **Invalid**: `provider "huaweicloud" { … }` in `main.tf`
 
 ## 🔄 Backward Compatibility
 
