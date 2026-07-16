@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-IO.003 - Required Variable Declaration Check in terraform.tfvars
+IO.003 - Required Variable Declaration Check in terraform.tfvars / *.auto.tfvars
 
 This module implements the IO.003 rule which validates that all required variables
-(variables without default values) are declared with values in the terraform.tfvars
-file in the same directory.
+(variables without default values) are declared with values in Terraform's
+auto-loaded tfvars sources in the same directory: ``terraform.tfvars`` and
+sibling ``*.auto.tfvars`` files.
 
 Rule Specification:
 - Check all variables defined in the current file
-- Required variables are those without default values
-- All required variables must be declared in terraform.tfvars
-- Variables with default values are optional and don't need to be in terraform.tfvars
+- Required variables are those without default values (including ``default = null``,
+  which counts as having a default and is therefore optional)
+- All required variables must be declared in terraform.tfvars or *.auto.tfvars
+- Variables with default values are optional and don't need tfvars entries
+- Env-split files (e.g. ``dev.tfvars``) and ``*.tfvars.json`` are not loaded
 - Provider-related variables are excluded from this check
   (shared list: ``region`` / ``region_*``, access_key, secret_key, domain_name,
   tenant/user/project identifiers; see rules.common.provider_variables)
@@ -19,156 +22,107 @@ Rule Specification:
 
 Examples:
     Valid definition:
-        # variables.tf (required variables declared in terraform.tfvars)
-        variable "region_name" {          # Excluded from IO.003 check
-          description = "The region where resources are located"
-          type        = string
-        }
-
-        variable "access_key" {           # Excluded from IO.003 check
-          description = "The access key of the IAM user"
-          type        = string
-        }
-
-        variable "instance_name" {        # Line 12: Required variable
+        # variables.tf
+        variable "instance_name" {
           description = "Name of the ECS instance"
           type        = string
-          # No default value - this is required
         }
 
-        variable "flavor_id" {            # Line 18: Optional variable
-          description = "The flavor ID of the ECS instance"
-          type        = string
-          default     = "c6.2xlarge.4"    # Has default - optional
+        variable "tags" {
+          description = "Optional tags"
+          type        = map(string)
+          default     = null
         }
 
-        # terraform.tfvars must contain:
-        instance_name = "my-instance"     # Required variable declared
-        # region_name and access_key are excluded from check
-        # flavor_id is optional because it has default value
+        # defaults.auto.tfvars (or terraform.tfvars)
+        instance_name = "my-instance"
 
     Invalid definition:
-        # main.tf
-        variable "cpu_cores" {            # Line 2: Required variable missing from tfvars
+        # variables.tf
+        variable "cpu_cores" {
           description = "Number of CPU cores"
           type        = number
-          # No default - required but missing from terraform.tfvars
         }
 
-        variable "memory_size" {          # Line 8: Required variable missing from tfvars
-          description = "Memory size in GB"
-          type        = number
-          # No default - required but missing from terraform.tfvars
-        }
-
-        variable "region_name" {          # Line 14: Excluded from check
-          description = "The region name"
-          type        = string
-          # No default but excluded from IO.003 validation
-        }
-
-        variable "flavor_id" {            # Line 20: Optional variable
-          description = "The flavor ID"
-          type        = string
-          default     = "c6.2xlarge.4"    # Has default - optional
-        }
-
-        # terraform.tfvars
-        # Missing declarations for required variables cpu_cores and memory_size
-        # region_name is excluded from validation
-        flavor_id = "c6.4xlarge.8"        # Optional variable declared (not required)
+        # terraform.tfvars / *.auto.tfvars missing cpu_cores
 
 Author: Lance
 License: Apache 2.0
 """
 
+import glob
 import re
 import os
-from typing import Callable, List, Dict, Any, Set, Optional, Tuple
+from typing import Callable, List, Set, Optional, Tuple
 
 from rules.common.provider_variables import is_provider_related_variable
+
+_IO003_MSG = (
+    "Required variable '{var_name}' (no default) must be declared in "
+    "terraform.tfvars or *.auto.tfvars"
+)
 
 
 def check_io003_required_variables(file_path: str, content: str, 
                                   log_error_func: Callable[[str, str, str, Optional[int]], None]) -> None:
     """
-    Validate that all required variables are declared in terraform.tfvars according to IO.003 rule specifications.
-    
-    This function validates that all required variables (variables without default values)
-    defined in the current file are properly declared in the terraform.tfvars file.
-    Each missing variable declaration is reported individually with precise line numbers.
-    
-    The validation process:
-    1. Extract all variable definitions from the current file
-    2. Identify which variables are required (no default value)
-    3. Check if terraform.tfvars exists and read its content
-    4. Verify that each required variable is declared in terraform.tfvars
-    5. Report violations for each missing variable declaration individually
+    Validate that all required variables are declared in auto-loaded tfvars sources.
+
+    Required variables (no ``default`` attribute) in the current file must appear as
+    top-level assignments in sibling ``terraform.tfvars`` and/or ``*.auto.tfvars``.
+    Each missing declaration is reported individually with a precise line number.
     
     Args:
         file_path (str): The path to the Terraform file being validated.
-                        Used for error reporting to identify the source file.
         content (str): The complete content of the Terraform file as a string.
-                      This content is parsed to find variable definitions.
-        log_error_func (Callable[[str, str, str, Optional[int]], None]): 
-                      Callback function for logging validation errors. The function
-                      signature expects (file_path, rule_id, error_message, line_number).
-                      The line_number parameter is optional and can be None.
-    
-    Returns:
-        None: This function doesn't return any value. All validation results
-              are communicated through the log_error_func callback.
-    
-    Raises:
-        No exceptions are raised by this function. All errors are handled
-        gracefully and reported through the logging mechanism.
-    
-    Example:
-        >>> def sample_log_func(path, rule, msg, line_num):
-        ...     print(f"{rule} at {path}:{line_num}: {msg}")
-        >>> 
-        >>> # Content with required variable missing from terraform.tfvars
-        >>> content = '''
-        ... variable "cpu_cores" {
-        ...   description = "Number of CPU cores"
-        ...   type        = number
-        ... }
-        ... '''
-        >>> check_io003_required_variables("main.tf", content, sample_log_func)
-        IO.003 at main.tf:1: Required variable 'cpu_cores' (no default) must be declared in terraform.tfvars
+        log_error_func (Callable): Callback ``(file_path, rule_id, message, line_number)``.
     """
-    # Get the directory of the current file
     file_dir = os.path.dirname(file_path)
-    
-    # Extract all required variables (those without default values) from current file
     required_variables = _extract_required_variables_with_lines(content)
     
     if not required_variables:
-        # No required variables in this file, nothing to check
         return
     
-    # Find terraform.tfvars in the same directory
-    tfvars_path = os.path.join(file_dir, 'terraform.tfvars')
-    declared_variables = set()
+    declared_variables = _collect_declared_variables_from_dir(file_dir)
     
-    if os.path.exists(tfvars_path):
-        try:
-            with open(tfvars_path, 'r', encoding='utf-8') as f:
-                tfvars_content = f.read()
-            declared_variables = _extract_declared_variables(tfvars_content)
-        except Exception:
-            # Can't read terraform.tfvars, treat as empty
-            pass
-    
-    # Check each required variable for declaration in terraform.tfvars
     for var_name, line_number in required_variables:
         if var_name not in declared_variables:
             log_error_func(
                 file_path,
                 "IO.003",
-                f"Required variable '{var_name}' (no default) must be declared in terraform.tfvars",
+                _IO003_MSG.format(var_name=var_name),
                 line_number
             )
+
+
+def _collect_declared_variables_from_dir(file_dir: str) -> Set[str]:
+    """
+    Union declared keys from Terraform auto-loaded HCL tfvars in ``file_dir``.
+
+    Sources (existence-only union; no override-precedence check):
+    - ``terraform.tfvars``
+    - sibling ``*.auto.tfvars`` (sorted for deterministic reads)
+
+    Does not include env-split ``*.tfvars`` or ``*.tfvars.json``.
+    """
+    declared: Set[str] = set()
+    paths: List[str] = []
+
+    terraform_tfvars = os.path.join(file_dir, "terraform.tfvars")
+    if os.path.isfile(terraform_tfvars):
+        paths.append(terraform_tfvars)
+
+    paths.extend(sorted(glob.glob(os.path.join(file_dir, "*.auto.tfvars"))))
+
+    for path in paths:
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                declared |= _extract_declared_variables(handle.read())
+        except Exception:
+            # Unreadable file contributes nothing
+            pass
+
+    return declared
 
 
 def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]]:
@@ -221,10 +175,10 @@ def _extract_required_variables_with_lines(content: str) -> List[Tuple[str, int]
 
 def _extract_declared_variables(content: str) -> Set[str]:
     """
-    Extract variable names that are declared in terraform.tfvars.
+    Extract top-level assignment names from a tfvars file body.
 
     Args:
-        content (str): Content of terraform.tfvars file
+        content (str): Content of terraform.tfvars or *.auto.tfvars
 
     Returns:
         Set[str]: Set of declared variable names
@@ -293,16 +247,19 @@ def get_rule_description() -> dict:
         "name": "Required variable declaration check in terraform.tfvars",
         "description": (
             "Validates that variables without default values are declared in "
-            "terraform.tfvars. Does not verify whether variables are referenced as "
-            "var.<name> in module code (see IO.009 for usage checks). Each missing "
-            "declaration is reported with a precise line number. Provider-related "
-            "variables (region / region_*, access_key, secret_key, domain_name, "
-            "tenant/user/project identifiers) are excluded."
+            "terraform.tfvars or sibling *.auto.tfvars (Terraform auto-load set). "
+            "A default attribute — including default = null — makes the variable "
+            "optional for this rule. Does not verify whether variables are referenced "
+            "as var.<name> in module code (see IO.009). Does not load env-split "
+            "*.tfvars or *.tfvars.json. Each missing declaration is reported with a "
+            "precise line number. Provider-related variables (region / region_*, "
+            "access_key, secret_key, domain_name, tenant/user/project identifiers) "
+            "are excluded."
         ),
         "category": "Input/Output",
         "severity": "error",
         "rationale": (
-            "Variables without defaults need values from terraform.tfvars for "
+            "Variables without defaults need values from auto-loaded tfvars for "
             "non-interactive applies. This rule enforces that declaration contract; "
             "it is independent of whether the variable is referenced in .tf files. "
             "Provider-related variables are excluded because they are often supplied "
@@ -317,64 +274,34 @@ variable "region_name" {          # Excluded from IO.003 check
   type        = string
 }
 
-variable "access_key" {           # Excluded from IO.003 check
-  description = "The access key of the IAM user"
-  type        = string
-}
-
-variable "instance_name" {        # Line 12: Required variable
+variable "instance_name" {
   description = "Name of the ECS instance"
   type        = string
-  # No default value - this is required
 }
 
-variable "flavor_id" {            # Line 18: Optional variable
-  description = "The flavor ID of the ECS instance"
-  type        = string
-  default     = "c6.2xlarge.4"   # Has default - optional
+variable "tags" {
+  description = "Optional tags"
+  type        = map(string)
+  default     = null              # Has default - optional for IO.003
 }
 
-# terraform.tfvars
-instance_name = "my-instance"  # Required variable declared
-# region_name and access_key are excluded from check
-# flavor_id is optional because it has default value
+# defaults.auto.tfvars (or terraform.tfvars)
+instance_name = "my-instance"
 '''
             ],
             "invalid": [
                 '''
-# main.tf
-variable "cpu_cores" {            # Line 2: Missing from terraform.tfvars
+# variables.tf
+variable "cpu_cores" {
   description = "Number of CPU cores"
   type        = number
-  # No default - required but missing from terraform.tfvars
 }
 
-variable "memory_size" {          # Line 8: Missing from terraform.tfvars
-  description = "Memory size in GB"
-  type        = number
-  # No default - required but missing from terraform.tfvars
-}
+# terraform.tfvars / *.auto.tfvars
+# Missing cpu_cores
 
-variable "region_name" {          # Line 14: Excluded from check
-  description = "The region name"
-  type        = string
-  # No default but excluded from IO.003 validation
-}
-
-variable "flavor_id" {            # Line 20: Optional variable
-  description = "The flavor ID"
-  type        = string
-  default     = "c6.2xlarge.4"   # Has default - optional
-}
-
-# terraform.tfvars
-# Missing declarations for required variables cpu_cores and memory_size
-# region_name is excluded from validation
-flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
-
-# Expected errors:
-# ERROR: main.tf (2): [IO.003] Required variable 'cpu_cores' (no default) must be declared in terraform.tfvars
-# ERROR: main.tf (8): [IO.003] Required variable 'memory_size' (no default) must be declared in terraform.tfvars
+# Expected error:
+# [IO.003] Required variable 'cpu_cores' (no default) must be declared in terraform.tfvars or *.auto.tfvars
 '''
             ]
         },
@@ -384,6 +311,7 @@ flavor_id = "c6.4xlarge.8"       # Optional variable declared (not required)
         "configuration": {
             "check_all_required_variables": True,
             "require_tfvars_file": True,
+            "auto_tfvars_included": True,
             "report_individual_violations": True,
             "excluded_provider_variables": "shared via rules.common.provider_variables",
         }

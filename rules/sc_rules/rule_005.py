@@ -64,16 +64,20 @@ def _has_sensitive_declaration(var_content: str) -> bool:
 
 
 def parse_variable_blocks(content: str) -> List[Dict[str, Any]]:
-    """Parse quoted variable blocks from Terraform content."""
+    """Parse variable blocks (quoted, single-quoted, or unquoted names)."""
     variable_blocks: List[Dict[str, Any]] = []
     lines = content.split("\n")
     i = 0
+    var_pattern = (
+        r'variable\s+(?:"([^"]+)"|\'([^\']+)\'|'
+        r'([a-zA-Z][a-zA-Z0-9_]*[a-zA-Z]|[a-zA-Z]))\s*\{'
+    )
 
     while i < len(lines):
         line = lines[i]
-        var_match = re.match(r'variable\s+"([^"]+)"\s*\{', line.strip())
+        var_match = re.match(var_pattern, line.strip())
         if var_match:
-            var_name = var_match.group(1)
+            var_name = var_match.group(1) or var_match.group(2) or var_match.group(3)
             var_start_line = i + 1
             brace_count = 1
             var_content_lines = [line]
@@ -138,6 +142,7 @@ def get_rule_description() -> dict:
             "invalid": [
                 'variable "api_token" {\n  type = string\n}',
                 'variable "db_credentials" {\n  type = string\n}',
+                'variable api_token {\n  type = string\n}',
             ],
         },
         "fix_suggestions": [

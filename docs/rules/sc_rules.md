@@ -355,6 +355,7 @@ exposure in Terraform state files and logs.
 - Variables matching sensitive patterns must have `sensitive = true` declaration
 - Matching priority: exact → segment → contains
 - Segment matches are skipped when the full variable name is in the allowlist
+- Parses quoted, single-quoted, and unquoted `variable` headers (unquoted names may still violate ST.010)
 - Supports various spacing formats: `sensitive = true`, `sensitive=true`, `sensitive  =  true`
 - Ignores comments and only validates actual declarations
 - Prevents sensitive data from appearing in Terraform state and logs

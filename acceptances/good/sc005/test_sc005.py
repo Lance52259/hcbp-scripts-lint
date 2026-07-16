@@ -104,6 +104,11 @@ class CheckSc005IntegrationTest(unittest.TestCase):
             {"api_token", "private_key_pem", "db_credentials", "iam_auth_key", "email"},
         )
 
+    def test_unquoted_sensitive_examples_fail(self):
+        errors = self._run_rule("acceptances/bad/sc005/unquoted-sensitive/variables.tf")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("api_token", errors[0][2])
+
 
 if __name__ == "__main__":
     unittest.main()
