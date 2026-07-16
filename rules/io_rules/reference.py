@@ -29,6 +29,7 @@ from .rule_007 import check_io007_output_description, get_rule_description as ge
 from .rule_008 import check_io008_variable_type, get_rule_description as get_io008_description
 from .rule_009 import check_io009_unused_variables, get_rule_description as get_io009_description
 from .rule_010 import check_io010_variable_validation, get_rule_description as get_io010_description
+from .rule_013 import check_io013_provider_file_location, get_rule_description as get_io013_description
 
 
 class IORules:
@@ -112,7 +113,13 @@ class IORules:
                 "description_function": get_io010_description,
                 "name": "Variable validation block check",
                 "status": "modular"
-            }
+            },
+            "IO.013": {
+                "check_function": check_io013_provider_file_location,
+                "description_function": get_io013_description,
+                "name": "Provider definition file location check",
+                "status": "modular"
+            },
         }
     
     def get_available_rules(self) -> List[str]:

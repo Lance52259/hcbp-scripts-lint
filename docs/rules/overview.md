@@ -67,6 +67,7 @@ rules/
 │   ├── rule_008.py             # IO.008 - Variable Type Check
 │   ├── rule_009.py             # IO.009 - Variable usage check
 │   ├── rule_010.py             # IO.010 - Variable validation block check
+│   ├── rule_013.py             # IO.013 - Provider definition file location check
 │   └── README.md               # Detailed IO rules documentation
 └── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
@@ -534,6 +535,17 @@ and `error_message` fields. Variables without validation blocks are not flagged.
 - Ensure validation blocks are structurally complete
 - Provide actionable error messages for invalid input
 - Complement IO.008 type declarations without requiring every variable to use validation
+
+### IO.013 - Provider Definition File Location Check
+
+**Rule Description:** Validates that top-level `provider {}` configuration blocks are defined in `providers.tf`,
+not in other `.tf` files. Resource/module `provider = …` meta-arguments are ignored. Complements SC.002/003/004,
+which already gate version checks on `providers.tf`.
+
+**Purpose:**
+- Keep provider configuration next to `required_providers`
+- Align file organization with IO.001/IO.002
+- Reinforce the example-repo `providers.tf` convention
 
 **Validation Criteria:**
 - Each `validation {}` block must have a `condition` field

@@ -45,6 +45,7 @@ rules/
 |   ├── ...
 │   ├── rule_009.py             # IO.009 - Variable usage check
 │   ├── rule_010.py             # IO.010 - Variable Validation Block Check
+│   ├── rule_013.py             # IO.013 - Provider definition file location check
 │   └── [future rule modules]   # Additional IO rules as separate modules
 └── sc_rules/                   # SC rules modular package
     ├── __init__.py             # Package initialization
@@ -127,6 +128,7 @@ Each rule package follows a consistent design pattern:
 | IO.008 | Variable Type Check | All variables must have type field defined | ✅ Modular |
 | IO.009 | Variable Usage Check | Detects unused variables and undeclared references | ✅ Modular |
 | IO.010 | Variable Validation Block Check | Validates validation {} structure (condition + error_message) | ✅ Modular |
+| IO.013 | Provider Definition File Location Check | Provider configuration blocks must be in providers.tf | ✅ Modular |
 
 ### SC (Security Code) Rules
 
